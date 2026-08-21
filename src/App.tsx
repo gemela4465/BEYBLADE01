@@ -15,7 +15,12 @@ import {
   fetchTournamentApi,
   saveTournamentApi,
   registerPlayerApi,
-  updatePlayerStatusApi
+  updatePlayerStatusApi,
+  setActiveTournamentApi,
+  approveAllPlayersApi,
+  broadcastOpenTournamentApi,
+  resetTournamentApi,
+  archiveTournamentApi
 } from './utils/api';
 import { Header } from './components/Header';
 import { DualWingBracket } from './components/DualWingBracket';
@@ -26,6 +31,9 @@ import { PodiumRankings } from './components/PodiumRankings';
 import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { CreateTournamentModal } from './components/CreateTournamentModal';
 import { ExportShareModal } from './components/ExportShareModal';
+import { ResetTournamentModal } from './components/ResetTournamentModal';
+import { TournamentHistoryModal } from './components/TournamentHistoryModal';
+import { BroadcastAnnouncementModal } from './components/BroadcastAnnouncementModal';
 import { Trophy, Swords, Users, Shield, Plus, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -37,6 +45,9 @@ export default function App() {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
   const isSyncingRef = useRef(false);
 
   // Sync with server on initial mount
@@ -46,9 +57,11 @@ export default function App() {
         if (serverTour) {
           setTournament(serverTour);
           saveTournamentToStore(serverTour);
+          setActiveTournamentApi(serverTour.id);
         } else {
           // If not on server, save current state to server
           saveTournamentApi(tournament);
+          setActiveTournamentApi(tournament.id);
         }
       });
     }
@@ -106,6 +119,7 @@ export default function App() {
             if (res) {
               setTournament(res);
               saveTournamentToStore(res);
+              setActiveTournamentApi(res.id);
             }
           });
         }
@@ -123,14 +137,20 @@ export default function App() {
     }
   }, [tournament]);
 
-  // Create a new tournament
-  const handleCreateTournament = (config: {
+  // Create a new tournament with full metadata (Requirement 1, 1.1)
+  const handleCreateTournament = async (config: {
     name: string;
+    datePrefix?: string;
+    sessionNumber?: string;
+    customTitle?: string;
+    startTime?: string;
+    registrationDeadline?: string;
     targetSize: TournamentSize;
     targetScore: number;
     seedMode: 'none' | 'manual' | 'random';
     seedCount: number;
     populateSamplePlayers: boolean;
+    broadcastToLine?: boolean;
   }) => {
     let initialPlayers: Player[] = [];
 
@@ -165,8 +185,22 @@ export default function App() {
       config.targetScore
     );
 
+    // Attach extended tournament metadata (Requirements 1 & 1.1)
+    newTournament.datePrefix = config.datePrefix;
+    newTournament.sessionNumber = config.sessionNumber;
+    newTournament.customTitle = config.customTitle;
+    newTournament.startTime = config.startTime;
+    newTournament.registrationDeadline = config.registrationDeadline;
+
     saveTournamentToStore(newTournament);
-    saveTournamentApi(newTournament);
+    await saveTournamentApi(newTournament);
+    await setActiveTournamentApi(newTournament.id);
+    
+    // Automatically broadcast open tournament announcement to LINE group & followers if requested
+    if (config.broadcastToLine !== false) {
+      await broadcastOpenTournamentApi(newTournament.id);
+    }
+
     setTournament(newTournament);
     setActiveTab('bracket');
 
@@ -176,6 +210,47 @@ export default function App() {
       url.searchParams.set('tid', newTournament.id);
       window.history.pushState({}, '', url.toString());
     }
+  };
+
+  // Reset / Cancel Tournament before match (Requirement 7)
+  const handleResetTournament = async (options: {
+    keepApproved: boolean;
+    newSessionNumber?: string;
+    newCustomTitle?: string;
+    newStartTime?: string;
+    newDeadline?: string;
+  }) => {
+    if (!tournament) return;
+    const res = await resetTournamentApi(tournament.id, options);
+    if (res.success && res.tournament) {
+      setTournament(res.tournament);
+      saveTournamentToStore(res.tournament);
+      await setActiveTournamentApi(res.tournament.id);
+    } else {
+      // Local fallback reset
+      const keptPlayers = options.keepApproved
+        ? tournament.players.filter((p) => p.status === 'approved')
+        : [];
+      
+      const resetTour = generateDualWingBracket(
+        options.newCustomTitle ? `${tournament.datePrefix || ''}-${options.newSessionNumber || ''}-${options.newCustomTitle}` : tournament.name,
+        tournament.targetSize,
+        keptPlayers,
+        tournament.seedMode,
+        tournament.seedCount,
+        tournament.matchTargetScore
+      );
+      resetTour.sessionNumber = options.newSessionNumber || tournament.sessionNumber;
+      resetTour.customTitle = options.newCustomTitle || tournament.customTitle;
+      resetTour.startTime = options.newStartTime || tournament.startTime;
+      resetTour.registrationDeadline = options.newDeadline || tournament.registrationDeadline;
+      
+      setTournament(resetTour);
+      saveTournamentToStore(resetTour);
+      saveTournamentApi(resetTour);
+      setActiveTournamentApi(resetTour.id);
+    }
+    setActiveTab('players');
   };
 
   // Register a player from LINE Portal (defaults to 'pending' for organizer review)
@@ -208,21 +283,26 @@ export default function App() {
     }
   };
 
-  // Organizer approves a player
-  const handleApprovePlayer = (playerId: string) => {
+  // Organizer approves a player (triggers LINE push notification to player & group)
+  const handleApprovePlayer = async (playerId: string) => {
     if (!tournament) return;
-    const updatedPlayers = tournament.players.map((p) => (p.id === playerId ? { ...p, status: 'approved' as const } : p));
+    const updatedPlayers = tournament.players.map((p) => (p.id === playerId ? { ...p, status: 'approved' as const, notificationSent: true } : p));
     const updatedTour: Tournament = {
       ...tournament,
       players: updatedPlayers
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
-    saveTournamentApi(updatedTour);
+
+    // Call server API which triggers LINE notification (Requirement 5)
+    await updatePlayerStatusApi(tournament.id, playerId, {
+      status: 'approved',
+      sendLineNotification: true
+    });
   };
 
   // Organizer rejects a player
-  const handleRejectPlayer = (playerId: string) => {
+  const handleRejectPlayer = async (playerId: string) => {
     if (!tournament) return;
     const updatedPlayers = tournament.players.filter((p) => p.id !== playerId);
     const updatedTour: Tournament = {
@@ -231,20 +311,29 @@ export default function App() {
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
-    saveTournamentApi(updatedTour);
+    await updatePlayerStatusApi(tournament.id, playerId, {
+      status: 'rejected',
+      sendLineNotification: false
+    });
   };
 
-  // Approve all pending
-  const handleApproveAllPending = () => {
+  // Approve all pending players (Requirement 5 batch approval)
+  const handleApproveAllPending = async () => {
     if (!tournament) return;
-    const updatedPlayers = tournament.players.map((p) => ({ ...p, status: 'approved' as const }));
-    const updatedTour: Tournament = {
-      ...tournament,
-      players: updatedPlayers
-    };
-    setTournament(updatedTour);
-    saveTournamentToStore(updatedTour);
-    saveTournamentApi(updatedTour);
+    const res = await approveAllPlayersApi(tournament.id);
+    if (res && res.tournament) {
+      setTournament(res.tournament);
+      saveTournamentToStore(res.tournament);
+    } else {
+      const updatedPlayers = tournament.players.map((p) => ({ ...p, status: 'approved' as const, notificationSent: true }));
+      const updatedTour: Tournament = {
+        ...tournament,
+        players: updatedPlayers
+      };
+      setTournament(updatedTour);
+      saveTournamentToStore(updatedTour);
+      saveTournamentApi(updatedTour);
+    }
   };
 
   // Add a player directly (e.g. from Admin manual modal)
@@ -376,6 +465,12 @@ export default function App() {
       tournament.seedCount,
       tournament.matchTargetScore
     );
+    newTournament.datePrefix = tournament.datePrefix;
+    newTournament.sessionNumber = tournament.sessionNumber;
+    newTournament.customTitle = tournament.customTitle;
+    newTournament.startTime = tournament.startTime;
+    newTournament.registrationDeadline = tournament.registrationDeadline;
+
     setTournament(newTournament);
     saveTournamentToStore(newTournament);
     saveTournamentApi(newTournament);
@@ -475,6 +570,9 @@ export default function App() {
         onTabChange={setActiveTab}
         onOpenCreateModal={() => setIsCreateModalOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
+        onOpenResetModal={() => setIsResetModalOpen(true)}
+        onOpenBroadcastModal={() => setIsBroadcastModalOpen(true)}
         onToggleLineOnlyMode={handleSwitchToLineMode}
         pendingCount={pendingCount}
       />
@@ -575,12 +673,47 @@ export default function App() {
         onSaveMatchResult={handleSaveMatchResult}
       />
 
-      {/* Create / Reset Tournament Modal */}
+      {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreate={handleCreateTournament}
         currentSize={tournament?.targetSize || 16}
+      />
+
+      {/* Reset Tournament Modal (Requirement 7) */}
+      {tournament && (
+        <ResetTournamentModal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          tournament={tournament}
+          onReset={handleResetTournament}
+        />
+      )}
+
+      {/* Tournament History Modal (Requirement 6) */}
+      {tournament && (
+        <TournamentHistoryModal
+          isOpen={isHistoryModalOpen}
+          onClose={() => setIsHistoryModalOpen(false)}
+          currentTournament={tournament}
+          onLoadArchivedTournament={(archivedTour) => {
+            setTournament(archivedTour);
+            saveTournamentToStore(archivedTour);
+            setActiveTournamentApi(archivedTour.id);
+          }}
+          onTournamentArchived={(archivedTour) => {
+            setTournament(archivedTour);
+            saveTournamentToStore(archivedTour);
+          }}
+        />
+      )}
+
+      {/* Broadcast Announcement to LINE Modal (補發通知到 LINE 群) */}
+      <BroadcastAnnouncementModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        tournament={tournament}
       />
 
       {/* Export & LINE Share Modal */}

@@ -138,19 +138,159 @@ export async function resetTournamentApi(
   }
 }
 
-export async function broadcastOpenTournamentApi(
+export async function setActiveTournamentApi(
   tournamentId: string
-): Promise<{ success: boolean; broadcastSuccess: boolean; announcementText: string }> {
+): Promise<{ success: boolean; activeTournamentId?: string }> {
   try {
-    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-open`, {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/set-active`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error setting active tournament for LINE bot:', err);
+    return { success: false };
+  }
+}
+
+export async function approveAllPlayersApi(
+  tournamentId: string
+): Promise<{ success: boolean; approvedCount: number; notificationsSentCount: number; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/players/approve-all`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
+    console.error('[API] Error approving all pending players:', err);
+    return { success: false, approvedCount: 0, notificationsSentCount: 0 };
+  }
+}
+
+export async function broadcastOpenTournamentApi(
+  tournamentId: string,
+  customAnnouncement?: string
+): Promise<{
+  success: boolean;
+  broadcastSuccess: boolean;
+  pushedGroupCount?: number;
+  pushedGroups?: string[];
+  failedGroups?: string[];
+  totalGroups?: number;
+  announcementText: string;
+}> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customAnnouncement }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
     console.error('[API] Error broadcasting tournament open announcement:', err);
     return { success: false, broadcastSuccess: false, announcementText: '' };
+  }
+}
+
+export async function broadcastAnnouncementApi(
+  tournamentId: string,
+  message?: string
+): Promise<{
+  success: boolean;
+  broadcastSuccess: boolean;
+  pushedGroupCount?: number;
+  pushedGroups?: string[];
+  failedGroups?: string[];
+  totalGroups?: number;
+  announcementText: string;
+}> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-announcement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error broadcasting announcement to LINE:', err);
+    return { success: false, broadcastSuccess: false, announcementText: '' };
+  }
+}
+
+export async function fetchConnectedGroupsApi(): Promise<{
+  totalCount: number;
+  groups: Array<{
+    id: string;
+    name?: string;
+    type: 'group' | 'room' | 'user';
+    joinedAt: number;
+    lastActiveAt: number;
+    messageCount: number;
+  }>;
+  activeTournamentId: string | null;
+}> {
+  try {
+    const res = await fetch('/api/line/groups');
+    if (!res.ok) return { totalCount: 0, groups: [], activeTournamentId: null };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error fetching connected LINE groups:', err);
+    return { totalCount: 0, groups: [], activeTournamentId: null };
+  }
+}
+
+export async function addConnectedGroupApi(
+  id: string,
+  name?: string,
+  type: 'group' | 'room' = 'group'
+): Promise<{ success: boolean; group?: any }> {
+  try {
+    const res = await fetch('/api/line/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name, type }),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error adding connected group:', err);
+    return { success: false };
+  }
+}
+
+export async function deleteConnectedGroupApi(groupId: string): Promise<{ success: boolean }> {
+  try {
+    const res = await fetch(`/api/line/groups/${encodeURIComponent(groupId)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error removing connected group:', err);
+    return { success: false };
+  }
+}
+
+export async function sendTestPushApi(
+  targetId: string,
+  message: string
+): Promise<{ success: boolean; targetId: string; message: string }> {
+  try {
+    const res = await fetch('/api/line/send-test-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetId, message }),
+    });
+    if (!res.ok) return { success: false, targetId, message };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error sending test push:', err);
+    return { success: false, targetId, message };
   }
 }
 

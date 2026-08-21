@@ -5,6 +5,7 @@ export interface Player {
   name: string;
   lineId?: string;
   registeredByLineId?: string; // LINE ID of the person who registered on behalf of this player
+  registeredInGroupId?: string; // LINE Group ID or Room ID where registration originated
   isProxy?: boolean; // True if registered via ++1 (替人報名)
   lineAvatar?: string;
   beybladeName: string;
@@ -19,6 +20,7 @@ export interface Player {
   isSeed: boolean;
   notes?: string;
   pendingCancelConfirm?: boolean; // For approved players requesting -1
+  notificationSent?: boolean; // True if LINE push notification was sent upon approval
 }
 
 export type FinishType = 'spin' | 'over' | 'burst' | 'xtreme' | 'penalty' | 'manual';
@@ -105,5 +107,14 @@ export interface PresetBeyblade {
   type: BeybladeType;
   combo: string;
   color: string;
+}
+
+export interface LineGroupInfo {
+  id: string; // Group ID (starts with C) or Room ID (starts with R)
+  name?: string;
+  type: 'group' | 'room' | 'user';
+  joinedAt: number;
+  lastActiveAt: number;
+  messageCount?: number;
 }
 

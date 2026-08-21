@@ -10,6 +10,7 @@ interface HeaderProps {
   onOpenExportModal: () => void;
   onOpenHistoryModal: () => void;
   onOpenResetModal: () => void;
+  onOpenBroadcastModal?: () => void;
   onToggleLineOnlyMode?: () => void;
   pendingCount: number;
 }
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenExportModal,
   onOpenHistoryModal,
   onOpenResetModal,
+  onOpenBroadcastModal,
   onToggleLineOnlyMode,
   pendingCount
 }) => {
@@ -75,6 +77,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* HUD Status & Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5 w-full md:w-auto justify-end flex-wrap">
+            {onOpenBroadcastModal && (
+              <button
+                id="btn-broadcast-announcement-header"
+                onClick={onOpenBroadcastModal}
+                className="px-3 py-2 rounded-lg bg-[#06C755] hover:bg-[#05b34c] text-white text-xs font-mono font-bold shadow-[0_0_15px_rgba(6,199,85,0.4)] transition-all flex items-center gap-1.5 active:scale-95 animate-pulse"
+                title="即時補發本場賽事公告或推播通知到 LINE 群組與好友"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                📢 補發賽事通知至 LINE 群
+              </button>
+            )}
+
             {onToggleLineOnlyMode && (
               <button
                 id="btn-preview-line-invite"

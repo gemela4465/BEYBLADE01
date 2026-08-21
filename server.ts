@@ -15,6 +15,8 @@ interface Player {
   registeredAt?: number;
   lineId?: string;
   registeredByLineId?: string;
+  registeredInGroupId?: string;
+  notificationSent?: boolean;
   isProxy?: boolean;
   beybladeName?: string;
   beybladeType?: any;
@@ -78,6 +80,8 @@ interface Tournament {
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_FILE = path.join(DATA_DIR, "tournaments.json");
 const HISTORY_FILE = path.join(DATA_DIR, "tournaments_history.json");
+const GROUPS_FILE = path.join(DATA_DIR, "line_groups.json");
+const ACTIVE_FILE = path.join(DATA_DIR, "active_tournament.json");
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -91,6 +95,15 @@ if (!fs.existsSync(DATA_DIR)) {
 // In-memory cache + file backing
 let tournamentsDb: Record<string, Tournament> = {};
 let tournamentsHistoryDb: Record<string, Tournament> = {};
+let connectedLineGroups: Record<string, {
+  id: string;
+  name?: string;
+  type: 'group' | 'room' | 'user';
+  joinedAt: number;
+  lastActiveAt: number;
+  messageCount: number;
+}> = {};
+let currentActiveTournamentId: string | null = null;
 
 function loadDb() {
   try {
@@ -112,6 +125,26 @@ function loadDb() {
     console.error("Error reading history database file:", err);
     tournamentsHistoryDb = {};
   }
+
+  try {
+    if (fs.existsSync(GROUPS_FILE)) {
+      const groupsData = fs.readFileSync(GROUPS_FILE, "utf-8");
+      connectedLineGroups = JSON.parse(groupsData);
+    }
+  } catch (err) {
+    console.error("Error reading line groups file:", err);
+    connectedLineGroups = {};
+  }
+
+  try {
+    if (fs.existsSync(ACTIVE_FILE)) {
+      const activeData = fs.readFileSync(ACTIVE_FILE, "utf-8");
+      const parsed = JSON.parse(activeData);
+      currentActiveTournamentId = parsed.activeId || null;
+    }
+  } catch (err) {
+    console.error("Error reading active tournament file:", err);
+  }
 }
 
 function saveDb() {
@@ -128,6 +161,37 @@ function saveHistoryDb() {
   } catch (err) {
     console.error("Error writing history database file:", err);
   }
+}
+
+function saveGroupsDb() {
+  try {
+    fs.writeFileSync(GROUPS_FILE, JSON.stringify(connectedLineGroups, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing groups database file:", err);
+  }
+}
+
+function saveActiveTournamentFile() {
+  try {
+    fs.writeFileSync(ACTIVE_FILE, JSON.stringify({ activeId: currentActiveTournamentId, updatedAt: Date.now() }, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing active tournament file:", err);
+  }
+}
+
+function recordConnectedGroup(id: string, type: 'group' | 'room' | 'user', name?: string) {
+  if (!id) return;
+  const existing = connectedLineGroups[id];
+  const now = Date.now();
+  connectedLineGroups[id] = {
+    id,
+    type,
+    name: name || existing?.name || (type === 'group' ? `LINE 陀螺對戰群 (${id.substring(0, 8)})` : type === 'room' ? `LINE 聊天室 (${id.substring(0, 8)})` : `LINE 用戶 (${id.substring(0, 8)})`),
+    joinedAt: existing?.joinedAt || now,
+    lastActiveAt: now,
+    messageCount: (existing?.messageCount || 0) + 1
+  };
+  saveGroupsDb();
 }
 
 loadDb();
@@ -469,7 +533,19 @@ async function startServer() {
     }
   }
 
-  // Approve / Reject / Update player status with automatic LINE Push Notification (Requirement 5)
+  // Set active tournament for LINE bot interactions
+  app.post("/api/tournaments/:id/set-active", (req, res) => {
+    const { id } = req.params;
+    if (tournamentsDb[id]) {
+      currentActiveTournamentId = id;
+      saveActiveTournamentFile();
+      console.log(`[LINE Bot Active Tournament] Switched active tournament to: ${tournamentsDb[id].name} (ID: ${id})`);
+      return res.json({ success: true, activeTournamentId: id, tournament: tournamentsDb[id] });
+    }
+    return res.status(404).json({ error: "Tournament not found" });
+  });
+
+  // Approve / Reject / Update player status with automatic LINE Push Notification to user & group
   app.patch("/api/tournaments/:id/players/:playerId", async (req, res) => {
     const { id, playerId } = req.params;
     const { status, isSeed, seedRank, sendLineNotification = true } = req.body;
@@ -490,36 +566,186 @@ async function startServer() {
     if (typeof seedRank === "number") player.seedRank = seedRank;
     player.pendingCancelConfirm = false;
 
-    saveDb();
-
-    // Send LINE Push notification if newly approved (Requirement 5)
+    // Send LINE Push notification if newly approved
     let notificationSent = false;
+    let groupNotificationSent = false;
     if (status === 'approved' && previousStatus !== 'approved' && sendLineNotification) {
       const recipientLineId = player.lineId || player.registeredByLineId;
+      const approvedNoticeText = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
+
+      // 1. Send 1-on-1 push to player if they have a real LINE user ID
       if (recipientLineId && recipientLineId.startsWith("U")) {
-        const approvedNoticeText = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
         notificationSent = await sendLinePushMessage(recipientLineId, approvedNoticeText);
       }
+
+      // 2. Also send notification to the LINE group where the player registered, or active groups
+      const targetGroupId = player.registeredInGroupId;
+      if (targetGroupId) {
+        const groupNoticeText = `📢【選手審核通過公告】\n恭喜 選手「${player.name}」已通過主辦方審核，正式排入雙翼賽程！\n🏆 賽事：${tournament.name}\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 目前正式核准名單：${tournament.players.filter(p => p.status === 'approved').length}/${tournament.targetSize} 人`;
+        groupNotificationSent = await sendLinePushToGroup(targetGroupId, groupNoticeText);
+      }
+
+      player.notificationSent = notificationSent || groupNotificationSent;
     }
 
-    res.json({ success: true, player, tournament, notificationSent });
+    saveDb();
+    res.json({ success: true, player, tournament, notificationSent, groupNotificationSent });
   });
 
-  // Broadcast tournament open announcement to LINE (Requirement 1)
-  app.post("/api/tournaments/:id/broadcast-open", async (req, res) => {
+  // Approve ALL pending players in batch and send LINE notifications to users and groups
+  app.post("/api/tournaments/:id/players/approve-all", async (req, res) => {
     const { id } = req.params;
     const tournament = tournamentsDb[id];
     if (!tournament) {
       return res.status(404).json({ error: "Tournament not found" });
     }
 
+    const pendingPlayers = (tournament.players || []).filter((p) => p.status === 'pending');
+    if (pendingPlayers.length === 0) {
+      return res.json({ success: true, approvedCount: 0, message: "No pending players to approve", tournament });
+    }
+
+    let notificationsSentCount = 0;
+    const newlyApprovedNames: string[] = [];
+
+    for (const player of pendingPlayers) {
+      player.status = 'approved';
+      player.pendingCancelConfirm = false;
+      newlyApprovedNames.push(player.name);
+
+      const recipientLineId = player.lineId || player.registeredByLineId;
+      if (recipientLineId && recipientLineId.startsWith("U")) {
+        const notice = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
+        const sent = await sendLinePushMessage(recipientLineId, notice);
+        if (sent) {
+          player.notificationSent = true;
+          notificationsSentCount++;
+        }
+      }
+    }
+
+    // Push batch announcement to all connected groups & rooms
+    const totalApproved = tournament.players.filter((p) => p.status === 'approved').length;
+    const groupAnnouncement = `🎉【選手名單全體審核通過公告】\n🏆 賽事場次：${tournament.name}\n✅ 本次審核通過名單 (${newlyApprovedNames.length}人)：\n${newlyApprovedNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\n📌 目前正式參賽總人數：${totalApproved} / ${tournament.targetSize} 人\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 請各位選手做好熱身，準備開戰！`;
+    
+    await broadcastToAllGroupsAndFollowers(groupAnnouncement);
+
+    saveDb();
+    console.log(`[Batch Approve] Approved ${pendingPlayers.length} players for tournament ${id}. Individual notices sent: ${notificationsSentCount}`);
+
+    res.json({
+      success: true,
+      approvedCount: pendingPlayers.length,
+      notificationsSentCount,
+      tournament
+    });
+  });
+
+  // Broadcast tournament open announcement to LINE (Requirement 1 & Resend capability)
+  app.post("/api/tournaments/:id/broadcast-open", async (req, res) => {
+    const { id } = req.params;
+    const { customAnnouncement } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    currentActiveTournamentId = id;
+    saveActiveTournamentFile();
+
     const approvedCount = (tournament.players || []).filter((p) => p.status === 'approved').length;
     const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
 
-    const announcementText = `📢【新賽程開賽公告通知】\n🏆 賽事場次：${tournament.name}\n⚡ 賽制規模：${tournament.targetSize} 人雙翼極限爭霸（${tournament.matchTargetScore} 分制）\n⏰ 開賽時間：${tournament.startTime || '依大會公布'}\n⏳ 報名截止時間：${tournament.registrationDeadline || '額滿為止'}\n🔥 剩餘名額：${remainingSlots} 位\n\n📝 LINE 群組快速報名指令：\n• 本人報名：傳送「+1 選手簡稱 陀螺名稱」\n• 替人代報：傳送「++1 選手簡稱 陀螺名稱」\n• 取消報名：傳送「-1 選手簡稱」\n• 查詢榜單：傳送「查榜」\n\n歡迎各位陀螺手即刻卡位報名！`;
+    const announcementText = customAnnouncement || `📢【新賽程開賽公告通知】\n🏆 賽事場次：${tournament.name}\n⚡ 賽制規模：${tournament.targetSize} 人雙翼極限爭霸（${tournament.matchTargetScore} 分制）\n⏰ 開賽時間：${tournament.startTime || '依大會公布'}\n⏳ 報名截止時間：${tournament.registrationDeadline || '額滿為止'}\n🔥 剩餘名額：${remainingSlots} 位\n\n📝 LINE 群組快速報名指令：\n• 本人報名：傳送「+1 選手簡稱 陀螺名稱」\n• 替人代報：傳送「++1 選手簡稱 陀螺名稱」\n• 取消報名：傳送「-1 選手簡稱」\n• 查詢榜單：傳送「查榜」\n\n歡迎各位陀螺手即刻卡位報名！`;
 
-    const broadcastSuccess = await broadcastLineMessage(announcementText);
-    res.json({ success: true, broadcastSuccess, announcementText });
+    const broadcastResult = await broadcastToAllGroupsAndFollowers(announcementText);
+    res.json({
+      success: true,
+      broadcastSuccess: broadcastResult.broadcastSuccess,
+      pushedGroupCount: broadcastResult.pushedGroupCount,
+      pushedGroups: broadcastResult.pushedGroups,
+      failedGroups: broadcastResult.failedGroups,
+      totalGroups: broadcastResult.totalGroups,
+      announcementText
+    });
+  });
+
+  // Re-broadcast / Send custom tournament announcement to LINE groups and friends
+  app.post("/api/tournaments/:id/broadcast-announcement", async (req, res) => {
+    const { id } = req.params;
+    const { message } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    currentActiveTournamentId = id;
+    saveActiveTournamentFile();
+
+    const approvedCount = (tournament.players || []).filter((p) => p.status === 'approved').length;
+    const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
+
+    const announcementText = message || `📢【賽事最新進度與即時通知】\n🏆 賽事場次：${tournament.name}\n⚡ 賽制規模：${tournament.targetSize} 人雙翼爭霸（${tournament.matchTargetScore} 分制）\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n⏳ 報名截止：${tournament.registrationDeadline || '額滿為止'}\n🔥 當前名額：已核准 ${approvedCount} 人 / 剩餘 ${remainingSlots} 位\n\n📝 快速指令：\n• 報名：「+1 選手簡稱 陀螺」\n• 代報：「++1 選手簡稱 陀螺」\n• 查榜：「查榜」\n• 賽程：「賽程」`;
+
+    const broadcastResult = await broadcastToAllGroupsAndFollowers(announcementText);
+    res.json({
+      success: true,
+      broadcastSuccess: broadcastResult.broadcastSuccess,
+      pushedGroupCount: broadcastResult.pushedGroupCount,
+      pushedGroups: broadcastResult.pushedGroups,
+      failedGroups: broadcastResult.failedGroups,
+      totalGroups: broadcastResult.totalGroups,
+      announcementText
+    });
+  });
+
+  // Get all connected LINE groups & rooms
+  app.get("/api/line/groups", (_req, res) => {
+    const groupsList = Object.values(connectedLineGroups).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+    res.json({
+      totalCount: groupsList.length,
+      groups: groupsList,
+      activeTournamentId: currentActiveTournamentId
+    });
+  });
+
+  // Manually add or register a LINE group ID
+  app.post("/api/line/groups", (req, res) => {
+    const { id, name, type = 'group' } = req.body || {};
+    if (!id || typeof id !== 'string') {
+      return res.status(400).json({ error: "Group ID is required" });
+    }
+    recordConnectedGroup(id.trim(), type, name?.trim());
+    res.json({ success: true, group: connectedLineGroups[id.trim()] });
+  });
+
+  // Delete / unregister a group
+  app.delete("/api/line/groups/:groupId", (req, res) => {
+    const { groupId } = req.params;
+    if (connectedLineGroups[groupId]) {
+      delete connectedLineGroups[groupId];
+      saveGroupsDb();
+      return res.json({ success: true, message: "Group removed" });
+    }
+    res.status(404).json({ error: "Group not found" });
+  });
+
+  // Send a test push message to a specific user or group
+  app.post("/api/line/send-test-push", async (req, res) => {
+    const { targetId, message } = req.body || {};
+    if (!targetId || !message) {
+      return res.status(400).json({ error: "targetId and message are required" });
+    }
+
+    const trimmedId = targetId.trim();
+    let sent = false;
+    if (trimmedId.startsWith("U")) {
+      sent = await sendLinePushMessage(trimmedId, message);
+    } else {
+      sent = await sendLinePushToGroup(trimmedId, message);
+    }
+
+    res.json({ success: sent, targetId: trimmedId, message });
   });
 
   // LINE Channel Configuration
@@ -616,9 +842,9 @@ async function startServer() {
     return null;
   }
 
-  // Send LINE Push message to specific user (Requirement 5)
+  // Send LINE Push message to specific user
   async function sendLinePushMessage(toUserId: string, text: string): Promise<boolean> {
-    if (!toUserId || !toUserId.startsWith("U")) return false;
+    if (!toUserId) return false;
     const token = await getLineAccessToken();
     if (!token) return false;
 
@@ -640,7 +866,7 @@ async function startServer() {
         return true;
       } else {
         const err = await resp.text();
-        console.warn(`[LINE Push Warning] HTTP ${resp.status}: ${err}`);
+        console.warn(`[LINE Push Warning] HTTP ${resp.status} for user ${toUserId}: ${err}`);
       }
     } catch (err) {
       console.error("[LINE Push Exception]", err);
@@ -648,7 +874,39 @@ async function startServer() {
     return false;
   }
 
-  // Broadcast LINE message to all followers / active channels (Requirement 1)
+  // Send LINE Push message to specific group / room
+  async function sendLinePushToGroup(groupId: string, text: string): Promise<boolean> {
+    if (!groupId) return false;
+    const token = await getLineAccessToken();
+    if (!token) return false;
+
+    try {
+      const resp = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          to: groupId,
+          messages: [{ type: "text", text }],
+        }),
+      });
+
+      if (resp.ok) {
+        console.log(`[LINE Push Group] Successfully pushed message to group/room ${groupId}`);
+        return true;
+      } else {
+        const err = await resp.text();
+        console.warn(`[LINE Push Group Warning] HTTP ${resp.status} for ${groupId}: ${err}`);
+      }
+    } catch (err) {
+      console.error("[LINE Push Group Exception]", err);
+    }
+    return false;
+  }
+
+  // Broadcast LINE message to all 1-on-1 followers
   async function broadcastLineMessage(text: string): Promise<boolean> {
     const token = await getLineAccessToken();
     if (!token) return false;
@@ -666,7 +924,7 @@ async function startServer() {
       });
 
       if (resp.ok) {
-        console.log(`[LINE Broadcast] Successfully broadcasted open tournament message`);
+        console.log(`[LINE Broadcast] Successfully broadcasted open tournament message to 1-on-1 followers`);
         return true;
       } else {
         const err = await resp.text();
@@ -678,10 +936,49 @@ async function startServer() {
     return false;
   }
 
+  // Broadcast to BOTH 1-on-1 followers AND all connected LINE Groups & Rooms
+  async function broadcastToAllGroupsAndFollowers(text: string): Promise<{
+    broadcastSuccess: boolean;
+    pushedGroupCount: number;
+    pushedGroups: string[];
+    failedGroups: string[];
+    totalGroups: number;
+  }> {
+    // 1. Broadcast to 1-on-1 followers
+    const broadcastSuccess = await broadcastLineMessage(text);
+
+    // 2. Push to all recorded groups & rooms
+    const groupEntries = Object.values(connectedLineGroups);
+    const pushedGroups: string[] = [];
+    const failedGroups: string[] = [];
+
+    for (const group of groupEntries) {
+      const success = await sendLinePushToGroup(group.id, text);
+      if (success) {
+        pushedGroups.push(group.id);
+      } else {
+        failedGroups.push(group.id);
+      }
+    }
+
+    console.log(`[LINE Multi-Broadcast] Broadcast: ${broadcastSuccess ? 'OK' : 'FAIL'}, Groups pushed: ${pushedGroups.length}/${groupEntries.length}`);
+
+    return {
+      broadcastSuccess,
+      pushedGroupCount: pushedGroups.length,
+      pushedGroups,
+      failedGroups,
+      totalGroups: groupEntries.length
+    };
+  }
+
   // Helper: Find active tournament
   function getActiveTournament(requestedId?: string): Tournament | null {
     if (requestedId && tournamentsDb[requestedId]) {
       return tournamentsDb[requestedId];
+    }
+    if (currentActiveTournamentId && tournamentsDb[currentActiveTournamentId]) {
+      return tournamentsDb[currentActiveTournamentId];
     }
     const all = Object.values(tournamentsDb);
     if (all.length === 0) return null;
@@ -754,7 +1051,7 @@ async function startServer() {
   // Handle bot command & return reply string + updated tournament (Requirements 1, 2, 3, 4)
   function processBotCommand(
     text: string,
-    sourceUser: { userId: string; displayName?: string },
+    sourceUser: { userId: string; displayName?: string; groupId?: string },
     targetTournamentId?: string
   ): { replyText: string; registered: boolean; player?: Player; tournament?: Tournament } {
     const tournament = getActiveTournament(targetTournamentId);
@@ -802,6 +1099,9 @@ async function startServer() {
       if (existingProxy) {
         // Update existing proxy registration
         existingProxy.beybladeName = beybladeName;
+        if (sourceUser.groupId) {
+          existingProxy.registeredInGroupId = sourceUser.groupId;
+        }
         if (parsed.beyblade) {
           existingProxy.blade = parsed.beyblade;
           existingProxy.customCombo = parsed.beyblade;
@@ -821,6 +1121,7 @@ async function startServer() {
         id: `p_proxy_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         name: proxyPlayerName,
         registeredByLineId: sourceUser.userId,
+        registeredInGroupId: sourceUser.groupId || undefined,
         isProxy: true,
         beybladeName: beybladeName,
         beybladeType: 'attack',
@@ -838,7 +1139,7 @@ async function startServer() {
       tournament.players.push(newProxyPlayer);
       saveDb();
 
-      console.log(`[LINE Bot Proxy Reg] Proxy player "${newProxyPlayer.name}" registered by User ${sourceUser.userId} to "${tournament.name}"`);
+      console.log(`[LINE Bot Proxy Reg] Proxy player "${newProxyPlayer.name}" registered by User ${sourceUser.userId} (Group: ${sourceUser.groupId || 'none'}) to "${tournament.name}"`);
 
       return {
         replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newProxyPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
@@ -870,6 +1171,9 @@ async function startServer() {
         // Update existing player
         existing.name = finalShortName;
         existing.lineId = sourceUser.userId;
+        if (sourceUser.groupId) {
+          existing.registeredInGroupId = sourceUser.groupId;
+        }
         if (parsed.beyblade) {
           existing.beybladeName = beybladeName;
           existing.blade = parsed.beyblade;
@@ -890,6 +1194,7 @@ async function startServer() {
         id: `p_bot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         name: finalShortName,
         lineId: sourceUser.userId,
+        registeredInGroupId: sourceUser.groupId || undefined,
         isProxy: false,
         beybladeName: beybladeName,
         beybladeType: 'attack',
@@ -907,7 +1212,7 @@ async function startServer() {
       tournament.players.push(newPlayer);
       saveDb();
 
-      console.log(`[LINE Bot Webhook] Registered player "${newPlayer.name}" (LINE ID: ${sourceUser.userId}) to tournament "${tournament.name}"`);
+      console.log(`[LINE Bot Webhook] Registered player "${newPlayer.name}" (LINE ID: ${sourceUser.userId}, Group: ${sourceUser.groupId || 'none'}) to tournament "${tournament.name}"`);
 
       return {
         replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
@@ -1105,12 +1410,37 @@ async function startServer() {
 
       // Process events in background
       for (const event of events) {
+        const groupId = event.source?.groupId || event.source?.roomId;
+        const userId = event.source?.userId || `line_user_${Date.now()}`;
+        const replyToken = event.replyToken;
+
+        // Record active group or room if event originates from one
+        if (groupId) {
+          recordConnectedGroup(groupId, event.source?.groupId ? 'group' : 'room');
+        }
+        if (userId && userId.startsWith("U")) {
+          recordConnectedGroup(userId, 'user');
+        }
+
+        // Handle bot being invited to a LINE group or room, or followed by a user
+        if (event.type === "join" || event.type === "follow") {
+          console.log(`[LINE Webhook ${event.type}] Source:`, event.source);
+          const activeTour = getActiveTournament();
+          const welcomeText = activeTour
+            ? `👋 大家好！戰鬥陀螺 X 雙翼賽事 BOT 已進駐本群！\n\n🏆 目前綁定賽事：${activeTour.name}\n⚡ 規模：${activeTour.targetSize} 人雙翼對決（${activeTour.matchTargetScore} 分制）\n⏰ 開賽時間：${activeTour.startTime || '依大會公布'}\n⏳ 報名截止：${activeTour.registrationDeadline || '額滿為止'}\n\n📝 群友指令快速指南：\n• 本人報名：「+1 選手簡稱 陀螺名稱」\n• 替人代報：「++1 選手簡稱 陀螺名稱」\n• 取消報名：「-1 選手簡稱」\n• 查詢榜單：「查榜」或「名單」\n• 查詢賽程：「賽程」\n\n歡迎各位陀螺手踴躍報名！`
+            : `👋 大家好！戰鬥陀螺 X 雙翼賽事 BOT 已進駐本群！\n請主辦方於管理後台開啟新賽事後，群友即可在此直接發送「+1 簡稱 陀螺」報名！`;
+
+          if (replyToken) {
+            await replyLineMessage(replyToken, welcomeText);
+          }
+          continue;
+        }
+
+        // Handle text message commands
         if (event.type === "message" && event.message?.type === "text") {
           const messageText = event.message.text;
-          const userId = event.source?.userId || `line_user_${Date.now()}`;
-          const replyToken = event.replyToken;
 
-          console.log(`[LINE Webhook Message] User: ${userId}, Text: "${messageText}"`);
+          console.log(`[LINE Webhook Message] User: ${userId}, Group: ${groupId || '1-on-1'}, Text: "${messageText}"`);
 
           // Attempt to get user LINE display name if available
           let displayName: string | undefined = undefined;
@@ -1121,7 +1451,7 @@ async function startServer() {
             }
           }
 
-          const result = processBotCommand(messageText, { userId, displayName });
+          const result = processBotCommand(messageText, { userId, displayName, groupId });
 
           if (replyToken) {
             await replyLineMessage(replyToken, result.replyText);
