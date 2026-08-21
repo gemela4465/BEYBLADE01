@@ -18,6 +18,12 @@ export interface Player {
   registeredAt: number;
   seedNumber?: number; // 1, 2, 3...
   isSeed: boolean;
+  isReserve?: boolean; // True if auto-filled placeholder reserve player (預備選手)
+  reserveIndex?: number; // 1, 2, 3, 4...
+  isRepechage?: boolean; // True if this player entered via repechage (敗部復活)
+  revivedFromMatchId?: string; // ID of match where player originally lost
+  originalReserveId?: string; // Original reserve placeholder ID replaced by this player
+  replacedByPlayerId?: string; // If this reserve was replaced by a repechage player
   notes?: string;
   pendingCancelConfirm?: boolean; // For approved players requesting -1
   notificationSent?: boolean; // True if LINE push notification was sent upon approval

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Swords, Trophy, Check, X, Shield, Plus, Minus, RotateCcw, 
-  Flame, Zap, Compass, AlertTriangle, FileText, ArrowRight, History
+  Flame, Zap, Compass, AlertTriangle, FileText, ArrowRight, History,
+  Sparkles, RefreshCw, UserCheck, AlertCircle
 } from 'lucide-react';
-import { Match, Player, BattleRoundRecord, FinishType } from '../types';
+import { Match, Player, BattleRoundRecord, FinishType, Tournament } from '../types';
 import { FINISH_RULES } from '../data/beybladeData';
+import { getEligibleRepechagePlayers } from '../utils/bracketGenerator';
 
 interface MatchRefereeModalProps {
   match: Match | null;
   players: Player[];
+  tournament?: Tournament;
   isOpen: boolean;
   onClose: () => void;
   onSaveMatchResult: (
@@ -17,14 +20,22 @@ interface MatchRefereeModalProps {
     p2Score: number,
     roundsHistory: BattleRoundRecord[]
   ) => void;
+  onSubstitutePlayer?: (
+    matchId: string,
+    slot: 1 | 2,
+    newPlayer: Player,
+    isRepechage?: boolean
+  ) => void;
 }
 
 export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
   match,
   players,
+  tournament,
   isOpen,
   onClose,
-  onSaveMatchResult
+  onSaveMatchResult,
+  onSubstitutePlayer
 }) => {
   if (!isOpen || !match) return null;
 
@@ -40,12 +51,18 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
   const [customNote, setCustomNote] = useState('');
   const [targetScore, setTargetScore] = useState<number>(match.targetScore || 4);
 
+  // Substitution / Repechage drawer state
+  const [substituteSlot, setSubstituteSlot] = useState<1 | 2 | null>(null);
+  const [repechageSuccessMsg, setRepechageSuccessMsg] = useState<string | null>(null);
+
   useEffect(() => {
     if (match) {
       setP1Score(match.player1Score || 0);
       setP2Score(match.player2Score || 0);
       setRoundsHistory(match.roundsHistory || []);
       setTargetScore(match.targetScore || 4);
+      setSubstituteSlot(null);
+      setRepechageSuccessMsg(null);
     }
   }, [match]);
 
@@ -101,6 +118,38 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
     onClose();
   };
 
+  const handleSelectRepechagePlayer = (selectedPlayer: Player, isRepechage: boolean = true) => {
+    if (!substituteSlot || !onSubstitutePlayer) return;
+    onSubstitutePlayer(match.id, substituteSlot, selectedPlayer, isRepechage);
+    setRepechageSuccessMsg(`已成功將 ${substituteSlot === 1 ? '1P 藍方' : '2P 紅方'} 替換為【${selectedPlayer.name}】${isRepechage ? '(敗部復活)' : ''}`);
+    setSubstituteSlot(null);
+    setTimeout(() => setRepechageSuccessMsg(null), 3000);
+  };
+
+  const handleRestoreReservePlayer = (slot: 1 | 2) => {
+    if (!onSubstitutePlayer) return;
+    const reserveIndex = slot === 1 ? (match.matchIndex * 2 + 1) : (match.matchIndex * 2 + 2);
+    const restoredReserve: Player = {
+      id: `player_reserve_${reserveIndex}_${Date.now()}`,
+      name: `預備選手 ${reserveIndex}`,
+      beybladeName: '預備陀螺 (待定)',
+      beybladeType: 'balance',
+      clubOrTeam: '大會預備席 (可敗部復活)',
+      status: 'approved',
+      registeredAt: Date.now(),
+      isSeed: false,
+      isReserve: true,
+      reserveIndex
+    };
+    onSubstitutePlayer(match.id, slot, restoredReserve, false);
+    setRepechageSuccessMsg(`已將 ${slot === 1 ? '1P 藍方' : '2P 紅方'} 恢復為【${restoredReserve.name}】預備席`);
+    setSubstituteSlot(null);
+    setTimeout(() => setRepechageSuccessMsg(null), 3000);
+  };
+
+  // Eligible eliminated players for repechage
+  const eligibleRepechageList = tournament ? getEligibleRepechagePlayers(tournament) : [];
+
   // Determine tentative winner
   const isMatchDecided = p1Score !== p2Score && (p1Score >= targetScore || p2Score >= targetScore || p1Score === 11 || p2Score === 11);
   const leadingPlayer = p1Score > p2Score ? p1 : p2Score > p1Score ? p2 : null;
@@ -144,6 +193,14 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
           </div>
         </div>
 
+        {/* Success Alert for Repechage / Substitution */}
+        {repechageSuccessMsg && (
+          <div className="mb-5 p-3 rounded-xl bg-[#06C755]/20 border border-[#06C755]/50 text-[#06C755] text-xs font-mono font-bold flex items-center gap-2 shadow-lg animate-fade-in">
+            <UserCheck className="w-4 h-4 text-[#06C755]" />
+            <span>{repechageSuccessMsg}</span>
+          </div>
+        )}
+
         {/* Side-by-side Battle Arena */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative mb-6">
           {/* Player 1 (Left Corner - Blue) */}
@@ -153,13 +210,23 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
               : 'bg-[#11141d]/90 border-[#ffffff10]'
           }`}>
             <div className="flex items-center justify-between mb-3 font-mono">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-[#00f2ff] text-black">
                   1P 藍方
                 </span>
                 {p1?.isSeed && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/40">
                     第 {p1.seedNumber} 種子
+                  </span>
+                )}
+                {p1?.isReserve && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    預備選手席位
+                  </span>
+                )}
+                {p1?.isRepechage && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 flex items-center gap-0.5">
+                    ⚡ 敗部復活
                   </span>
                 )}
               </div>
@@ -170,13 +237,29 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
               )}
             </div>
 
-            <div className="space-y-1 mb-4">
+            <div className="space-y-1 mb-3">
               <div className="text-lg font-black text-white">{p1?.name || '待定選手'}</div>
               <div className="text-xs text-[#00f2ff] font-mono font-semibold">{p1?.beybladeName || '未指定陀螺'}</div>
               <div className="text-[11px] text-gray-400 font-mono">
                 {p1?.blade ? `配件: ${p1.blade}` : ''} {p1?.clubOrTeam ? `• ${p1.clubOrTeam}` : ''}
               </div>
             </div>
+
+            {/* Repechage / Substitute Trigger Button for 1P */}
+            {onSubstitutePlayer && match.status !== 'completed' && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSubstituteSlot(substituteSlot === 1 ? null : 1)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-[#00f2ff]/15 hover:from-amber-500/25 hover:to-[#00f2ff]/25 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    {p1?.isReserve ? '⚡ 選擇落敗正規選手【敗部復活】參賽' : p1?.isRepechage ? '🔄 變更敗部復活選手 / 恢復預備席' : '🔄 替換此席位參賽選手'}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* Score Display & Manual Adjust */}
             <div className="flex items-center justify-between bg-[#05070a] p-3 rounded-xl border border-[#ffffff10] mb-4">
@@ -243,13 +326,23 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
               : 'bg-[#11141d]/90 border-[#ffffff10]'
           }`}>
             <div className="flex items-center justify-between mb-3 font-mono">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-500 text-white">
                   2P 紅方
                 </span>
                 {p2?.isSeed && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/40">
                     第 {p2.seedNumber} 種子
+                  </span>
+                )}
+                {p2?.isReserve && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    預備選手席位
+                  </span>
+                )}
+                {p2?.isRepechage && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 flex items-center gap-0.5">
+                    ⚡ 敗部復活
                   </span>
                 )}
               </div>
@@ -260,13 +353,29 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
               )}
             </div>
 
-            <div className="space-y-1 mb-4">
+            <div className="space-y-1 mb-3">
               <div className="text-lg font-black text-white">{p2?.name || (match.status === 'bye' ? '輪空 (BYE)' : '待定選手')}</div>
               <div className="text-xs text-rose-300 font-mono font-semibold">{p2?.beybladeName || '未指定陀螺'}</div>
               <div className="text-[11px] text-gray-400 font-mono">
                 {p2?.blade ? `配件: ${p2.blade}` : ''} {p2?.clubOrTeam ? `• ${p2.clubOrTeam}` : ''}
               </div>
             </div>
+
+            {/* Repechage / Substitute Trigger Button for 2P */}
+            {onSubstitutePlayer && match.status !== 'completed' && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSubstituteSlot(substituteSlot === 2 ? null : 2)}
+                  className="w-full py-1.5 px-3 rounded-lg bg-gradient-to-r from-amber-500/15 via-purple-500/15 to-rose-500/15 hover:from-amber-500/25 hover:to-rose-500/25 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>
+                    {p2?.isReserve ? '⚡ 選擇落敗正規選手【敗部復活】參賽' : p2?.isRepechage ? '🔄 變更敗部復活選手 / 恢復預備席' : '🔄 替換此席位參賽選手'}
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* Score Display & Manual Adjust */}
             <div className="flex items-center justify-between bg-[#05070a] p-3 rounded-xl border border-[#ffffff10] mb-4">
@@ -326,6 +435,109 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Repechage / Substitute Selector Panel */}
+        {substituteSlot && (
+          <div className="bg-[#0e1422] border-2 border-amber-500/60 rounded-2xl p-4 sm:p-5 mb-6 shadow-[0_0_30px_rgba(245,158,11,0.2)] animate-fade-in space-y-4">
+            <div className="flex items-center justify-between border-b border-[#ffffff10] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2 font-mono">
+                    <span>⚡ 選擇選手進行【敗部復活】或替換 {substituteSlot === 1 ? '1P 藍方' : '2P 紅方'}</span>
+                  </h4>
+                  <p className="text-[11px] text-gray-400 font-mono">
+                    規則說明：在比賽還沒結果前，可隨時將預備席替換為已落敗之正規選手進行敗部復活參賽！
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubstituteSlot(null)}
+                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-[#ffffff10]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List A: Eliminated regular players (Top Recommendation) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-300">
+                <span className="flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  已落敗之正規選手名單 (優先推薦敗部復活)：
+                </span>
+                <span className="text-gray-400 text-[11px]">共 {eligibleRepechageList.length} 位選手</span>
+              </div>
+
+              {eligibleRepechageList.length === 0 ? (
+                <div className="p-3 rounded-xl bg-[#05070a] border border-[#ffffff0a] text-center text-xs font-mono text-gray-500">
+                  目前尚未有其他正規賽事產生落敗選手，或所有落敗選手均已在其他席位。
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {eligibleRepechageList.map((item) => (
+                    <button
+                      key={item.player.id}
+                      type="button"
+                      onClick={() => handleSelectRepechagePlayer(item.player, true)}
+                      className="p-2.5 bg-[#070a12] hover:bg-amber-500/15 border border-[#ffffff10] hover:border-amber-500/50 rounded-xl text-left transition-all flex items-center justify-between group"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="text-xs font-bold text-white group-hover:text-amber-300 truncate flex items-center gap-1.5">
+                          <span>{item.player.name}</span>
+                          {item.player.isSeed && (
+                            <span className="text-[9px] px-1 rounded bg-[#7000ff]/30 text-purple-300">
+                              #{item.player.seedNumber}種子
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-400 font-mono truncate">
+                          {item.player.beybladeName} • 在 #{item.matchNumber} {item.lostInMatchLabel} 落敗 ({item.scoreSummary})
+                        </div>
+                      </div>
+                      <span className="px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold shrink-0 group-hover:bg-amber-500 group-hover:text-black transition-colors">
+                        點擊復活 ➔
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* List B: Select any registered player or restore placeholder */}
+            <div className="pt-2 border-t border-[#ffffff10] flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-gray-400">其他選手：</span>
+                <select
+                  onChange={(e) => {
+                    const sel = playerMap.get(e.target.value);
+                    if (sel) handleSelectRepechagePlayer(sel, false);
+                  }}
+                  defaultValue=""
+                  className="bg-[#05070a] border border-[#ffffff20] text-xs font-mono text-gray-200 px-3 py-1.5 rounded-lg focus:outline-none focus:border-[#00f2ff]"
+                >
+                  <option value="" disabled>從大會登記名單手動選擇選手...</option>
+                  {players.filter((p) => p.status === 'approved' && !p.isReserve).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.beybladeName}) {p.clubOrTeam ? `- ${p.clubOrTeam}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleRestoreReservePlayer(substituteSlot)}
+                className="px-3 py-1.5 bg-[#11141d] hover:bg-[#ffffff15] text-gray-400 hover:text-white rounded-lg text-xs font-mono border border-[#ffffff10] transition-colors"
+              >
+                ↩️ 恢復為原始預備選手席位
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Battle Logs & Rounds History (比賽競程記錄) */}
         <div className="bg-[#05070a] border border-[#ffffff10] rounded-2xl p-4 mb-6 space-y-3">
@@ -431,3 +643,4 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
     </div>
   );
 };
+

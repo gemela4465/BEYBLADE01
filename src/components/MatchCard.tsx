@@ -124,13 +124,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-bold truncate text-white">
                   {p1 ? p1.name : isBye && !p2 ? '—' : '待定選手'}
                 </span>
                 {p1?.isSeed && (
                   <span className="text-[9px] font-mono font-black px-1 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50 shrink-0">
                     #{p1.seedNumber}
+                  </span>
+                )}
+                {p1?.isReserve && (
+                  <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                    預備席
+                  </span>
+                )}
+                {p1?.isRepechage && (
+                  <span className="text-[9px] font-mono font-black px-1 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 shrink-0 flex items-center gap-0.5">
+                    ⚡ 敗部復活
                   </span>
                 )}
               </div>
@@ -184,13 +194,23 @@ export const MatchCard: React.FC<MatchCardProps> = ({
               )}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-xs font-bold truncate text-white">
                   {p2 ? p2.name : isBye ? '輪空 (BYE)' : '待定選手'}
                 </span>
                 {p2?.isSeed && (
                   <span className="text-[9px] font-mono font-black px-1 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50 shrink-0">
                     #{p2.seedNumber}
+                  </span>
+                )}
+                {p2?.isReserve && (
+                  <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
+                    預備席
+                  </span>
+                )}
+                {p2?.isRepechage && (
+                  <span className="text-[9px] font-mono font-black px-1 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 shrink-0 flex items-center gap-0.5">
+                    ⚡ 敗部復活
                   </span>
                 )}
               </div>

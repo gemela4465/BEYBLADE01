@@ -3,7 +3,7 @@ import {
   Tournament, Player, Match, TournamentSize, BattleRoundRecord, BeybladeType 
 } from './types';
 import { SAMPLE_PLAYERS, POPULAR_BEYBLADES } from './data/beybladeData';
-import { generateDualWingBracket, recordMatchResult } from './utils/bracketGenerator';
+import { generateDualWingBracket, recordMatchResult, substitutePlayerInMatch } from './utils/bracketGenerator';
 import { 
   loadInitialTournament, 
   saveTournamentToStore, 
@@ -500,6 +500,25 @@ export default function App() {
     }
   };
 
+  // Substitute a player or execute repechage revival for a match slot
+  const handleSubstitutePlayer = (
+    matchId: string,
+    slot: 1 | 2,
+    newPlayer: Player,
+    isRepechage: boolean = true
+  ) => {
+    if (!tournament) return;
+    const updated = substitutePlayerInMatch(tournament, matchId, slot, newPlayer, isRepechage);
+    setTournament(updated);
+    saveTournamentToStore(updated);
+    saveTournamentApi(updated);
+
+    const updatedMatch = updated.matches.find((m) => m.id === matchId);
+    if (updatedMatch) {
+      setSelectedMatch(updatedMatch);
+    }
+  };
+
   const pendingCount = tournament?.players.filter((p) => p.status === 'pending').length || 0;
   const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
 
@@ -698,9 +717,11 @@ export default function App() {
       <MatchRefereeModal
         match={selectedMatch}
         players={tournament?.players || []}
+        tournament={tournament || undefined}
         isOpen={Boolean(selectedMatch)}
         onClose={() => setSelectedMatch(null)}
         onSaveMatchResult={handleSaveMatchResult}
+        onSubstitutePlayer={handleSubstitutePlayer}
       />
 
       {/* Create Tournament Modal */}

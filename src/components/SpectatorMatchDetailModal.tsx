@@ -124,11 +124,21 @@ export const SpectatorMatchDetailModal: React.FC<SpectatorMatchDetailModalProps>
 
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1 min-w-0">
-                  <div className="text-lg font-black text-white truncate flex items-center gap-2">
+                  <div className="text-lg font-black text-white truncate flex items-center gap-2 flex-wrap">
                     <span>{p1 ? p1.name : isBye ? '輪空' : '待定選手'}</span>
                     {p1?.isSeed && (
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50">
                         種子 #{p1.seedNumber}
+                      </span>
+                    )}
+                    {p1?.isReserve && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        預備席
+                      </span>
+                    )}
+                    {p1?.isRepechage && (
+                      <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50">
+                        ⚡ 敗部復活
                       </span>
                     )}
                   </div>
@@ -167,11 +177,21 @@ export const SpectatorMatchDetailModal: React.FC<SpectatorMatchDetailModalProps>
 
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1 min-w-0">
-                  <div className="text-lg font-black text-white truncate flex items-center gap-2">
+                  <div className="text-lg font-black text-white truncate flex items-center gap-2 flex-wrap">
                     <span>{p2 ? p2.name : isBye ? '輪空' : '待定選手'}</span>
                     {p2?.isSeed && (
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50">
                         種子 #{p2.seedNumber}
+                      </span>
+                    )}
+                    {p2?.isReserve && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        預備席
+                      </span>
+                    )}
+                    {p2?.isRepechage && (
+                      <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50">
+                        ⚡ 敗部復活
                       </span>
                     )}
                   </div>

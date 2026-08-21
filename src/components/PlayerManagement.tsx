@@ -146,7 +146,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             <span>
               {approvedPlayers.length >= targetSize
                 ? '名額已滿！生成雙翼賽程表 ➔'
-                : `確認完成登記 (${approvedPlayers.length}/${targetSize}人)，立即生成賽程 ➔`}
+                : approvedPlayers.length >= 2
+                ? `未滿員生成 (${approvedPlayers.length}/${targetSize}人，自動安排預備選手1~${targetSize - approvedPlayers.length}席) ➔`
+                : `審核通過至少 2 人即可生成賽程 (${approvedPlayers.length}/${targetSize}) ➔`}
             </span>
           </button>
         </div>
@@ -162,8 +164,18 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            一鍵填滿 {targetSize} 位示範選手 (含LINE/陀螺)
+            一鍵填滿 {targetSize} 位選手
           </button>
+          {targetSize === 16 && (
+            <button
+              id="btn-quick-fill-12"
+              onClick={() => onPopulateSamplePlayers(12)}
+              className="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              填入 12 人 (測試 16 人制補 4 位預備選手)
+            </button>
+          )}
           <button
             id="btn-random-seed"
             onClick={() => onRandomizeSeeds(Math.min(4, Math.max(2, targetSize / 4)))}
