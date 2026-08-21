@@ -555,7 +555,7 @@ async function startServer() {
     res.json(tournament);
   });
 
-  // Delete player from tournament (Explicit delete to prevent resurrection)
+  // Delete player from tournament (Explicit delete to prevent resurrection & Requirement 3 auto reserve replacement)
   app.delete("/api/tournaments/:id/players/:playerId", (req, res) => {
     const { id, playerId } = req.params;
     const tournament = tournamentsDb[id];
@@ -563,15 +563,127 @@ async function startServer() {
       return res.status(404).json({ error: "Tournament not found" });
     }
 
+    // Check if tournament is in_progress (Requirement 1: 不允許刪除已參賽選手)
+    const isPlayerInMatches = Array.isArray(tournament.matches) && tournament.matches.some(
+      (m) => m.player1Id === playerId || m.player2Id === playerId
+    );
+
+    if (tournament.status === "in_progress" && isPlayerInMatches) {
+      return res.status(400).json({ 
+        error: "賽事已正式開賽，不允許刪除已參賽選手！如需調整可新增選手並於擂台計分板進行敗部復活或候補替換。" 
+      });
+    }
+
     if (Array.isArray(tournament.players)) {
       const initialCount = tournament.players.length;
+      const targetPlayer = tournament.players.find((p) => p.id === playerId);
       tournament.players = tournament.players.filter((p) => p.id !== playerId);
-      if (tournament.players.length !== initialCount) {
+
+      // Requirement 3: 未開賽但賽程已產生，如有刪除到已參賽選手時，如有安排賽程，自動調整為 預備選手
+      if (
+        tournament.status !== "in_progress" &&
+        tournament.status !== "completed" &&
+        Array.isArray(tournament.matches) &&
+        tournament.matches.length > 0 &&
+        isPlayerInMatches
+      ) {
+        const existingReservesCount = tournament.players.filter((p) => p.isReserve).length;
+        const reserveIndex = existingReservesCount + 1;
+        const reserveId = `player_reserve_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
+        const reservePlayer: Player = {
+          id: reserveId,
+          name: `預備選手 ${reserveIndex}`,
+          beybladeName: "預備陀螺 (待定)",
+          beybladeType: "balance",
+          clubOrTeam: "大會預備席 (可敗部復活)",
+          status: "approved",
+          registeredAt: Date.now(),
+          isSeed: false,
+          isReserve: true,
+          reserveIndex
+        };
+
+        tournament.players.push(reservePlayer);
+
+        // Replace references in matches
+        tournament.matches.forEach((m) => {
+          if (m.player1Id === playerId) {
+            m.player1Id = reserveId;
+          }
+          if (m.player2Id === playerId) {
+            m.player2Id = reserveId;
+          }
+          if (m.winnerId === playerId) {
+            m.winnerId = null;
+          }
+          if (m.loserId === playerId) {
+            m.loserId = null;
+          }
+        });
+
+        console.log(`[Player Replaced with Reserve] Player ${targetPlayer?.name || playerId} replaced with Reserve Player ${reserveIndex} in tournament ${id}`);
+      }
+
+      if (tournament.players.length !== initialCount || isPlayerInMatches) {
         saveDb();
-        console.log(`[Player Deleted] Successfully deleted player ${playerId} from tournament ${id}. Remaining: ${tournament.players.length}`);
+        console.log(`[Player Deleted] Successfully handled player ${playerId} deletion from tournament ${id}.`);
       }
     }
 
+    res.json({ success: true, tournament });
+  });
+
+  // Start Tournament endpoint (Requirement 1: 開賽按鈕)
+  app.post("/api/tournaments/:id/start", async (req, res) => {
+    const { id } = req.params;
+    const { broadcastToLine } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    tournament.status = "in_progress";
+    tournament.startedAt = Date.now();
+    currentActiveTournamentId = id;
+    saveActiveTournamentFile();
+    saveDb();
+
+    console.log(`[Tournament Started] Tournament "${tournament.name}" (ID: ${id}) has officially started!`);
+
+    // Optionally broadcast start notification to LINE
+    if (broadcastToLine) {
+      const startAnnouncement = `🔥【賽事正式開賽公告】\n🏆 賽事場次：${tournament.name}\n⚡ 雙翼對抗賽程已正式開賽，籤位已全數鎖定！\n🎯 第一輪對決即刻開打，請各位陀螺手就位！\n\n💬 傳送「賽程」或「查榜」即可隨時查看最新比分與晉級名單！`;
+      await broadcastToAllGroupsAndFollowers(startAnnouncement);
+    }
+
+    res.json({ success: true, tournament });
+  });
+
+  // Finish Tournament endpoint (Requirement 2: 完賽按鈕)
+  app.post("/api/tournaments/:id/finish", (req, res) => {
+    const { id } = req.params;
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    tournament.status = "completed";
+    tournament.completedAt = Date.now();
+    tournament.isArchived = true;
+    tournament.archivedAt = Date.now();
+
+    // Automatically snapshot to History DB
+    tournamentsHistoryDb[id] = JSON.parse(JSON.stringify(tournament));
+    saveHistoryDb();
+    saveDb();
+
+    // Clear current active tournament if it was this one
+    if (currentActiveTournamentId === id) {
+      currentActiveTournamentId = null;
+      saveActiveTournamentFile();
+    }
+
+    console.log(`[Tournament Completed & Archived] Tournament "${tournament.name}" (ID: ${id}) marked as completed and archived.`);
     res.json({ success: true, tournament });
   });
 

@@ -625,6 +625,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       {/* Seed Toggle button */}
                       <button
                         id={`btn-toggle-seed-${player.id}`}
+                        disabled={tournament?.status === 'in_progress' || tournament?.status === 'completed'}
                         onClick={() => {
                           const newIsSeed = !player.isSeed;
                           onSetSeedStatus(player.id, newIsSeed, newIsSeed ? index + 1 : undefined);
@@ -632,9 +633,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1 ${
                           player.isSeed
                             ? 'bg-purple-600 text-white border-purple-500 shadow'
+                            : tournament?.status === 'in_progress' || tournament?.status === 'completed'
+                            ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
                             : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-purple-300'
                         }`}
-                        title="切換是否為種子選手"
+                        title={
+                          tournament?.status === 'in_progress'
+                            ? '賽事進行中，已排定種子不可修改'
+                            : '切換是否為種子選手'
+                        }
                       >
                         <Shield className="w-3.5 h-3.5" />
                         {player.isSeed ? `種子 #${player.seedNumber || index + 1}` : '設種子'}
@@ -650,12 +657,23 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Delete button (Direct & with confirmation state) */}
+                      {/* Delete button (Direct & with confirmation state - Restricted when tournament is in_progress) */}
                       <button
                         id={`btn-delete-player-${player.id}`}
+                        disabled={tournament?.status === 'in_progress' || tournament?.status === 'completed'}
                         onClick={() => setPlayerToDelete(player)}
-                        className="p-1.5 bg-rose-950/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg border border-rose-800/60 hover:border-rose-500 transition-all shadow-sm active:scale-95"
-                        title="刪除選手"
+                        className={`p-1.5 rounded-lg border transition-all shadow-sm active:scale-95 ${
+                          tournament?.status === 'in_progress' || tournament?.status === 'completed'
+                            ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-40'
+                            : 'bg-rose-950/30 hover:bg-rose-600 text-rose-400 hover:text-white border-rose-800/60 hover:border-rose-500'
+                        }`}
+                        title={
+                          tournament?.status === 'in_progress'
+                            ? '開賽後不允許刪除已參賽選手（但仍可新增敗部復活選手）'
+                            : tournament?.status === 'completed'
+                            ? '賽程已結束存檔，不可刪除選手'
+                            : '刪除選手'
+                        }
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -677,7 +695,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-black text-white">確認刪除選手</h3>
+                <h3 className="text-base font-black text-white">確認刪除參賽選手</h3>
                 <p className="text-xs text-slate-400">從本場已登記參賽名單中移除</p>
               </div>
             </div>
@@ -689,6 +707,19 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               </div>
               <div className="text-xs text-slate-400">陀螺：{playerToDelete.beybladeName} ({playerToDelete.blade || '標準'})</div>
             </div>
+
+            {/* Notification when bracket is already generated but tournament not started */}
+            {tournament?.matches && tournament.matches.length > 0 && tournament?.status !== 'in_progress' && (
+              <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl text-xs font-mono text-amber-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  已產生賽程之自動遞補提示：
+                </div>
+                <p className="text-amber-200/90 leading-relaxed">
+                  目前賽程已排定（未開賽）。刪除此選手後，系統將自動將其籤位調整為<span className="text-cyan-300 font-bold">「預備選手」</span>以維持籤表完整性。您亦可於賽程表點擊「重新產生賽程」。
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2.5 pt-2">
               <button

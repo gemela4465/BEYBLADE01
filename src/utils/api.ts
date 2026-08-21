@@ -1,5 +1,39 @@
 import { Tournament, Player, VipPlayer } from '../types';
 
+export async function startTournamentApi(
+  tournamentId: string,
+  broadcastToLine: boolean = true
+): Promise<{ success: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ broadcastToLine }),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error starting tournament:', err);
+    return { success: false };
+  }
+}
+
+export async function finishTournamentApi(
+  tournamentId: string
+): Promise<{ success: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/finish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error finishing tournament:', err);
+    return { success: false };
+  }
+}
+
 export async function deletePlayerApi(
   tournamentId: string,
   playerId: string

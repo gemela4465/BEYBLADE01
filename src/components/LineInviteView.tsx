@@ -747,7 +747,7 @@ export const LineInviteView: React.FC<LineInviteViewProps> = ({
                 </h3>
               </div>
               <p className="text-xs font-mono text-gray-400 mt-0.5">
-                在此模擬群組成員發言，體驗 LINE BOT 如何自動識別 LINE ID 並將「簡稱」送達主辦後台！
+                在此模擬群組選手發言，體驗 LINE BOT 如何自動識別 LINE ID 並將「簡稱」送達主辦後台！
               </p>
             </div>
 
@@ -879,7 +879,7 @@ export const LineInviteView: React.FC<LineInviteViewProps> = ({
             </div>
             <div>
               <h3 className="text-base font-black text-white">LINE BOT 群組對戰登記運作方式</h3>
-              <p className="text-xs text-gray-400">群組成員無需開啟繁瑣網頁，於 LINE 聊天室直接輸入指令即可自動收集</p>
+              <p className="text-xs text-gray-400">群組選手無需開啟繁瑣網頁，於 LINE 聊天室直接輸入指令即可自動收集</p>
             </div>
           </div>
 

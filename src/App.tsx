@@ -24,7 +24,9 @@ import {
   archiveTournamentApi,
   deletePlayerApi,
   saveVipPlayerApi,
-  importVipPlayersApi
+  importVipPlayersApi,
+  startTournamentApi,
+  finishTournamentApi
 } from './utils/api';
 import { Header } from './components/Header';
 import { DualWingBracket } from './components/DualWingBracket';
@@ -39,7 +41,7 @@ import { ResetTournamentModal } from './components/ResetTournamentModal';
 import { TournamentHistoryModal } from './components/TournamentHistoryModal';
 import { BroadcastAnnouncementModal } from './components/BroadcastAnnouncementModal';
 import { SpectatorLiveBracketView } from './components/SpectatorLiveBracketView';
-import { Trophy, Swords, Users, Shield, Plus, Sparkles } from 'lucide-react';
+import { Trophy, Swords, Users, Shield, Plus, Sparkles, Archive } from 'lucide-react';
 
 export default function App() {
   const initial = loadInitialTournament();
@@ -560,6 +562,53 @@ export default function App() {
     setActiveTab('bracket');
   };
 
+  // Start tournament handler (Requirement 1: 賽程表增加開賽按鈕)
+  const handleStartTournament = async () => {
+    if (!tournament) return;
+    try {
+      const res = await startTournamentApi(tournament.id, true);
+      if (res.success && res.tournament) {
+        setTournament(res.tournament);
+        saveTournamentToStore(res.tournament);
+      } else {
+        const updated: Tournament = {
+          ...tournament,
+          status: 'in_progress'
+        };
+        setTournament(updated);
+        saveTournamentToStore(updated);
+        saveTournamentApi(updated);
+      }
+      setActiveTab('bracket');
+    } catch (err) {
+      console.error('Error starting tournament:', err);
+    }
+  };
+
+  // Finish tournament handler (Requirement 2: 增加完賽按鈕，自動存檔備查，並把主頁清空，等候新增賽事)
+  const handleFinishTournament = async () => {
+    if (!tournament) return;
+    try {
+      const res = await finishTournamentApi(tournament.id);
+      // Auto-archive
+      await archiveTournamentApi(tournament);
+      
+      // Clear active tournament on home page
+      setTournament(null);
+      localStorage.removeItem('beyblade_tournament_active');
+      
+      // Clean query params
+      const url = new URL(window.location.href);
+      url.searchParams.delete('session');
+      window.history.pushState({}, '', url.toString());
+    } catch (err) {
+      console.error('Error finishing tournament:', err);
+      // Fallback
+      setTournament(null);
+      localStorage.removeItem('beyblade_tournament_active');
+    }
+  };
+
   // Record a match result (scores 0-11) and advance winner
   const handleSaveMatchResult = (
     matchId: string,
@@ -702,18 +751,55 @@ export default function App() {
         onOpenBroadcastModal={() => setIsBroadcastModalOpen(true)}
         onToggleLineOnlyMode={handleSwitchToLineMode}
         onToggleSpectatorMode={handleSwitchToSpectatorMode}
+        onStartTournament={handleStartTournament}
+        onFinishTournament={handleFinishTournament}
         pendingCount={pendingCount}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 py-6 relative z-10">
-        {tournament && (
+        {!tournament ? (
+          <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-6 animate-fadeIn">
+            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr from-[#00f2ff]/20 via-[#06C755]/20 to-[#7000ff]/20 border border-[#00f2ff]/40 flex items-center justify-center shadow-[0_0_30px_rgba(0,242,255,0.2)]">
+              <Trophy className="w-10 h-10 text-[#00f2ff]" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-white tracking-tight uppercase">
+                目前無進行中賽事
+              </h2>
+              <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+                賽程已結束存檔備查，主頁已重置清空。您可以立即點擊下方按鈕建立下一場全新比賽，或從存檔庫中查閱過往戰績！
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+              <button
+                id="btn-empty-new-tournament"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="px-6 py-3 bg-[#00f2ff] hover:bg-[#00d8e6] text-black font-black rounded-xl text-sm shadow-[0_0_25px_rgba(0,242,255,0.35)] active:scale-95 transition-all flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5 stroke-[3]" />
+                建立新賽事
+              </button>
+              <button
+                id="btn-empty-history-archive"
+                onClick={() => setIsHistoryModalOpen(true)}
+                className="px-6 py-3 bg-purple-900/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-200 font-bold rounded-xl text-sm transition-all flex items-center gap-2"
+              >
+                <Archive className="w-4 h-4 text-purple-400" />
+                查看歷史賽事備查庫
+              </button>
+            </div>
+          </div>
+        ) : (
           <>
             {activeTab === 'bracket' && (
               <DualWingBracket
                 tournament={tournament}
                 onSelectMatch={(m) => setSelectedMatch(m)}
                 onOpenCreateModal={() => setIsCreateModalOpen(true)}
+                onStartTournament={handleStartTournament}
+                onFinishTournament={handleFinishTournament}
+                onRegenerateBracket={handleGenerateBracket}
               />
             )}
 

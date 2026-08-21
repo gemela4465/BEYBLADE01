@@ -14,6 +14,8 @@ interface HeaderProps {
   onOpenBroadcastModal?: () => void;
   onToggleLineOnlyMode?: () => void;
   onToggleSpectatorMode?: () => void;
+  onStartTournament?: () => void;
+  onFinishTournament?: () => void;
   pendingCount: number;
 }
 
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBroadcastModal,
   onToggleLineOnlyMode,
   onToggleSpectatorMode,
+  onStartTournament,
+  onFinishTournament,
   pendingCount
 }) => {
   const readOnly = isViewOnlyMode();
@@ -35,6 +39,9 @@ export const Header: React.FC<HeaderProps> = ({
   const completedMatches = tournament?.matches.filter((m) => m.status === 'completed' || m.status === 'bye').length || 0;
   const totalMatches = tournament?.matches.length || 0;
   const progressPercent = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
+  const isStarted = tournament?.status === 'in_progress';
+  const isCompleted = tournament?.status === 'completed';
+  const isPreStart = tournament && !isStarted && !isCompleted;
 
   return (
     <header className="bg-[#0a0c12] border-b border-[#ffffff10] text-[#e0e6ed] sticky top-0 z-40 shadow-[0_4px_30px_rgba(0,242,255,0.08)] backdrop-blur-md">
@@ -86,6 +93,29 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* HUD Status & Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5 w-full md:w-auto justify-end flex-wrap">
+            {/* Quick Start / Finish buttons if applicable */}
+            {!readOnly && isPreStart && onStartTournament && (
+              <button
+                id="btn-header-start-tournament"
+                onClick={onStartTournament}
+                className="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-mono font-black shadow-[0_0_15px_rgba(16,185,129,0.4)] transition-all flex items-center gap-1.5 active:scale-95 animate-pulse"
+                title="正式開賽：鎖定籤位名單並啟動比賽計分"
+              >
+                <span>🔥 正式開賽</span>
+              </button>
+            )}
+
+            {!readOnly && isStarted && onFinishTournament && (
+              <button
+                id="btn-header-finish-tournament"
+                onClick={onFinishTournament}
+                className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-black shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all flex items-center gap-1.5 active:scale-95"
+                title="完賽並存檔：鎖定比分並存檔備查，清空主頁"
+              >
+                <span>🏁 完賽並存檔</span>
+              </button>
+            )}
+
             {!readOnly && onOpenBroadcastModal && (
               <button
                 id="btn-broadcast-announcement-header"
@@ -137,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="btn-reset-tournament"
                 onClick={onOpenResetModal}
                 className="px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-mono font-medium border border-amber-500/30 transition-all flex items-center gap-1.5"
-                title="未開賽前取消或重新開賽 (可選保留已審核成員)"
+                title="未開賽前取消或重新開賽 (可選保留已審核選手)"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
                 重置 / 重新開賽

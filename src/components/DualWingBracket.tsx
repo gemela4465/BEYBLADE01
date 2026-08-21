@@ -2,17 +2,21 @@ import React, { useState, useRef } from 'react';
 import { 
   Trophy, Swords, ZoomIn, ZoomOut, RotateCcw, Award, Layers, 
   Maximize2, Filter, ChevronLeft, ChevronRight, Sparkles, CheckCircle2,
-  Radio, Share2, ExternalLink
+  Radio, Share2, ExternalLink, Play, CheckCheck, RefreshCw, GitBranch, AlertCircle, ShieldCheck
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
 import { BroadcastBracketModal } from './BroadcastBracketModal';
+import { SingleWingBracket } from './SingleWingBracket';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface DualWingBracketProps {
   tournament: Tournament;
   onSelectMatch: (match: Match) => void;
   onOpenCreateModal?: () => void;
+  onStartTournament?: () => void;
+  onFinishTournament?: () => void;
+  onRegenerateBracket?: () => void;
   isReadOnly?: boolean;
   highlightedPlayerName?: string;
 }
@@ -21,13 +25,19 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   tournament,
   onSelectMatch,
   onOpenCreateModal,
+  onStartTournament,
+  onFinishTournament,
+  onRegenerateBracket,
   isReadOnly = false,
   highlightedPlayerName
 }) => {
   const [zoom, setZoom] = useState(1);
-  const [viewMode, setViewMode] = useState<'bracket' | 'rounds' | 'list'>('bracket');
+  const [viewMode, setViewMode] = useState<'bracket' | 'single-wing' | 'rounds' | 'list'>('bracket');
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
+  const [showStartConfirm, setShowStartConfirm] = useState<boolean>(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
+  const [showRegenConfirm, setShowRegenConfirm] = useState<boolean>(false);
   const bracketContainerRef = useRef<HTMLDivElement>(null);
   const effectiveReadOnly = isViewOnlyMode() || isReadOnly;
 
@@ -39,6 +49,11 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   const rightMatches = matches.filter((m) => m.bracketWing === 'right');
   const grandFinalMatch = matches.find((m) => m.bracketWing === 'final');
   const thirdPlaceMatch = matches.find((m) => m.bracketWing === 'third_place');
+
+  const completedMatchesCount = matches.filter((m) => m.status === 'completed' || m.status === 'bye').length;
+  const isStarted = tournament.status === 'in_progress';
+  const isCompleted = tournament.status === 'completed';
+  const isPreStart = !isStarted && !isCompleted;
 
   // Calculate maximum wing rounds
   const maxRound = Math.max(...matches.map((m) => m.round), 1);
@@ -70,10 +85,103 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
   return (
     <div className="w-full flex flex-col space-y-4">
+      {/* Tournament Status Lifecycle Banner (Requirements 1, 2, 4) */}
+      <div className="max-w-7xl mx-auto w-full px-4">
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl ${
+          isStarted
+            ? 'bg-gradient-to-r from-emerald-950/40 via-slate-900 to-emerald-950/40 border-emerald-500/40'
+            : isCompleted
+            ? 'bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/40 border-amber-500/40'
+            : 'bg-gradient-to-r from-cyan-950/40 via-slate-900 to-purple-950/40 border-cyan-500/40'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border font-mono font-bold shrink-0 ${
+              isStarted
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse'
+                : isCompleted
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+            }`}>
+              {isStarted ? <Play className="w-5 h-5 fill-emerald-400" /> : isCompleted ? <Trophy className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black font-mono border ${
+                  isStarted
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                    : isCompleted
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                    : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                }`}>
+                  {isStarted ? '🔥 賽事進行中 (已開賽)' : isCompleted ? '🏁 賽事已完賽存檔' : '⏳ 賽程已產生 (未開賽)'}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {isStarted 
+                    ? '籤位已全面鎖定 • 進行各輪對抗中' 
+                    : isCompleted 
+                    ? '戰績與名次已永久鎖定備查' 
+                    : '已排定對陣籤位 • 未開賽前可重新產生或調整'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 font-mono">
+                {isStarted
+                  ? '規則限制：開賽後不允許刪除已參賽選手（仍可隨時新增選手作為敗部復活或候補）'
+                  : isCompleted
+                  ? '比分已無法修改，賽事紀錄已自動存檔備查'
+                  : '未開賽狀態下，若刪除選手將自動遞補為預備選手，亦可隨時重新產生賽程'}
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons: Start Tournament & Finish Tournament & Regenerate */}
+          {!effectiveReadOnly && (
+            <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0 flex-wrap">
+              {/* Regenerate Bracket button (Requirement 4: 未開賽前賽程可以重新產生) */}
+              {isPreStart && onRegenerateBracket && (
+                <button
+                  id="btn-regenerate-bracket"
+                  onClick={() => setShowRegenConfirm(true)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 font-mono"
+                  title="依目前選手清單與種子設定重新洗牌產生對陣表"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                  重新產生賽程
+                </button>
+              )}
+
+              {/* Start Tournament button (Requirement 1: 賽程表增加開賽按鈕) */}
+              {isPreStart && onStartTournament && (
+                <button
+                  id="btn-start-tournament-action"
+                  onClick={() => setShowStartConfirm(true)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 flex items-center gap-2 transition-all active:scale-95 uppercase tracking-wider font-mono animate-pulse"
+                >
+                  <Play className="w-4 h-4 fill-slate-950" />
+                  正式開賽 (Start)
+                </button>
+              )}
+
+              {/* Finish Tournament button (Requirement 2: 完賽按鈕) */}
+              {(isStarted || completedMatchesCount === matches.length) && !isCompleted && onFinishTournament && (
+                <button
+                  id="btn-finish-tournament-action"
+                  onClick={() => setShowFinishConfirm(true)}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 flex items-center gap-2 transition-all active:scale-95 uppercase tracking-wider font-mono"
+                >
+                  <CheckCheck className="w-4 h-4" />
+                  完賽並存檔 (Finish)
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Bracket Controls Bar */}
       <div className="max-w-7xl mx-auto w-full px-4 flex flex-wrap items-center justify-between gap-3 bg-[#0a0c12]/90 border border-[#ffffff10] p-3 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] backdrop-blur-md">
-        {/* Left: View Mode Switches */}
-        <div className="flex items-center gap-1.5 bg-[#05070a] p-1 rounded-lg border border-[#ffffff10]">
+        {/* Left: View Mode Switches (Requirement 5: 增加單側由左至右階層圖) */}
+        <div className="flex items-center gap-1.5 bg-[#05070a] p-1 rounded-lg border border-[#ffffff10] flex-wrap">
           <button
             id="view-mode-dual-wing"
             onClick={() => setViewMode('bracket')}
@@ -84,8 +192,22 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             }`}
           >
             <Swords className="w-3.5 h-3.5" />
-            雙翼樹狀圖
+            雙翼對稱樹狀圖
           </button>
+
+          <button
+            id="view-mode-single-wing"
+            onClick={() => setViewMode('single-wing')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 uppercase tracking-wider ${
+              viewMode === 'single-wing'
+                ? 'bg-[#00f2ff] text-black shadow-[0_0_15px_rgba(0,242,255,0.3)]'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+            單側階層圖 (由左至右)
+          </button>
+
           <button
             id="view-mode-rounds"
             onClick={() => setViewMode('rounds')}
@@ -98,6 +220,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             <Layers className="w-3.5 h-3.5" />
             分輪分組檢視
           </button>
+
           <button
             id="view-mode-list"
             onClick={() => setViewMode('list')}
@@ -115,7 +238,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         {/* Center: Tournament Scale Badge */}
         <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-gray-300">
           <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-ping" />
-          <span className="font-mono text-gray-300">{tournament.targetSize} 人雙翼淘汰賽（左翼 {tournament.targetSize / 2} 人 ⚔️ 右翼 {tournament.targetSize / 2} 人）</span>
+          <span className="font-mono text-gray-300">{tournament.targetSize} 人淘汰賽（左翼 {tournament.targetSize / 2} 人 ⚔️ 右翼 {tournament.targetSize / 2} 人）</span>
         </div>
 
         {/* Right: Zoom, Share & Quick Tools */}
@@ -311,7 +434,17 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         </div>
       )}
 
-      {/* VIEW 2: Rounds & Stages View */}
+      {/* VIEW 2: Single-Wing Hierarchy View (Requirement 5) */}
+      {viewMode === 'single-wing' && (
+        <SingleWingBracket
+          tournament={tournament}
+          onSelectMatch={onSelectMatch}
+          isReadOnly={effectiveReadOnly}
+          highlightedPlayerName={highlightedPlayerName}
+        />
+      )}
+
+      {/* VIEW 3: Rounds & Stages View */}
       {viewMode === 'rounds' && (
         <div className="max-w-7xl mx-auto w-full px-4 space-y-6">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
@@ -359,7 +492,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         </div>
       )}
 
-      {/* VIEW 3: List View */}
+      {/* VIEW 4: List View */}
       {viewMode === 'list' && (
         <div className="max-w-5xl mx-auto w-full px-4 space-y-3">
           <div className="bg-[#0a0c12] border border-[#ffffff10] rounded-xl overflow-hidden shadow-xl">
@@ -421,6 +554,145 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         </div>
       )}
 
+      {/* Start Tournament Confirmation Modal (Requirement 1) */}
+      {showStartConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-emerald-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-emerald-400">
+              <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/40">
+                <Play className="w-6 h-6 fill-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">確認正式開賽？</h3>
+                <p className="text-xs text-slate-400">場次：{tournament.name}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-2 leading-relaxed">
+              <div className="text-emerald-300 font-bold">⚡ 開賽後將啟用以下賽事規則保護：</div>
+              <ul className="list-disc list-inside space-y-1 text-slate-300">
+                <li>已排定籤位之選手名單將全面鎖定，<span className="text-amber-300 font-bold">不允許刪除已參賽選手</span>。</li>
+                <li>賽事進行中<span className="text-emerald-300 font-bold">仍可隨時新增選手</span>作為敗部復活候補。</li>
+                <li>可於擂台計分板進行各輪對決與分數即時登記。</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowStartConfirm(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-start-tournament"
+                onClick={() => {
+                  setShowStartConfirm(false);
+                  if (onStartTournament) onStartTournament();
+                }}
+                className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-emerald-500/30 flex items-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-slate-950" />
+                確認正式開賽 ➔
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Finish Tournament Confirmation Modal (Requirement 2) */}
+      {showFinishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-3 bg-amber-500/20 rounded-xl border border-amber-500/40">
+                <CheckCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">確認完賽並存檔備查？</h3>
+                <p className="text-xs text-slate-400">場次：{tournament.name}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-2 leading-relaxed">
+              <div className="text-amber-300 font-bold">🏁 完賽處理作業說明：</div>
+              <ul className="list-disc list-inside space-y-1 text-slate-300">
+                <li>賽事比分將<span className="text-rose-400 font-bold">全面永久鎖定</span>，不可再修改。</li>
+                <li>系統將自動將完整賽事紀錄、比分歷程與冠亞季軍榜<span className="text-amber-300 font-bold">存檔至歷史備查庫</span>。</li>
+                <li>完成後將<span className="text-cyan-300 font-bold">清空主頁</span>，等候建立下一場全新賽事。</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowFinishConfirm(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                返回賽事
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-finish-tournament"
+                onClick={() => {
+                  setShowFinishConfirm(false);
+                  if (onFinishTournament) onFinishTournament();
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/30 flex items-center gap-2"
+              >
+                <CheckCheck className="w-4 h-4" />
+                確認完賽並清空主頁 ➔
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate Bracket Confirmation Modal (Requirement 4) */}
+      {showRegenConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-cyan-400">
+              <div className="p-3 bg-cyan-500/20 rounded-xl border border-cyan-500/40">
+                <RefreshCw className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">確認重新產生賽程？</h3>
+                <p className="text-xs text-slate-400">未開賽狀態可重新抽籤與排定籤位</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-2 leading-relaxed">
+              <p>系統將依據目前「選手審核與登記」中已通過的選手名單與種子設定，重新生成全新的雙翼籤位表。</p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRegenConfirm(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-regenerate-bracket"
+                onClick={() => {
+                  setShowRegenConfirm(false);
+                  if (onRegenerateBracket) onRegenerateBracket();
+                }}
+                className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-cyan-500/30 flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                確認重新產生 ➔
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Broadcast Bracket Modal (Requirement 5) */}
       <BroadcastBracketModal
         isOpen={isBroadcastModalOpen}
@@ -431,3 +703,4 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
     </div>
   );
 };
+
