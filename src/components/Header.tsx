@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Users, Shield, Award, Swords, Link2, Monitor, RefreshCw, Plus, Download, Radio, Bot } from 'lucide-react';
+import { Trophy, Users, Shield, Award, Swords, Link2, Monitor, RefreshCw, Plus, Download, Radio, Bot, Archive, Clock, Calendar } from 'lucide-react';
 import { Tournament } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   onTabChange: (tab: 'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium') => void;
   onOpenCreateModal: () => void;
   onOpenExportModal: () => void;
+  onOpenHistoryModal: () => void;
+  onOpenResetModal: () => void;
   onToggleLineOnlyMode?: () => void;
   pendingCount: number;
 }
@@ -18,6 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   onTabChange,
   onOpenCreateModal,
   onOpenExportModal,
+  onOpenHistoryModal,
+  onOpenResetModal,
   onToggleLineOnlyMode,
   pendingCount
 }) => {
@@ -33,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-col md:flex-row items-center justify-between py-3 gap-3">
           {/* Logo & Cyber Tournament Brand */}
           <div className="flex items-center gap-3.5 w-full md:w-auto">
-            <div className="w-10 h-10 bg-gradient-to-tr from-[#00f2ff] to-[#7000ff] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(0,242,255,0.5)] shrink-0">
+            <div className="w-10 h-10 bg-gradient-to-tr from-[#00f2ff] via-[#06C755] to-[#7000ff] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(0,242,255,0.5)] shrink-0">
               <span className="text-white font-black text-xl italic font-mono">B</span>
             </div>
             <div>
@@ -46,9 +50,11 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-[#00f2ff]/10 text-[#00f2ff] border border-[#00f2ff]/30 shadow-[0_0_10px_rgba(0,242,255,0.2)]">
                       {tournament.targetSize} 人雙翼賽制
                     </span>
-                    <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#ffffff0a] text-gray-300 border border-[#ffffff15]">
-                      #{tournament.id.replace('tour_', '').slice(-8).toUpperCase()}
-                    </span>
+                    {tournament.sessionNumber && (
+                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#06C755]/15 text-[#06C755] border border-[#06C755]/30">
+                        {tournament.sessionNumber}
+                      </span>
+                    )}
                   </>
                 )}
                 {tournament?.status === 'completed' && (
@@ -60,15 +66,15 @@ export const Header: React.FC<HeaderProps> = ({
               <p className="text-[10px] text-[#00f2ff] uppercase tracking-[0.2em] font-medium flex items-center gap-2 mt-0.5">
                 <span>TOURNAMENT SYSTEM V2.0</span>
                 <span className="text-gray-600">•</span>
-                <span className="text-gray-400">0-11分陀螺競程</span>
+                <span className="text-gray-400">LINE BOT 官方連動</span>
                 <span className="text-gray-600">•</span>
-                <span className="text-gray-400">雙翼樹狀圖</span>
+                <span className="text-gray-400">雙翼賽程排盤</span>
               </p>
             </div>
           </div>
 
           {/* HUD Status & Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto justify-end flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 w-full md:w-auto justify-end flex-wrap">
             {onToggleLineOnlyMode && (
               <button
                 id="btn-preview-line-invite"
@@ -82,20 +88,41 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             <button
+              id="btn-history-records"
+              onClick={onOpenHistoryModal}
+              className="px-3 py-2 rounded-lg bg-[#7000ff]/15 hover:bg-[#7000ff]/25 text-purple-300 text-xs font-mono font-medium border border-[#7000ff]/40 transition-all flex items-center gap-1.5"
+              title="查看歷史賽程存檔與備查"
+            >
+              <Archive className="w-3.5 h-3.5 text-purple-400" />
+              賽事存檔備查
+            </button>
+
+            <button
+              id="btn-reset-tournament"
+              onClick={onOpenResetModal}
+              className="px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-mono font-medium border border-amber-500/30 transition-all flex items-center gap-1.5"
+              title="未開賽前取消或重新開賽 (可選保留已審核成員)"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+              重置 / 重新開賽
+            </button>
+
+            <button
               id="btn-export-share"
               onClick={onOpenExportModal}
-              className="px-3.5 py-2 rounded-lg bg-[#ffffff05] hover:bg-[#ffffff10] text-[#e0e6ed] text-xs font-medium border border-[#ffffff10] transition-all flex items-center gap-1.5"
+              className="px-3 py-2 rounded-lg bg-[#ffffff05] hover:bg-[#ffffff10] text-[#e0e6ed] text-xs font-medium border border-[#ffffff10] transition-all flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5 text-[#00f2ff]" />
-              戰報與匯出
+              戰報匯出
             </button>
+
             <button
               id="btn-new-tournament"
               onClick={onOpenCreateModal}
-              className="px-4 py-2 bg-[#00f2ff] text-black font-bold rounded-lg shadow-[0_0_20px_rgba(0,242,255,0.3)] hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 uppercase tracking-wide"
+              className="px-3.5 py-2 bg-[#00f2ff] text-black font-bold rounded-lg shadow-[0_0_20px_rgba(0,242,255,0.3)] hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 uppercase tracking-wide font-mono"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              開賽 / 重設賽程
+              新開賽
             </button>
           </div>
         </div>
@@ -114,6 +141,29 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="text-amber-400 font-mono">({tournament.targetSize - approvedCount} 缺額設輪空)</span>
                 )}
               </div>
+
+              {tournament.startTime && (
+                <>
+                  <div className="w-[1px] h-3 bg-gray-800 hidden sm:block" />
+                  <div className="flex items-center gap-1 text-gray-300 font-mono">
+                    <Clock className="w-3.5 h-3.5 text-[#00f2ff]" />
+                    <span className="text-gray-400">開賽:</span>
+                    <span className="text-white font-bold">{tournament.startTime}</span>
+                  </div>
+                </>
+              )}
+
+              {tournament.registrationDeadline && (
+                <>
+                  <div className="w-[1px] h-3 bg-gray-800 hidden sm:block" />
+                  <div className="flex items-center gap-1 text-gray-300 font-mono">
+                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-gray-400">截止:</span>
+                    <span className="text-amber-300 font-bold">{tournament.registrationDeadline}</span>
+                  </div>
+                </>
+              )}
+
               <div className="w-[1px] h-3 bg-gray-800 hidden sm:block" />
               <div className="flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-purple-400" />
@@ -121,12 +171,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="font-semibold text-purple-300 font-mono">
                   {tournament.seedMode === 'manual' ? `指定種子 (${tournament.seedCount}名)` : tournament.seedMode === 'random' ? `隨機 (${tournament.seedCount}名)` : '無種子'}
                 </span>
-              </div>
-              <div className="w-[1px] h-3 bg-gray-800 hidden sm:block" />
-              <div className="flex items-center gap-1.5">
-                <Swords className="w-3.5 h-3.5 text-[#00f2ff]" />
-                <span className="text-gray-400">晉級條件:</span>
-                <span className="font-mono text-[#00f2ff] font-bold">率先得 {tournament.matchTargetScore} 分 (上限11分)</span>
               </div>
             </div>
 
@@ -224,4 +268,5 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+
 

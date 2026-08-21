@@ -4,6 +4,8 @@ export interface Player {
   id: string;
   name: string;
   lineId?: string;
+  registeredByLineId?: string; // LINE ID of the person who registered on behalf of this player
+  isProxy?: boolean; // True if registered via ++1 (替人報名)
   lineAvatar?: string;
   beybladeName: string;
   beybladeType: BeybladeType;
@@ -16,6 +18,7 @@ export interface Player {
   seedNumber?: number; // 1, 2, 3...
   isSeed: boolean;
   notes?: string;
+  pendingCancelConfirm?: boolean; // For approved players requesting -1
 }
 
 export type FinishType = 'spin' | 'over' | 'burst' | 'xtreme' | 'penalty' | 'manual';
@@ -60,11 +63,18 @@ export interface Match {
 
 export type TournamentSize = 4 | 8 | 16 | 32 | 64 | 128;
 
-export type TournamentStatus = 'registration' | 'ready' | 'in_progress' | 'completed';
+export type TournamentStatus = 'registration' | 'ready' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface Tournament {
   id: string;
-  name: string;
+  name: string; // Full formatted title: e.g. "20260821-第1場-戰鬥陀螺 X 雙翼極限爭霸賽"
+  datePrefix?: string; // e.g. "20260821"
+  sessionNumber?: string; // e.g. "第1場"
+  customTitle?: string; // e.g. "戰鬥陀螺 X 雙翼極限爭霸賽"
+  
+  startTime?: string; // e.g. "2026/08/21 19:00"
+  registrationDeadline?: string; // e.g. "2026/08/21 18:00"
+  
   targetSize: TournamentSize;
   matchTargetScore: number; // e.g. 4, 7, 11 (max 11)
   status: TournamentStatus;
@@ -84,6 +94,10 @@ export interface Tournament {
     thirdPlace?: Player;
     fourthPlace?: Player;
   };
+
+  isArchived?: boolean;
+  archivedAt?: number;
+  archiveNote?: string;
 }
 
 export interface PresetBeyblade {
@@ -92,3 +106,4 @@ export interface PresetBeyblade {
   combo: string;
   color: string;
 }
+

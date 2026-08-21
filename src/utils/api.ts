@@ -68,20 +68,92 @@ export async function registerPlayerApi(
 export async function updatePlayerStatusApi(
   tournamentId: string,
   playerId: string,
-  updates: { status?: 'pending' | 'approved' | 'rejected'; isSeed?: boolean; seedRank?: number }
-): Promise<boolean> {
+  updates: { status?: 'pending' | 'approved' | 'rejected'; isSeed?: boolean; seedRank?: number; sendLineNotification?: boolean }
+): Promise<{ success: boolean; notificationSent?: boolean }> {
   try {
     const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     });
-    return res.ok;
+    if (!res.ok) return { success: false };
+    const data = await res.json();
+    return { success: true, notificationSent: data.notificationSent };
   } catch (err) {
     console.error('[API] Error updating player status:', err);
-    return false;
+    return { success: false };
   }
 }
+
+export async function fetchTournamentHistoryApi(): Promise<Tournament[]> {
+  try {
+    const res = await fetch('/api/tournaments/history');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] Could not fetch tournament history:', err);
+    return [];
+  }
+}
+
+export async function archiveTournamentApi(
+  tournamentId: string,
+  note?: string
+): Promise<{ success: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/archive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note }),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error archiving tournament:', err);
+    return { success: false };
+  }
+}
+
+export async function resetTournamentApi(
+  tournamentId: string,
+  options: {
+    keepApproved: boolean;
+    newSessionNumber?: string;
+    newCustomTitle?: string;
+    newStartTime?: string;
+    newDeadline?: string;
+  }
+): Promise<{ success: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error resetting tournament:', err);
+    return { success: false };
+  }
+}
+
+export async function broadcastOpenTournamentApi(
+  tournamentId: string
+): Promise<{ success: boolean; broadcastSuccess: boolean; announcementText: string }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-open`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error broadcasting tournament open announcement:', err);
+    return { success: false, broadcastSuccess: false, announcementText: '' };
+  }
+}
+
 
 export async function simulateLineBotMessageApi(
   message: string,

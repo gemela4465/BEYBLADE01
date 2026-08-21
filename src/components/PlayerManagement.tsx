@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Users, CheckCircle2, XCircle, Shield, Sparkles, Plus, Trash2, 
-  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck
+  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, UserPlus
 } from 'lucide-react';
 import { Player, Tournament, BeybladeType } from '../types';
 import { POPULAR_BEYBLADES, SAMPLE_PLAYERS } from '../data/beybladeData';
@@ -113,19 +113,20 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       {/* Top Banner & Generation Action */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30">
-              管理者審核後台
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#06C755]/20 text-[#06C755] border border-[#06C755]/30 flex items-center gap-1 font-mono">
+              <Bell className="w-3 h-3" />
+              LINE BOT 審核中心
             </span>
-            <span className="text-xs text-slate-400">
-              預定賽制規模：{targetSize} 人雙翼對抗
+            <span className="text-xs text-slate-400 font-mono">
+              預定賽制：{targetSize} 人雙翼對抗 • 開賽時間：{tournament?.startTime || '未設定'}
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             成員審核登記與種子排位管理
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            審核 LINE 群組送來的報名名單，確認成員登記無誤後，即可點擊生成雙翼對戰賽程表！
+            審核 LINE 群組送來的報名名單（支援 <code className="text-emerald-400 font-mono">+1</code> 與代報 <code className="text-purple-400 font-mono">++1 AAA</code>），通過後自動推播通知用戶！
           </p>
         </div>
 
@@ -152,7 +153,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
       </div>
 
       {/* Quick Fill / Tools bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 font-mono">
         <div className="flex items-center gap-2 flex-wrap text-xs text-slate-300">
           <span className="font-semibold text-white">⚡ 管理者快速工具：</span>
           <button
@@ -161,7 +162,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            一鍵填滿 {targetSize} 位真實陀螺選手 (含LINE/陀螺)
+            一鍵填滿 {targetSize} 位示範選手 (含LINE/陀螺)
           </button>
           <button
             id="btn-random-seed"
@@ -200,7 +201,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       即時連線同步
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">由群組點擊參加送出的成員名單（自動即時匯入）</p>
+                  <p className="text-[11px] text-slate-400">審核通過時將自動透過 LINE 發送通知給選手</p>
                 </div>
               </div>
 
@@ -223,20 +224,20 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition-all flex items-center gap-1"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    一鍵全數審核通過
+                    一鍵全審核並推播
                   </button>
                 )}
               </div>
             </div>
 
             {pendingPlayers.length === 0 ? (
-              <div className="text-center py-10 px-4 text-slate-500 space-y-2">
+              <div className="text-center py-10 px-4 text-slate-500 space-y-2 font-mono">
                 <UserCheck className="w-10 h-10 mx-auto text-slate-600" />
                 <p className="text-sm font-semibold text-slate-400">目前沒有待審核的 LINE 報名成員</p>
-                <p className="text-xs">分享 LINE 邀請連結給群組成員，或點擊上方「一鍵填滿」測試！</p>
+                <p className="text-xs">分享 LINE 邀請連結或群組指令 <code className="text-emerald-400">+1</code> 立即報名！</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 font-mono">
                 {pendingPlayers.map((player) => (
                   <div
                     key={player.id}
@@ -244,14 +245,25 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-white text-sm">{player.name}</span>
+                          {player.isProxy && (
+                            <span className="text-[10px] text-purple-300 bg-purple-950/70 border border-purple-800 px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold">
+                              <UserPlus className="w-3 h-3 text-purple-400" />
+                              代報成員
+                            </span>
+                          )}
                           {player.lineId && (
                             <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
                               @{player.lineId}
                             </span>
                           )}
                         </div>
+                        {player.registeredByLineId && player.registeredByLineId !== player.lineId && (
+                          <div className="text-[10px] text-purple-300/80 mt-0.5">
+                            由 LINE ID @{player.registeredByLineId} 替人代報
+                          </div>
+                        )}
                         <div className="text-xs text-slate-400 mt-0.5">{player.clubOrTeam || '自由選手'}</div>
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -259,9 +271,10 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                           id={`btn-approve-${player.id}`}
                           onClick={() => onApprovePlayer(player.id)}
                           className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1 transition-colors"
+                          title="通過審核並向選手發送 LINE 通知"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          確認登記
+                          審核通過
                         </button>
                         <button
                           id={`btn-reject-${player.id}`}
@@ -294,7 +307,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
         {/* Right: Approved Registered Member List & Seed Management (已確認參賽名單) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl font-mono">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold">
@@ -328,7 +341,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                   <div
                     key={player.id}
                     className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                      player.isSeed
+                      player.pendingCancelConfirm
+                        ? 'bg-amber-950/30 border-amber-500/50 shadow-sm'
+                        : player.isSeed
                         ? 'bg-purple-950/20 border-purple-500/40 shadow-sm'
                         : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
                     }`}
@@ -342,6 +357,17 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-white text-sm truncate">{player.name}</span>
+                          {player.isProxy && (
+                            <span className="text-[10px] text-purple-300 bg-purple-950/70 border border-purple-800 px-1.5 py-0.5 rounded">
+                              代報
+                            </span>
+                          )}
+                          {player.pendingCancelConfirm && (
+                            <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-700 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold">
+                              <AlertCircle className="w-3 h-3 text-amber-400" />
+                              LINE 提出取消確認中
+                            </span>
+                          )}
                           {player.isSeed && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500 text-white shadow flex items-center gap-1 shrink-0">
                               <Shield className="w-3 h-3" />
@@ -610,3 +636,4 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     </div>
   );
 };
+
