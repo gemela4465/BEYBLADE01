@@ -6,7 +6,7 @@ import { fetchTournamentHistoryApi, archiveTournamentApi } from '../utils/api';
 interface TournamentHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentTournament: Tournament;
+  currentTournament?: Tournament | null;
   onLoadArchivedTournament: (tournament: Tournament) => void;
   onTournamentArchived: (archivedTournament: Tournament) => void;
 }
@@ -48,6 +48,7 @@ export const TournamentHistoryModal: React.FC<TournamentHistoryModalProps> = ({
 
   const handleArchiveCurrent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentTournament) return;
     setIsArchiving(true);
     try {
       const result = await archiveTournamentApi(currentTournament.id, archiveNote);
@@ -108,43 +109,45 @@ export const TournamentHistoryModal: React.FC<TournamentHistoryModalProps> = ({
           </button>
         </div>
 
-        {/* Current Tournament Quick Archive Panel */}
-        <div className="p-4 bg-[#05070a] border border-[#ffffff15] rounded-2xl mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-pulse" />
-              <span>將當前進行中的賽事存檔存查</span>
+        {/* Current Tournament Quick Archive Panel (if active tournament exists) */}
+        {currentTournament && (
+          <div className="p-4 bg-[#05070a] border border-[#ffffff15] rounded-2xl mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-pulse" />
+                <span>將當前進行中的賽事存檔存查</span>
+              </div>
+              <span className="text-xs font-mono text-[#00f2ff]">
+                「{currentTournament.name}」
+              </span>
             </div>
-            <span className="text-xs font-mono text-[#00f2ff]">
-              「{currentTournament.name}」
-            </span>
+
+            <form onSubmit={handleArchiveCurrent} className="flex flex-col sm:flex-row gap-2.5 mt-3">
+              <input
+                type="text"
+                value={archiveNote}
+                onChange={(e) => setArchiveNote(e.target.value)}
+                placeholder="備註說明 (例如: 決賽精采對決 / 第1場結賽存檔)..."
+                className="flex-1 px-3.5 py-2 bg-[#11141d] border border-[#ffffff15] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-[#7000ff]"
+              />
+              <button
+                type="submit"
+                disabled={isArchiving}
+                className="px-4 py-2 bg-[#7000ff] hover:bg-[#8524ff] disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(112,0,255,0.4)] whitespace-nowrap"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                {isArchiving ? '存檔中...' : '確認存檔備查'}
+              </button>
+            </form>
+
+            {archiveSuccessMsg && (
+              <div className="mt-2.5 p-2 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-400 text-xs font-mono flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{archiveSuccessMsg}</span>
+              </div>
+            )}
           </div>
-
-          <form onSubmit={handleArchiveCurrent} className="flex flex-col sm:flex-row gap-2.5 mt-3">
-            <input
-              type="text"
-              value={archiveNote}
-              onChange={(e) => setArchiveNote(e.target.value)}
-              placeholder="備註說明 (例如: 決賽精采對決 / 第1場結賽存檔)..."
-              className="flex-1 px-3.5 py-2 bg-[#11141d] border border-[#ffffff15] rounded-xl text-white text-xs font-mono focus:outline-none focus:border-[#7000ff]"
-            />
-            <button
-              type="submit"
-              disabled={isArchiving}
-              className="px-4 py-2 bg-[#7000ff] hover:bg-[#8524ff] disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(112,0,255,0.4)] whitespace-nowrap"
-            >
-              <Archive className="w-3.5 h-3.5" />
-              {isArchiving ? '存檔中...' : '確認存檔備查'}
-            </button>
-          </form>
-
-          {archiveSuccessMsg && (
-            <div className="mt-2.5 p-2 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-400 text-xs font-mono flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{archiveSuccessMsg}</span>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* History List Table / Cards */}
         <div className="space-y-3 font-mono">

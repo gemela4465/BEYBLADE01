@@ -7,6 +7,7 @@ import { generateDualWingBracket, recordMatchResult, substitutePlayerInMatch } f
 import { 
   loadInitialTournament, 
   saveTournamentToStore, 
+  clearActiveTournamentInStore,
   buildRegistrationUrl, 
   buildAdminUrl, 
   buildReadOnlyBracketUrl,
@@ -63,15 +64,44 @@ export default function App() {
     if (tournament?.id) {
       fetchTournamentApi(tournament.id).then((serverTour) => {
         if (serverTour) {
-          setTournament(serverTour);
-          saveTournamentToStore(serverTour);
-          setActiveTournamentApi(serverTour.id);
+          // If server tournament is completed or archived and we are in normal admin mode
+          if (
+            (serverTour.status === 'completed' || serverTour.isArchived) &&
+            !initial.isViewOnlyMode &&
+            !initial.isRegisterMode
+          ) {
+            setTournament(null);
+            clearActiveTournamentInStore();
+          } else {
+            setTournament(serverTour);
+            saveTournamentToStore(serverTour);
+            if (serverTour.status !== 'completed' && !serverTour.isArchived) {
+              setActiveTournamentApi(serverTour.id);
+            }
+          }
         } else {
-          // If not on server, save current state to server
-          saveTournamentApi(tournament);
-          setActiveTournamentApi(tournament.id);
+          // If not on server, only save if not completed/archived
+          if (tournament.status !== 'completed' && !tournament.isArchived) {
+            saveTournamentApi(tournament);
+            setActiveTournamentApi(tournament.id);
+          }
         }
       });
+    } else {
+      // If there is no local tournament, query server to see if there is an active ongoing tournament
+      fetch('/api/tournaments')
+        .then((r) => r.json())
+        .then((all: Tournament[]) => {
+          if (Array.isArray(all)) {
+            const activeOnServer = all.find((t) => t.status !== 'completed' && !t.isArchived);
+            if (activeOnServer) {
+              setTournament(activeOnServer);
+              saveTournamentToStore(activeOnServer);
+              setActiveTournamentApi(activeOnServer.id);
+            }
+          }
+        })
+        .catch(() => {});
     }
   }, []);
 
@@ -591,21 +621,43 @@ export default function App() {
     try {
       const res = await finishTournamentApi(tournament.id);
       // Auto-archive
-      await archiveTournamentApi(tournament);
+      await archiveTournamentApi(tournament.id);
       
-      // Clear active tournament on home page
+      // Update local storage so this tournament is marked completed/archived
+      if (res && res.tournament) {
+        saveTournamentToStore(res.tournament);
+      } else {
+        saveTournamentToStore({
+          ...tournament,
+          status: 'completed',
+          isArchived: true,
+          completedAt: Date.now(),
+          archivedAt: Date.now()
+        });
+      }
+
+      // Clear active tournament state and localStorage
       setTournament(null);
-      localStorage.removeItem('beyblade_tournament_active');
+      clearActiveTournamentInStore();
       
-      // Clean query params
-      const url = new URL(window.location.href);
-      url.searchParams.delete('session');
-      window.history.pushState({}, '', url.toString());
+      // Clean query params so refreshing the browser remains in clean home state
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('tid');
+        url.searchParams.delete('tname');
+        url.searchParams.delete('size');
+        url.searchParams.delete('score');
+        url.searchParams.delete('seeds');
+        url.searchParams.delete('smode');
+        url.searchParams.delete('created');
+        url.searchParams.delete('mode');
+        url.searchParams.delete('session');
+        window.history.pushState({}, '', url.pathname + (url.search ? url.search : ''));
+      }
     } catch (err) {
       console.error('Error finishing tournament:', err);
-      // Fallback
       setTournament(null);
-      localStorage.removeItem('beyblade_tournament_active');
+      clearActiveTournamentInStore();
     }
   };
 
@@ -900,22 +952,20 @@ export default function App() {
       )}
 
       {/* Tournament History Modal (Requirement 6) */}
-      {tournament && (
-        <TournamentHistoryModal
-          isOpen={isHistoryModalOpen}
-          onClose={() => setIsHistoryModalOpen(false)}
-          currentTournament={tournament}
-          onLoadArchivedTournament={(archivedTour) => {
-            setTournament(archivedTour);
-            saveTournamentToStore(archivedTour);
-            setActiveTournamentApi(archivedTour.id);
-          }}
-          onTournamentArchived={(archivedTour) => {
-            setTournament(archivedTour);
-            saveTournamentToStore(archivedTour);
-          }}
-        />
-      )}
+      <TournamentHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        currentTournament={tournament}
+        onLoadArchivedTournament={(archivedTour) => {
+          setTournament(archivedTour);
+          saveTournamentToStore(archivedTour);
+          setActiveTournamentApi(archivedTour.id);
+        }}
+        onTournamentArchived={(archivedTour) => {
+          setTournament(archivedTour);
+          saveTournamentToStore(archivedTour);
+        }}
+      />
 
       {/* Broadcast Announcement to LINE Modal (補發通知到 LINE 群) */}
       <BroadcastAnnouncementModal

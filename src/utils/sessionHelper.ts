@@ -155,9 +155,28 @@ export function saveTournamentToStore(tournament: Tournament): void {
     const store = getAllTournamentsFromStore();
     store[tournament.id] = tournament;
     localStorage.setItem(TOURNAMENT_STORE_KEY, JSON.stringify(store));
-    localStorage.setItem(ACTIVE_TOURNAMENT_ID_KEY, tournament.id);
+
+    if (tournament.status === 'completed' || tournament.isArchived) {
+      if (localStorage.getItem(ACTIVE_TOURNAMENT_ID_KEY) === tournament.id) {
+        localStorage.removeItem(ACTIVE_TOURNAMENT_ID_KEY);
+      }
+    } else {
+      localStorage.setItem(ACTIVE_TOURNAMENT_ID_KEY, tournament.id);
+    }
   } catch (e) {
     console.error('Failed to save tournament to store', e);
+  }
+}
+
+/**
+ * Clears the active tournament reference from local storage
+ */
+export function clearActiveTournamentInStore(): void {
+  try {
+    localStorage.removeItem(ACTIVE_TOURNAMENT_ID_KEY);
+    localStorage.removeItem('beyblade_tournament_active');
+  } catch (e) {
+    console.error('Failed to clear active tournament in store', e);
   }
 }
 
@@ -165,90 +184,104 @@ export function saveTournamentToStore(tournament: Tournament): void {
  * Retrieves the active tournament from storage or hydrates it from URL parameters
  */
 export function loadInitialTournament(): {
-  tournament: Tournament;
+  tournament: Tournament | null;
   isRegisterMode: boolean;
   isViewOnlyMode: boolean;
 } {
   const urlSession = parseTournamentSessionFromUrl();
   const store = getAllTournamentsFromStore();
 
-  // 1. If URL provides a specific session ID (tid)
+  // 1. If URL explicitly specifies tid
   if (urlSession.tid) {
     if (store[urlSession.tid]) {
-      // Found exact tournament in local storage!
+      const storedTour = store[urlSession.tid];
+      // If in view-only spectator or participant registration mode, allow loading archived/completed for record viewing
+      if (urlSession.isViewOnlyMode || urlSession.isRegisterMode) {
+        return {
+          tournament: storedTour,
+          isRegisterMode: urlSession.isRegisterMode,
+          isViewOnlyMode: urlSession.isViewOnlyMode
+        };
+      }
+
+      // If in admin mode, only return if not completed or archived
+      if (storedTour.status !== 'completed' && !storedTour.isArchived) {
+        return {
+          tournament: storedTour,
+          isRegisterMode: false,
+          isViewOnlyMode: false
+        };
+      }
+
+      // If completed/archived and accessed via plain URL, return null so admin page is clean
       return {
-        tournament: store[urlSession.tid],
-        isRegisterMode: urlSession.isRegisterMode,
-        isViewOnlyMode: urlSession.isViewOnlyMode
+        tournament: null,
+        isRegisterMode: false,
+        isViewOnlyMode: false
       };
     }
 
     // Not in local storage (e.g. fresh participant device opening LINE invite)
-    // Construct the exact session based on URL params!
-    const sessionName = urlSession.name || '戰鬥陀螺 X 雙翼爭霸賽';
-    const sessionSize: TournamentSize = urlSession.targetSize || 16;
-    const sessionScore = urlSession.targetScore || 4;
-    const sessionSeedMode = urlSession.seedMode || 'manual';
-    const sessionSeedCount = urlSession.seedCount ?? 4;
+    if (urlSession.isRegisterMode || urlSession.isViewOnlyMode) {
+      const sessionName = urlSession.name || '戰鬥陀螺 X 雙翼爭霸賽';
+      const sessionSize: TournamentSize = urlSession.targetSize || 16;
+      const sessionScore = urlSession.targetScore || 4;
+      const sessionSeedMode = urlSession.seedMode || 'manual';
+      const sessionSeedCount = urlSession.seedCount ?? 4;
 
-    const freshTournament: Tournament = {
-      id: urlSession.tid,
-      name: sessionName,
-      targetSize: sessionSize,
-      matchTargetScore: sessionScore,
-      seedMode: sessionSeedMode,
-      seedCount: sessionSeedCount,
-      status: 'registration',
-      players: [],
-      matches: [],
-      createdAt: urlSession.createdAt || Date.now(),
-      startedAt: urlSession.createdAt || Date.now()
-    };
+      const freshTournament: Tournament = {
+        id: urlSession.tid,
+        name: sessionName,
+        targetSize: sessionSize,
+        matchTargetScore: sessionScore,
+        seedMode: sessionSeedMode,
+        seedCount: sessionSeedCount,
+        status: 'registration',
+        players: [],
+        matches: [],
+        createdAt: urlSession.createdAt || Date.now(),
+        startedAt: urlSession.createdAt || Date.now()
+      };
 
-    saveTournamentToStore(freshTournament);
-    return {
-      tournament: freshTournament,
-      isRegisterMode: urlSession.isRegisterMode,
-      isViewOnlyMode: urlSession.isViewOnlyMode
-    };
+      saveTournamentToStore(freshTournament);
+      return {
+        tournament: freshTournament,
+        isRegisterMode: urlSession.isRegisterMode,
+        isViewOnlyMode: urlSession.isViewOnlyMode
+      };
+    }
   }
 
-  // 2. No URL tid: check for last active tournament
+  // 2. No URL tid: check for last active tournament in local storage
   const activeId = localStorage.getItem(ACTIVE_TOURNAMENT_ID_KEY);
   if (activeId && store[activeId]) {
+    const activeTour = store[activeId];
+    if (activeTour.status !== 'completed' && !activeTour.isArchived) {
+      return {
+        tournament: activeTour,
+        isRegisterMode: urlSession.isRegisterMode,
+        isViewOnlyMode: urlSession.isViewOnlyMode
+      };
+    } else {
+      localStorage.removeItem(ACTIVE_TOURNAMENT_ID_KEY);
+    }
+  }
+
+  // 3. Fallback: check any active non-completed & non-archived tournament in store
+  const activeStoredList = Object.values(store).filter(
+    (t) => t.status !== 'completed' && !t.isArchived
+  );
+  if (activeStoredList.length > 0) {
     return {
-      tournament: store[activeId],
+      tournament: activeStoredList[activeStoredList.length - 1],
       isRegisterMode: urlSession.isRegisterMode,
       isViewOnlyMode: urlSession.isViewOnlyMode
     };
   }
 
-  // 3. Fallback to any tournament in store
-  const storedList = Object.values(store);
-  if (storedList.length > 0) {
-    return {
-      tournament: storedList[storedList.length - 1],
-      isRegisterMode: urlSession.isRegisterMode,
-      isViewOnlyMode: urlSession.isViewOnlyMode
-    };
-  }
-
-  // 4. Default fallback: generate clean registration tournament
-  const defaultTour: Tournament = {
-    id: `tour_${Date.now()}`,
-    name: '2026 夏季戰鬥陀螺 X 雙翼極限爭霸賽',
-    targetSize: 16,
-    matchTargetScore: 4,
-    seedMode: 'manual',
-    seedCount: 4,
-    status: 'registration',
-    players: [],
-    matches: [],
-    createdAt: Date.now()
-  };
-  saveTournamentToStore(defaultTour);
+  // 4. Default: No active tournament - return null so the home page stays in empty/standby state
   return {
-    tournament: defaultTour,
+    tournament: null,
     isRegisterMode: urlSession.isRegisterMode,
     isViewOnlyMode: urlSession.isViewOnlyMode
   };
