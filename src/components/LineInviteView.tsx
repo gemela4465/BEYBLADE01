@@ -824,10 +824,16 @@ export const LineInviteView: React.FC<LineInviteViewProps> = ({
               +1 {simUserShortName} 飛翼鳳凰 9-60GF
             </button>
             <button
-              onClick={() => handleSendSimulatedMessage(`+1 ${simUserShortName}`)}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-slate-700 shrink-0 transition-colors"
+              onClick={() => handleSendSimulatedMessage(`++1 選手B 爆風巨神 3-60F`)}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg border border-slate-700 shrink-0 transition-colors"
             >
-              +1 {simUserShortName}
+              ++1 選手B 爆風巨神 3-60F
+            </button>
+            <button
+              onClick={() => handleSendSimulatedMessage(`-1 ${simUserShortName}`)}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-300 rounded-lg border border-slate-700 shrink-0 transition-colors"
+            >
+              -1 {simUserShortName}
             </button>
             <button
               onClick={() => handleSendSimulatedMessage('查榜')}

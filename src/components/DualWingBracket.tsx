@@ -180,7 +180,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
       {/* Bracket Controls Bar */}
       <div className="max-w-7xl mx-auto w-full px-4 flex flex-wrap items-center justify-between gap-3 bg-[#0a0c12]/90 border border-[#ffffff10] p-3 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)] backdrop-blur-md">
-        {/* Left: View Mode Switches (Requirement 5: 增加單側由左至右階層圖) */}
+        {/* Left: View Mode Switches */}
         <div className="flex items-center gap-1.5 bg-[#05070a] p-1 rounded-lg border border-[#ffffff10] flex-wrap">
           <button
             id="view-mode-dual-wing"
@@ -205,7 +205,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             }`}
           >
             <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
-            單側階層圖 (由左至右)
+            單側樹狀圖 (由左至右)
           </button>
 
           <button

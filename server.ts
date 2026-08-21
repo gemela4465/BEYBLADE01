@@ -1491,19 +1491,22 @@ async function startServer() {
   // Helper: Find active tournament
   function getActiveTournament(requestedId?: string): Tournament | null {
     if (requestedId && tournamentsDb[requestedId]) {
-      return tournamentsDb[requestedId];
+      const t = tournamentsDb[requestedId];
+      if (!t.isArchived && t.status !== 'completed') return t;
+      return t;
     }
     if (currentActiveTournamentId && tournamentsDb[currentActiveTournamentId]) {
-      return tournamentsDb[currentActiveTournamentId];
+      const t = tournamentsDb[currentActiveTournamentId];
+      if (!t.isArchived && t.status !== 'completed') return t;
     }
     const all = Object.values(tournamentsDb);
     if (all.length === 0) return null;
-    // Prioritize non-completed tournament
+    // Prioritize non-completed & non-archived tournament
     const active = all.find((t) => t.status !== 'completed' && !t.isArchived);
-    return active || all[all.length - 1];
+    return active || null;
   }
 
-  // Parse LINE registration message text (Requirements 3 & 4)
+  // Parse LINE registration message text
   function parseBotMessage(text: string): { 
     type: 'register' | 'proxy_register' | 'cancel' | 'query_list' | 'query_bracket' | 'help' | 'unknown';
     shortName?: string;
@@ -1512,8 +1515,8 @@ async function startServer() {
   } {
     const trimmed = text.trim();
 
-    // 1. Proxy registration: ++1 AAA [陀螺] or ++ AAA [陀螺] (Requirement 3)
-    const proxyMatch = trimmed.match(/^(\+\+1|\+\+|\+ ?\+ ?\d*|替報|代報)\s*([^\s\n]+)(?:\s+(.*))?$/i);
+    // 1. Proxy registration: ++1 AAA [陀螺] or ++ AAA [陀螺]
+    const proxyMatch = trimmed.match(/^(\+\+1|\+\+|\+ ?\+ ?\d*|替報|代報)\s*([^\s\n]+)?(?:\s+(.*))?$/i);
     if (proxyMatch) {
       return {
         type: 'proxy_register',
@@ -1522,7 +1525,7 @@ async function startServer() {
       };
     }
 
-    // 2. Cancellation: -1 AAA [確認] or -1 (Requirement 4)
+    // 2. Cancellation: -1 AAA [確認] or -1
     const cancelMatch = trimmed.match(/^(-\s*1|-|取消|退賽)\s*([^\s\n]+)?(?:\s+(確認|confirm))?$/i);
     if (cancelMatch) {
       return {
@@ -1532,8 +1535,8 @@ async function startServer() {
       };
     }
 
-    // 3. Self registration: +1 AAA [陀螺] or + AAA [陀螺] (Requirement 2)
-    const regMatch = trimmed.match(/^(\+1|\+ ?\d*|報名|登記)\s*([^\s\n]+)(?:\s+(.*))?$/i);
+    // 3. Self registration: +1 AAA [陀螺] or + AAA [陀螺]
+    const regMatch = trimmed.match(/^(\+1|\+ ?\d*|報名|登記)\s*([^\s\n]+)?(?:\s+(.*))?$/i);
     if (regMatch) {
       return {
         type: 'register',
@@ -1542,8 +1545,16 @@ async function startServer() {
       };
     }
 
-    if (trimmed === '+1' || trimmed === '報名' || trimmed === '登記') {
+    if (trimmed === '+1' || trimmed === '+' || trimmed === '報名' || trimmed === '登記') {
       return { type: 'register' };
+    }
+
+    if (trimmed === '++' || trimmed === '++1' || trimmed === '代報' || trimmed === '替報') {
+      return { type: 'proxy_register' };
+    }
+
+    if (trimmed === '-' || trimmed === '-1' || trimmed === '取消' || trimmed === '退賽') {
+      return { type: 'cancel' };
     }
 
     // 4. Query List
@@ -1564,24 +1575,48 @@ async function startServer() {
     return { type: 'unknown' };
   }
 
-  // Handle bot command & return reply string + updated tournament (Requirements 1, 2, 3, 4)
+  // Handle bot command & return reply string + updated tournament
   function processBotCommand(
     text: string,
     sourceUser: { userId: string; displayName?: string; groupId?: string },
     targetTournamentId?: string
   ): { replyText: string; registered: boolean; player?: Player; tournament?: Tournament } {
     const tournament = getActiveTournament(targetTournamentId);
+    const parsed = parseBotMessage(text);
+    const trimmed = text.trim();
 
-    if (!tournament) {
+    // RULE 1: 無賽事期間，LINE BOT 則不再接受報名 所以有輸入 + ++ - 等訊息 一律 回覆目前無賽事可以報名
+    if (!tournament || tournament.status === 'completed' || tournament.isArchived) {
+      if (
+        parsed.type === 'register' ||
+        parsed.type === 'proxy_register' ||
+        parsed.type === 'cancel' ||
+        trimmed.startsWith('+') ||
+        trimmed.startsWith('-')
+      ) {
+        return {
+          replyText: '目前無賽事可以報名',
+          registered: false
+        };
+      }
+
+      if (parsed.type === 'help') {
+        return {
+          replyText: '目前無賽事可以報名。請待主辦方於後台建立新賽事後再行登記！',
+          registered: false
+        };
+      }
+
       return {
-        replyText: `⚠️ 目前尚未建立進行中的戰鬥陀螺雙翼賽事場次，請主辦方先於後台建立賽程！`,
+        replyText: '目前無賽事可以報名',
         registered: false
       };
     }
 
     const startTimeDisplay = tournament.startTime || '依大會現場公布';
     const deadlineDisplay = tournament.registrationDeadline || '額滿為止';
-    const parsed = parseBotMessage(text);
+    const isTournamentStarted = tournament.status === 'in_progress';
+    const isDeadlinePassed = checkDeadlinePassed(tournament.registrationDeadline);
 
     // Ensure players array
     if (!Array.isArray(tournament.players)) {
@@ -1593,20 +1628,18 @@ async function startServer() {
     ).length;
     const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
 
-    // Check if registration deadline has passed (Requirement 1 & 1.1)
-    const isDeadlinePassed = checkDeadlinePassed(tournament.registrationDeadline);
+    // RULE 3b: 已開賽 如有輸入 - 則回覆已開賽無法取消報名
+    if (isTournamentStarted && parsed.type === 'cancel') {
+      return {
+        replyText: '已開賽無法取消報名',
+        registered: false,
+        tournament
+      };
+    }
 
-    // CASE 1: PROXY REGISTRATION (++1 AAA 陀螺名稱) - Requirement 3
+    // CASE 1: PROXY REGISTRATION (++1 AAA 陀螺名稱)
     if (parsed.type === 'proxy_register') {
-      if (isDeadlinePassed) {
-        return {
-          replyText: `⚠️【報名已截止】\n🏆 賽事場次：${tournament.name}\n⏰ 報名截止時間：${deadlineDisplay}\n目前本場次已截止受理新登記，請靜候賽程公布！`,
-          registered: false,
-          tournament
-        };
-      }
-
-      const proxyPlayerName = parsed.shortName || '代報名選手';
+      const proxyPlayerName = parsed.shortName || '代報選手';
       const beybladeName = parsed.beyblade || '戰鬥陀螺 X (現場指定)';
 
       // Check if proxy player under this name already registered by this user
@@ -1625,6 +1658,24 @@ async function startServer() {
           existingProxy.customCombo = parsed.beyblade;
         }
         saveDb();
+
+        if (isTournamentStarted) {
+          return {
+            replyText: `賽事已開始，等候審核成為候補選手\n👤 選手簡稱：${existingProxy.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 賽事已開賽，更新候補資料`,
+            registered: true,
+            player: existingProxy,
+            tournament
+          };
+        }
+
+        if (isDeadlinePassed) {
+          return {
+            replyText: `報名截止，等候審核成為候補選手\n👤 選手簡稱：${existingProxy.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 報名截止，更新候補資料`,
+            registered: true,
+            player: existingProxy,
+            tournament
+          };
+        }
 
         const statusLabel = existingProxy.status === 'approved' ? '✅ 已通過審核正式排入賽程' : '⏳ 等待主辦方審核中';
         return {
@@ -1645,8 +1696,8 @@ async function startServer() {
         beybladeType: 'attack',
         blade: parsed.beyblade || '9-60GF',
         customCombo: parsed.beyblade || '9-60GF',
-        clubOrTeam: `LINE 代報名 (${sourceUser.displayName || '群友'})`,
-        teamName: `LINE 代報名 (${sourceUser.displayName || '群友'})`,
+        clubOrTeam: `LINE 代報 (${sourceUser.displayName || '群友'})`,
+        teamName: `LINE 代報 (${sourceUser.displayName || '群友'})`,
         status: 'pending',
         registeredAt: Date.now(),
         isSeed: false,
@@ -1659,6 +1710,26 @@ async function startServer() {
 
       console.log(`[LINE Bot Proxy Reg] Proxy player "${newProxyPlayer.name}" registered by User ${sourceUser.userId} (Group: ${sourceUser.groupId || 'none'}) to "${tournament.name}"`);
 
+      // RULE 3a: 已開賽的賽事期間 如有輸入 + ++ 則 回覆賽事已開始，等候審核成為候補選手
+      if (isTournamentStarted) {
+        return {
+          replyText: `賽事已開始，等候審核成為候補選手\n👤 選手簡稱：${newProxyPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 賽事已開賽進行中，等候主辦審核為候補或敗部復活名額`,
+          registered: true,
+          player: newProxyPlayer,
+          tournament
+        };
+      }
+
+      // RULE 2: 已截止報名的賽事期間 如有輸入 + ++ 則 回覆報名截止，等候審核成為候補選手
+      if (isDeadlinePassed) {
+        return {
+          replyText: `報名截止，等候審核成為候補選手\n👤 選手簡稱：${newProxyPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 報名已截止，等候主辦審核為候補名額`,
+          registered: true,
+          player: newProxyPlayer,
+          tournament
+        };
+      }
+
       return {
         replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newProxyPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
         registered: true,
@@ -1667,16 +1738,8 @@ async function startServer() {
       };
     }
 
-    // CASE 2: SELF REGISTRATION (+1 AAA 陀螺名稱) - Requirement 2
+    // CASE 2: SELF REGISTRATION (+1 AAA 陀螺名稱)
     if (parsed.type === 'register') {
-      if (isDeadlinePassed) {
-        return {
-          replyText: `⚠️【報名已截止】\n🏆 賽事場次：${tournament.name}\n⏰ 報名截止時間：${deadlineDisplay}\n目前本場次已截止受理新登記，請靜候賽程公布！`,
-          registered: false,
-          tournament
-        };
-      }
-
       const finalShortName = parsed.shortName || sourceUser.displayName || '群組選手';
       const beybladeName = parsed.beyblade || '戰鬥陀螺 X (現場指定)';
 
@@ -1706,6 +1769,24 @@ async function startServer() {
           existing.customCombo = parsed.beyblade;
         }
         saveDb();
+
+        if (isTournamentStarted) {
+          return {
+            replyText: `賽事已開始，等候審核成為候補選手\n👤 選手簡稱：${existing.name}${existing.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 賽事進行中，已更新候補資料`,
+            registered: true,
+            player: existing,
+            tournament
+          };
+        }
+
+        if (isDeadlinePassed) {
+          return {
+            replyText: `報名截止，等候審核成為候補選手\n👤 選手簡稱：${existing.name}${existing.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 報名已截止，已更新候補資料`,
+            registered: true,
+            player: existing,
+            tournament
+          };
+        }
 
         const statusLabel = existing.status === 'approved' ? '✅ 已通過審核正式排入賽程' : '⏳ 等待主辦方審核中';
         return {
@@ -1741,6 +1822,26 @@ async function startServer() {
 
       console.log(`[LINE Bot Webhook] Registered player "${newPlayer.name}" (VIP: ${newPlayer.isVip}, LINE ID: ${sourceUser.userId}, Group: ${sourceUser.groupId || 'none'}) to tournament "${tournament.name}"`);
 
+      // RULE 3a: 已開賽的賽事期間 如有輸入 + ++ 則 回覆賽事已開始，等候審核成為候補選手
+      if (isTournamentStarted) {
+        return {
+          replyText: `賽事已開始，等候審核成為候補選手\n👤 選手簡稱：${newPlayer.name}${newPlayer.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 賽事已開賽進行中，等候主辦審核為候補或敗部復活名額`,
+          registered: true,
+          player: newPlayer,
+          tournament
+        };
+      }
+
+      // RULE 2: 已截止報名的賽事期間 如有輸入 + ++ 則 回覆報名截止，等候審核成為候補選手
+      if (isDeadlinePassed) {
+        return {
+          replyText: `報名截止，等候審核成為候補選手\n👤 選手簡稱：${newPlayer.name}${newPlayer.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 報名已截止，等候主辦審核為候補名額`,
+          registered: true,
+          player: newPlayer,
+          tournament
+        };
+      }
+
       return {
         replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newPlayer.name}${newPlayer.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
         registered: true,
@@ -1749,7 +1850,7 @@ async function startServer() {
       };
     }
 
-    // CASE 3: CANCEL REGISTRATION (-1 AAA) - Requirement 4
+    // CASE 3: CANCEL REGISTRATION (-1 AAA)
     if (parsed.type === 'cancel') {
       const targetName = parsed.shortName;
 
@@ -1768,7 +1869,7 @@ async function startServer() {
       // If player not found
       if (targetPlayerIndex === -1) {
         return {
-          replyText: `⚠️【取消報名失敗】\n找不到名為「${targetName || '您本人'}」的報名成員。\n請確認選手簡稱是否輸入正確（例如：「-1 選手簡稱」）！`,
+          replyText: `⚠️【取消報名失敗】\n找不到名為「${targetName || '您本人'}」的報名選手。\n請確認選手簡稱是否輸入正確（例如：「-1 選手簡稱」）！`,
           registered: false,
           tournament
         };
@@ -1792,7 +1893,7 @@ async function startServer() {
         };
       }
 
-      // If approved: check for confirmation
+      // If approved: check for confirmation (only allowed before tournament started)
       if (targetPlayer.status === 'approved') {
         if (parsed.isConfirmCancel) {
           const removedPlayerName = targetPlayer.name;
@@ -1852,7 +1953,7 @@ async function startServer() {
 
       const matchInfo = activeMatches.length > 0
         ? `🔥 當前激戰中的對戰：\n` + activeMatches.map((m) => `• #${m.matchNumber} ${m.label}: ${m.score1} vs ${m.score2}`).join('\n')
-        : `⚡ 目前進度：已完賽 ${completedCount}/${totalMatches} 場 (${tournament.status === 'in_progress' ? '進行中' : tournament.status === 'completed' ? '已完賽' : '登記中'})`;
+        : `⚡ 目前進度：已完賽 ${completedCount}/${totalMatches} 場 (${tournament.status === 'in_progress' ? '進行中' : '登記中'})`;
 
       return {
         replyText: `⚔️【${tournament.name} 即時賽程與戰況】\n${matchInfo}${championText}\n🎯 獲勝分制：${tournament.matchTargetScore} 分\n🏆 總規模：${tournament.targetSize} 人雙翼淘汰賽\n⏰ 開賽時間：${startTimeDisplay}\n\n🌐 線上即時唯讀賽程看板（即時連線更新）：\n請至官方發布的唯讀賽程連結查看完整樹狀圖與各回合擊倒比分！`,
