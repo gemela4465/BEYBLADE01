@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Download, Copy, Check, FileText, Share2, X, Printer, Trophy } from 'lucide-react';
+import { Download, Copy, Check, FileText, Share2, X, Printer, Trophy, Eye, ExternalLink } from 'lucide-react';
 import { Tournament, Player } from '../types';
-import { buildRegistrationUrl } from '../utils/sessionHelper';
+import { buildRegistrationUrl, buildReadOnlyBracketUrl } from '../utils/sessionHelper';
 
 interface ExportShareModalProps {
   tournament: Tournament | null;
@@ -15,11 +15,15 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
   onClose
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   if (!isOpen || !tournament) return null;
 
   const playerMap = new Map<string, Player>();
   tournament.players.forEach((p) => playerMap.set(p.id, p));
+
+  const readOnlyUrl = buildReadOnlyBracketUrl(tournament);
+  const regUrl = buildRegistrationUrl(tournament);
 
   const generateReportText = () => {
     const lines: string[] = [];
@@ -51,8 +55,8 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
       lines.push(`• #${m.matchNumber} ${m.label}: ${p1 ? p1.name : '待定'} vs ${p2 ? p2.name : '待定'} ${statusText}`);
     });
 
-    const regUrl = buildRegistrationUrl(tournament);
-    lines.push(`\n🔗 本場次 LINE 參賽登記專屬連結 (僅顯示場次與登記內容)：\n${regUrl}`);
+    lines.push(`\n🌐 線上即時唯讀賽程表（數據實時同步，不可修改戰績）：\n${readOnlyUrl}`);
+    lines.push(`\n🔗 LINE 選手登記專屬連結：\n${regUrl}`);
     return lines.join('\n');
   };
 
@@ -60,6 +64,12 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
     navigator.clipboard.writeText(generateReportText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyReadOnlyUrl = () => {
+    navigator.clipboard.writeText(readOnlyUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleDownloadJSON = () => {
@@ -95,18 +105,26 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
           </div>
           <div>
             <h3 className="text-lg font-black text-white tracking-wide">匯出賽事資料與 LINE 戰報</h3>
-            <p className="text-xs text-gray-400 font-mono">一鍵複製格式化文字傳送至 LINE 群組，或備份完整賽程紀錄</p>
+            <p className="text-xs text-gray-400 font-mono">一鍵複製格式化文字傳送至 LINE 群組，或分享唯讀即時賽程網址</p>
           </div>
         </div>
 
         {/* Quick Action buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 font-mono">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5 font-mono">
+          <button
+            onClick={handleCopyReadOnlyUrl}
+            className="p-3 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-300 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+          >
+            {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Eye className="w-4 h-4" />}
+            {copiedLink ? '已複製唯讀網址！' : '複製唯讀即時賽程網址'}
+          </button>
+
           <button
             onClick={handleCopyText}
             className="p-3 bg-[#00f2ff]/10 hover:bg-[#00f2ff]/20 border border-[#00f2ff]/30 rounded-xl text-xs font-bold text-[#00f2ff] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,242,255,0.1)]"
           >
             {copied ? <Check className="w-4 h-4 text-[#00f2ff]" /> : <Copy className="w-4 h-4" />}
-            {copied ? '已複製 LINE 戰報！' : '複製 LINE 群組戰報'}
+            {copied ? '已複製戰報！' : '複製 LINE 群戰報'}
           </button>
 
           <button
@@ -114,7 +132,7 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
             className="p-3 bg-[#7000ff]/15 hover:bg-[#7000ff]/25 border border-[#7000ff]/30 rounded-xl text-xs font-bold text-purple-300 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(112,0,255,0.1)]"
           >
             <Download className="w-4 h-4" />
-            下載 JSON 賽程備份
+            下載 JSON 備份
           </button>
 
           <button
@@ -122,7 +140,7 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
             className="p-3 bg-[#11141d] hover:bg-[#ffffff10] border border-[#ffffff10] rounded-xl text-xs font-bold text-gray-300 transition-all flex items-center justify-center gap-2"
           >
             <Printer className="w-4 h-4" />
-            列印 / 存為 PDF
+            列印 / PDF
           </button>
         </div>
 
@@ -132,7 +150,7 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
           <textarea
             readOnly
             value={generateReportText()}
-            rows={12}
+            rows={10}
             className="w-full p-3 bg-[#05070a] border border-[#ffffff15] rounded-xl text-xs font-mono text-gray-300 focus:outline-none focus:border-[#00f2ff] resize-none"
           />
         </div>

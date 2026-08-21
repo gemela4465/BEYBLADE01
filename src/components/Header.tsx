@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenResetModal: () => void;
   onOpenBroadcastModal?: () => void;
   onToggleLineOnlyMode?: () => void;
+  onToggleSpectatorMode?: () => void;
   pendingCount: number;
 }
 
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenResetModal,
   onOpenBroadcastModal,
   onToggleLineOnlyMode,
+  onToggleSpectatorMode,
   pendingCount
 }) => {
   const readOnly = isViewOnlyMode();
@@ -105,6 +107,18 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Link2 className="w-3.5 h-3.5" />
                 LINE 報名視角
+              </button>
+            )}
+
+            {!readOnly && onToggleSpectatorMode && (
+              <button
+                id="btn-preview-spectator-mode"
+                onClick={onToggleSpectatorMode}
+                className="px-3 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/40 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                title="預覽或切換至線上即時唯讀賽程表看板"
+              >
+                <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                唯讀即時看板
               </button>
             )}
 

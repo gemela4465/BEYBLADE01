@@ -9,6 +9,7 @@ import {
   saveTournamentToStore, 
   buildRegistrationUrl, 
   buildAdminUrl, 
+  buildReadOnlyBracketUrl,
   parseTournamentSessionFromUrl 
 } from './utils/sessionHelper';
 import {
@@ -34,12 +35,14 @@ import { ExportShareModal } from './components/ExportShareModal';
 import { ResetTournamentModal } from './components/ResetTournamentModal';
 import { TournamentHistoryModal } from './components/TournamentHistoryModal';
 import { BroadcastAnnouncementModal } from './components/BroadcastAnnouncementModal';
+import { SpectatorLiveBracketView } from './components/SpectatorLiveBracketView';
 import { Trophy, Swords, Users, Shield, Plus, Sparkles } from 'lucide-react';
 
 export default function App() {
   const initial = loadInitialTournament();
   const [tournament, setTournament] = useState<Tournament | null>(initial.tournament);
   const [isLineOnlyMode, setIsLineOnlyMode] = useState<boolean>(initial.isRegisterMode);
+  const [isViewOnlyModeState, setIsViewOnlyModeState] = useState<boolean>(initial.isViewOnlyMode);
 
   const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium'>('bracket');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -111,6 +114,7 @@ export default function App() {
     const handleLocationChange = () => {
       const urlSession = parseTournamentSessionFromUrl();
       setIsLineOnlyMode(urlSession.isRegisterMode);
+      setIsViewOnlyModeState(urlSession.isViewOnlyMode);
       if (urlSession.tid && (!tournament || tournament.id !== urlSession.tid)) {
         const loaded = loadInitialTournament();
         setTournament(loaded.tournament);
@@ -499,9 +503,10 @@ export default function App() {
   const pendingCount = tournament?.players.filter((p) => p.status === 'pending').length || 0;
   const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
 
-  // Handle switching between admin mode and pure registration mode
+  // Handle switching between admin mode and pure registration mode / spectator mode
   const handleSwitchToAdmin = () => {
     setIsLineOnlyMode(false);
+    setIsViewOnlyModeState(false);
     if (tournament) {
       const adminUrl = buildAdminUrl(tournament);
       window.history.pushState({}, '', adminUrl);
@@ -515,6 +520,7 @@ export default function App() {
 
   const handleSwitchToLineMode = () => {
     setIsLineOnlyMode(true);
+    setIsViewOnlyModeState(false);
     if (tournament) {
       const regUrl = buildRegistrationUrl(tournament);
       window.history.pushState({}, '', regUrl);
@@ -525,7 +531,30 @@ export default function App() {
     }
   };
 
-  // Pure LINE Registration view (只顯示場次與登記內容，其他完全不顯示)
+  const handleSwitchToSpectatorMode = () => {
+    setIsViewOnlyModeState(true);
+    setIsLineOnlyMode(false);
+    if (tournament) {
+      const viewUrl = buildReadOnlyBracketUrl(tournament);
+      window.history.pushState({}, '', viewUrl);
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.set('mode', 'view');
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  // 1. Pure Read-Only Spectator Live Bracket View (單獨網頁，不可修改戰績，數據即時自動更新)
+  if (isViewOnlyModeState && tournament) {
+    return (
+      <SpectatorLiveBracketView
+        initialTournament={tournament}
+        onSwitchToAdmin={handleSwitchToAdmin}
+      />
+    );
+  }
+
+  // 2. Pure LINE Registration view (只顯示場次與登記內容，其他完全不顯示)
   if (isLineOnlyMode) {
     return (
       <div className="min-h-screen bg-[#05070a] text-[#e0e6ed] flex flex-col font-sans selection:bg-[#00f2ff] selection:text-black relative overflow-x-hidden">
@@ -574,6 +603,7 @@ export default function App() {
         onOpenResetModal={() => setIsResetModalOpen(true)}
         onOpenBroadcastModal={() => setIsBroadcastModalOpen(true)}
         onToggleLineOnlyMode={handleSwitchToLineMode}
+        onToggleSpectatorMode={handleSwitchToSpectatorMode}
         pendingCount={pendingCount}
       />
 

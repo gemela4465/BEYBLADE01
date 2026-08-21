@@ -12,20 +12,24 @@ import { isViewOnlyMode } from '../utils/sessionHelper';
 interface DualWingBracketProps {
   tournament: Tournament;
   onSelectMatch: (match: Match) => void;
-  onOpenCreateModal: () => void;
+  onOpenCreateModal?: () => void;
+  isReadOnly?: boolean;
+  highlightedPlayerName?: string;
 }
 
 export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   tournament,
   onSelectMatch,
-  onOpenCreateModal
+  onOpenCreateModal,
+  isReadOnly = false,
+  highlightedPlayerName
 }) => {
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<'bracket' | 'rounds' | 'list'>('bracket');
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
   const bracketContainerRef = useRef<HTMLDivElement>(null);
-  const readOnly = isViewOnlyMode();
+  const effectiveReadOnly = isViewOnlyMode() || isReadOnly;
 
   const playerMap = new Map<string, Player>();
   tournament.players.forEach((p) => playerMap.set(p.id, p));
@@ -116,7 +120,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
         {/* Right: Zoom, Share & Quick Tools */}
         <div className="flex items-center gap-2">
-          {!readOnly && (
+          {!effectiveReadOnly && (
             <button
               onClick={() => setIsBroadcastModalOpen(true)}
               className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#06C755]/20 to-[#00f2ff]/20 hover:from-[#06C755]/30 hover:to-[#00f2ff]/30 border border-[#06C755]/40 text-[#06C755] text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(6,199,85,0.15)]"
@@ -188,6 +192,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                             match={match}
                             playerMap={playerMap}
                             onSelectMatch={onSelectMatch}
+                            isReadOnly={effectiveReadOnly}
+                            highlightedPlayerName={highlightedPlayerName}
                           />
                           {/* Connecting circuit line to right */}
                           <div className="w-8 h-[2px] bg-gradient-to-r from-[#00f2ff]/40 to-[#00f2ff]/10 pointer-events-none" />
@@ -222,6 +228,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     playerMap={playerMap}
                     onSelectMatch={onSelectMatch}
                     isCenter={true}
+                    isReadOnly={effectiveReadOnly}
+                    highlightedPlayerName={highlightedPlayerName}
                   />
                 </div>
               )}
@@ -258,6 +266,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                       match={thirdPlaceMatch}
                       playerMap={playerMap}
                       onSelectMatch={onSelectMatch}
+                      isReadOnly={effectiveReadOnly}
+                      highlightedPlayerName={highlightedPlayerName}
                     />
                   </div>
                 </div>
@@ -287,6 +297,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                               match={match}
                               playerMap={playerMap}
                               onSelectMatch={onSelectMatch}
+                              isReadOnly={effectiveReadOnly}
+                              highlightedPlayerName={highlightedPlayerName}
                             />
                           </div>
                         ))}
@@ -338,6 +350,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     playerMap={playerMap}
                     onSelectMatch={onSelectMatch}
                     isCenter={match.bracketWing === 'final'}
+                    isReadOnly={effectiveReadOnly}
+                    highlightedPlayerName={highlightedPlayerName}
                   />
                 </div>
               ))}

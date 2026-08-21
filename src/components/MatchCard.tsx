@@ -7,13 +7,17 @@ interface MatchCardProps {
   playerMap: Map<string, Player>;
   onSelectMatch: (match: Match) => void;
   isCenter?: boolean;
+  isReadOnly?: boolean;
+  highlightedPlayerName?: string;
 }
 
 export const MatchCard: React.FC<MatchCardProps> = ({
   match,
   playerMap,
   onSelectMatch,
-  isCenter = false
+  isCenter = false,
+  isReadOnly = false,
+  highlightedPlayerName
 }) => {
   const p1 = match.player1Id ? playerMap.get(match.player1Id) : null;
   const p2 = match.player2Id ? playerMap.get(match.player2Id) : null;
@@ -21,6 +25,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const isCompleted = match.status === 'completed';
   const isBye = match.status === 'bye';
   const isInProgress = match.status === 'in_progress' || (p1 && p2 && !isCompleted);
+
+  const isP1Highlighted = highlightedPlayerName && p1?.name.toLowerCase().includes(highlightedPlayerName.toLowerCase().trim());
+  const isP2Highlighted = highlightedPlayerName && p2?.name.toLowerCase().includes(highlightedPlayerName.toLowerCase().trim());
+  const hasHighlight = isP1Highlighted || isP2Highlighted;
 
   const getAttributeColor = (type?: BeybladeType) => {
     switch (type) {
@@ -57,7 +65,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         if (p1 || p2) onSelectMatch(match);
       }}
       className={`relative w-72 rounded-xl transition-all duration-200 cursor-pointer overflow-hidden border ${
-        isCenter
+        hasHighlight
+          ? 'bg-[#0e1726] border-[#00f2ff] shadow-[0_0_30px_rgba(0,242,255,0.4)] ring-2 ring-[#00f2ff]/60 scale-[1.02]'
+          : isCenter
           ? 'bg-[#0e111a] border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:border-amber-300'
           : match.status === 'completed'
           ? 'bg-[#0a0c12] border-[#ffffff15] hover:border-[#00f2ff]/50'
@@ -81,7 +91,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           <span className="text-gray-600">•</span>
           <span className="text-gray-400 truncate max-w-[120px]">{match.label}</span>
         </div>
-        <div>{getStatusBadge()}</div>
+        <div className="flex items-center gap-1.5">
+          {hasHighlight && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-[#00f2ff] text-black uppercase tracking-wider animate-bounce">
+              搜尋命中
+            </span>
+          )}
+          {getStatusBadge()}
+        </div>
       </div>
 
       {/* Players Section */}
@@ -205,9 +222,15 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       {/* Bottom hint */}
       <div className="px-3 py-1 bg-[#05070a]/70 border-t border-[#ffffff0a] text-[10px] text-gray-400 flex items-center justify-between font-mono">
         <span>{match.roundsHistory.length > 0 ? `已戰 ${match.roundsHistory.length} 回合` : '0-11分 高者晉級'}</span>
-        <span className="text-[#00f2ff] font-bold hover:underline flex items-center gap-0.5">
-          點擊裁判計分 ➔
-        </span>
+        {isReadOnly ? (
+          <span className="text-[#00f2ff] font-medium flex items-center gap-0.5">
+            {isCompleted ? '✓ 已完賽記錄' : '⚡ 觀看戰況 ➔'}
+          </span>
+        ) : (
+          <span className="text-[#00f2ff] font-bold hover:underline flex items-center gap-0.5">
+            點擊裁判計分 ➔
+          </span>
+        )}
       </div>
     </div>
   );

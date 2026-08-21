@@ -41,7 +41,7 @@ interface Match {
   score2: number;
   winnerId: string | null;
   loserId: string | null;
-  status: 'pending' | 'ready' | 'in_progress' | 'completed';
+  status: 'pending' | 'ready' | 'in_progress' | 'completed' | 'bye';
   nextMatchId: string | null;
   nextMatchSlot: 1 | 2 | null;
   targetScore: number;
@@ -1484,15 +1484,23 @@ async function startServer() {
       };
     }
 
-    // CASE 5: QUERY BRACKET (賽程 / 樹狀圖)
+    // CASE 5: QUERY BRACKET (賽程 / 樹狀圖 / 即時賽況)
     if (parsed.type === 'query_bracket') {
       const activeMatches = tournament.matches.filter((m) => m.status === 'in_progress');
+      const completedCount = tournament.matches.filter((m) => m.status === 'completed' || m.status === 'bye').length;
+      const totalMatches = tournament.matches.length;
+      
+      let championText = '';
+      if (tournament.rankings?.champion) {
+        championText = `\n👑 榮耀冠軍：${tournament.rankings.champion.name} (${tournament.rankings.champion.beybladeName})`;
+      }
+
       const matchInfo = activeMatches.length > 0
         ? `🔥 當前激戰中的對戰：\n` + activeMatches.map((m) => `• #${m.matchNumber} ${m.label}: ${m.score1} vs ${m.score2}`).join('\n')
-        : `⚡ 目前狀態：${tournament.status === 'in_progress' ? '賽事進行中' : tournament.status === 'completed' ? '賽事已完賽' : '登記報名階段'}`;
+        : `⚡ 目前進度：已完賽 ${completedCount}/${totalMatches} 場 (${tournament.status === 'in_progress' ? '進行中' : tournament.status === 'completed' ? '已完賽' : '登記中'})`;
 
       return {
-        replyText: `⚔️【${tournament.name} 賽程狀態】\n${matchInfo}\n🎯 獲勝分制：${tournament.matchTargetScore} 分\n🏆 總規模：${tournament.targetSize} 人雙翼淘汰賽\n⏰ 開賽時間：${startTimeDisplay}`,
+        replyText: `⚔️【${tournament.name} 即時賽程與戰況】\n${matchInfo}${championText}\n🎯 獲勝分制：${tournament.matchTargetScore} 分\n🏆 總規模：${tournament.targetSize} 人雙翼淘汰賽\n⏰ 開賽時間：${startTimeDisplay}\n\n🌐 線上即時唯讀賽程看板（即時連線更新）：\n請至官方發布的唯讀賽程連結查看完整樹狀圖與各回合擊倒比分！`,
         registered: false,
         tournament
       };
