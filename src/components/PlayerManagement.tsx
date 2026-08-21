@@ -57,7 +57,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [manualIsSeed, setManualIsSeed] = useState(false);
   const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
 
-  const players = tournament?.players || [];
+  // Strictly filter out any reserve players: only allow LINE participants and manually added participants
+  const rawPlayers = tournament?.players || [];
+  const players = rawPlayers.filter((p) => !p.isReserve && !p.id.startsWith('player_reserve_'));
   const pendingPlayers = players.filter((p) => p.status === 'pending');
   const approvedPlayers = players.filter((p) => p.status === 'approved');
   const targetSize = tournament?.targetSize || 16;

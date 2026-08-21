@@ -191,21 +191,19 @@ export function loadInitialTournament(): {
     const sessionSeedMode = urlSession.seedMode || 'manual';
     const sessionSeedCount = urlSession.seedCount ?? 4;
 
-    const freshTournament = generateDualWingBracket(
-      sessionName,
-      sessionSize,
-      [], // clean participant roster for fresh registration
-      sessionSeedMode,
-      sessionSeedCount,
-      sessionScore
-    );
-
-    // Override ID and timestamp to match the creator's exact session
-    freshTournament.id = urlSession.tid;
-    if (urlSession.createdAt) {
-      freshTournament.createdAt = urlSession.createdAt;
-      freshTournament.startedAt = urlSession.createdAt;
-    }
+    const freshTournament: Tournament = {
+      id: urlSession.tid,
+      name: sessionName,
+      targetSize: sessionSize,
+      matchTargetScore: sessionScore,
+      seedMode: sessionSeedMode,
+      seedCount: sessionSeedCount,
+      status: 'registration',
+      players: [],
+      matches: [],
+      createdAt: urlSession.createdAt || Date.now(),
+      startedAt: urlSession.createdAt || Date.now()
+    };
 
     saveTournamentToStore(freshTournament);
     return {
@@ -235,15 +233,19 @@ export function loadInitialTournament(): {
     };
   }
 
-  // 4. Default fallback: generate standard tournament
-  const defaultTour = generateDualWingBracket(
-    '2026 夏季戰鬥陀螺 X 雙翼極限爭霸賽',
-    16,
-    [],
-    'manual',
-    4,
-    4
-  );
+  // 4. Default fallback: generate clean registration tournament
+  const defaultTour: Tournament = {
+    id: `tour_${Date.now()}`,
+    name: '2026 夏季戰鬥陀螺 X 雙翼極限爭霸賽',
+    targetSize: 16,
+    matchTargetScore: 4,
+    seedMode: 'manual',
+    seedCount: 4,
+    status: 'registration',
+    players: [],
+    matches: [],
+    createdAt: Date.now()
+  };
   saveTournamentToStore(defaultTour);
   return {
     tournament: defaultTour,

@@ -9,6 +9,8 @@ interface Player {
   seedRank?: number;
   seedNumber?: number;
   isSeed?: boolean;
+  isReserve?: boolean;
+  reserveIndex?: number;
   score?: number;
   totalPointsScored?: number;
   status: 'pending' | 'approved' | 'rejected';
@@ -393,9 +395,11 @@ async function startServer() {
     const customTitle = tournament.customTitle || "戰鬥陀螺 X 雙翼極限爭霸賽";
     tournament.name = `${datePrefix}-${sessionNum}-${customTitle}`;
 
-    // Filter players based on keepApproved option
+    // Filter players based on keepApproved option (excluding any reserve players)
     if (keepApproved) {
-      tournament.players = (tournament.players || []).filter((p) => p.status === "approved");
+      tournament.players = (tournament.players || []).filter(
+        (p) => p.status === "approved" && !p.isReserve && !p.id.startsWith("player_reserve_")
+      );
       // Reset match states on players
       tournament.players.forEach((p) => {
         p.score = 0;
@@ -1244,7 +1248,9 @@ async function startServer() {
       tournament.players = [];
     }
 
-    const approvedCount = tournament.players.filter((p) => p.status === 'approved').length;
+    const approvedCount = tournament.players.filter(
+      (p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')
+    ).length;
     const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
 
     // Check if registration deadline has passed (Requirement 1 & 1.1)
@@ -1265,7 +1271,7 @@ async function startServer() {
 
       // Check if proxy player under this name already registered by this user
       const existingProxy = tournament.players.find(
-        (p) => p.name.toLowerCase() === proxyPlayerName.toLowerCase() && p.registeredByLineId === sourceUser.userId
+        (p) => !p.isReserve && p.name.toLowerCase() === proxyPlayerName.toLowerCase() && p.registeredByLineId === sourceUser.userId
       );
 
       if (existingProxy) {
@@ -1336,7 +1342,7 @@ async function startServer() {
 
       // Check existing player by user's own LINE ID
       const existing = tournament.players.find(
-        (p) => (!p.isProxy && p.lineId === sourceUser.userId) || (!p.isProxy && p.name.toLowerCase() === finalShortName.toLowerCase() && p.lineId === sourceUser.userId)
+        (p) => (!p.isReserve && !p.isProxy && p.lineId === sourceUser.userId) || (!p.isReserve && !p.isProxy && p.name.toLowerCase() === finalShortName.toLowerCase() && p.lineId === sourceUser.userId)
       );
 
       if (existing) {
@@ -1402,11 +1408,11 @@ async function startServer() {
       let targetPlayerIndex = -1;
       if (targetName) {
         targetPlayerIndex = tournament.players.findIndex(
-          (p) => p.name.toLowerCase() === targetName.toLowerCase()
+          (p) => !p.isReserve && p.name.toLowerCase() === targetName.toLowerCase()
         );
       } else {
         targetPlayerIndex = tournament.players.findIndex(
-          (p) => !p.isProxy && p.lineId === sourceUser.userId
+          (p) => !p.isReserve && !p.isProxy && p.lineId === sourceUser.userId
         );
       }
 
@@ -1427,7 +1433,7 @@ async function startServer() {
         tournament.players.splice(targetPlayerIndex, 1);
         saveDb();
 
-        const updatedApproved = tournament.players.filter((p) => p.status === 'approved').length;
+        const updatedApproved = tournament.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')).length;
         const updatedRemaining = Math.max(0, tournament.targetSize - updatedApproved);
 
         return {
@@ -1444,7 +1450,7 @@ async function startServer() {
           tournament.players.splice(targetPlayerIndex, 1);
           saveDb();
 
-          const updatedApproved = tournament.players.filter((p) => p.status === 'approved').length;
+          const updatedApproved = tournament.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')).length;
           const updatedRemaining = Math.max(0, tournament.targetSize - updatedApproved);
 
           return {
@@ -1467,8 +1473,8 @@ async function startServer() {
 
     // CASE 4: QUERY LIST (查榜 / 名單)
     if (parsed.type === 'query_list') {
-      const approved = tournament.players.filter((p) => p.status === 'approved');
-      const pending = tournament.players.filter((p) => p.status === 'pending');
+      const approved = tournament.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_'));
+      const pending = tournament.players.filter((p) => p.status === 'pending' && !p.isReserve && !p.id.startsWith('player_reserve_'));
       const approvedList = approved.length > 0 
         ? approved.map((p, i) => `${i + 1}. ${p.name}${p.isProxy ? ' (代報)' : ''} [${p.beybladeName || '陀螺'}]`).join('\n')
         : '（尚無正式核准選手）';

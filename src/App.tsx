@@ -156,11 +156,11 @@ export default function App() {
     populateSamplePlayers: boolean;
     broadcastToLine?: boolean;
   }) => {
-    let initialPlayers: Player[] = [];
+    let newTournament: Tournament;
 
     if (config.populateSamplePlayers) {
       // Build sample players matching the target size
-      initialPlayers = Array.from({ length: config.targetSize }, (_, idx) => {
+      const initialPlayers: Player[] = Array.from({ length: config.targetSize }, (_, idx) => {
         const sample = SAMPLE_PLAYERS[idx % SAMPLE_PLAYERS.length];
         const isSeed = config.seedMode !== 'none' && idx < config.seedCount;
         const b = POPULAR_BEYBLADES[idx % POPULAR_BEYBLADES.length];
@@ -178,16 +178,30 @@ export default function App() {
           seedNumber: isSeed ? idx + 1 : undefined
         };
       });
-    }
 
-    const newTournament = generateDualWingBracket(
-      config.name,
-      config.targetSize,
-      initialPlayers,
-      config.seedMode,
-      config.seedCount,
-      config.targetScore
-    );
+      newTournament = generateDualWingBracket(
+        config.name,
+        config.targetSize,
+        initialPlayers,
+        config.seedMode,
+        config.seedCount,
+        config.targetScore
+      );
+    } else {
+      // Clean new tournament session for LINE and manual registrations: start in 'registration' status with 0 members
+      newTournament = {
+        id: `tour_${Date.now()}`,
+        name: config.name,
+        targetSize: config.targetSize,
+        matchTargetScore: config.targetScore,
+        seedMode: config.seedMode,
+        seedCount: config.seedCount,
+        status: 'registration',
+        players: [],
+        matches: [],
+        createdAt: Date.now()
+      };
+    }
 
     // Attach extended tournament metadata (Requirements 1 & 1.1)
     newTournament.datePrefix = config.datePrefix;
@@ -206,7 +220,7 @@ export default function App() {
     }
 
     setTournament(newTournament);
-    setActiveTab('bracket');
+    setActiveTab(config.populateSamplePlayers ? 'bracket' : 'players');
 
     // Update URL to point to this new tournament session
     if (typeof window !== 'undefined') {
@@ -227,27 +241,37 @@ export default function App() {
     if (!tournament) return;
     const res = await resetTournamentApi(tournament.id, options);
     if (res.success && res.tournament) {
-      setTournament(res.tournament);
-      saveTournamentToStore(res.tournament);
-      await setActiveTournamentApi(res.tournament.id);
+      // Purge any reserve players from returned tournament players list
+      const cleanTour = {
+        ...res.tournament,
+        players: (res.tournament.players || []).filter((p: Player) => !p.isReserve && !p.id.startsWith('player_reserve_'))
+      };
+      setTournament(cleanTour);
+      saveTournamentToStore(cleanTour);
+      await setActiveTournamentApi(cleanTour.id);
     } else {
       // Local fallback reset
       const keptPlayers = options.keepApproved
-        ? tournament.players.filter((p) => p.status === 'approved')
+        ? tournament.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_'))
         : [];
       
-      const resetTour = generateDualWingBracket(
-        options.newCustomTitle ? `${tournament.datePrefix || ''}-${options.newSessionNumber || ''}-${options.newCustomTitle}` : tournament.name,
-        tournament.targetSize,
-        keptPlayers,
-        tournament.seedMode,
-        tournament.seedCount,
-        tournament.matchTargetScore
-      );
-      resetTour.sessionNumber = options.newSessionNumber || tournament.sessionNumber;
-      resetTour.customTitle = options.newCustomTitle || tournament.customTitle;
-      resetTour.startTime = options.newStartTime || tournament.startTime;
-      resetTour.registrationDeadline = options.newDeadline || tournament.registrationDeadline;
+      const resetTour: Tournament = {
+        id: tournament.id,
+        name: options.newCustomTitle ? `${tournament.datePrefix || ''}-${options.newSessionNumber || ''}-${options.newCustomTitle}` : tournament.name,
+        datePrefix: tournament.datePrefix,
+        sessionNumber: options.newSessionNumber || tournament.sessionNumber,
+        customTitle: options.newCustomTitle || tournament.customTitle,
+        startTime: options.newStartTime || tournament.startTime,
+        registrationDeadline: options.newDeadline || tournament.registrationDeadline,
+        targetSize: tournament.targetSize,
+        matchTargetScore: tournament.matchTargetScore,
+        seedMode: tournament.seedMode,
+        seedCount: tournament.seedCount,
+        status: 'registration',
+        players: keptPlayers,
+        matches: [],
+        createdAt: Date.now()
+      };
       
       setTournament(resetTour);
       saveTournamentToStore(resetTour);
@@ -401,7 +425,7 @@ export default function App() {
   // Randomize seeds among approved players
   const handleRandomizeSeeds = (seedCount: number) => {
     if (!tournament) return;
-    const approved = tournament.players.filter((p) => p.status === 'approved');
+    const approved = tournament.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_'));
     const shuffled = [...approved].sort(() => Math.random() - 0.5);
 
     const updatedMap = new Map<string, { isSeed: boolean; seedNumber?: number }>();
@@ -461,19 +485,29 @@ export default function App() {
   // Re-generate Dual-Wing Bracket based on approved players
   const handleGenerateBracket = () => {
     if (!tournament) return;
+    const realApprovedPlayers = tournament.players.filter(
+      (p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')
+    );
     const newTournament = generateDualWingBracket(
       tournament.name,
       tournament.targetSize,
-      tournament.players,
+      realApprovedPlayers,
       tournament.seedMode,
       tournament.seedCount,
       tournament.matchTargetScore
     );
+    newTournament.id = tournament.id;
     newTournament.datePrefix = tournament.datePrefix;
     newTournament.sessionNumber = tournament.sessionNumber;
     newTournament.customTitle = tournament.customTitle;
     newTournament.startTime = tournament.startTime;
     newTournament.registrationDeadline = tournament.registrationDeadline;
+
+    // Retain real pending players
+    const pendingPlayers = tournament.players.filter(
+      (p) => p.status === 'pending' && !p.isReserve && !p.id.startsWith('player_reserve_')
+    );
+    newTournament.players = [...newTournament.players, ...pendingPlayers];
 
     setTournament(newTournament);
     saveTournamentToStore(newTournament);
@@ -519,8 +553,8 @@ export default function App() {
     }
   };
 
-  const pendingCount = tournament?.players.filter((p) => p.status === 'pending').length || 0;
-  const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
+  const pendingCount = tournament?.players.filter((p) => p.status === 'pending' && !p.isReserve && !p.id.startsWith('player_reserve_')).length || 0;
+  const approvedCount = tournament?.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')).length || 0;
 
   // Handle switching between admin mode and pure registration mode / spectator mode
   const handleSwitchToAdmin = () => {
