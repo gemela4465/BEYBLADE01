@@ -1,0 +1,594 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Tournament, Player, Match, TournamentSize, BattleRoundRecord, BeybladeType 
+} from './types';
+import { SAMPLE_PLAYERS, POPULAR_BEYBLADES } from './data/beybladeData';
+import { generateDualWingBracket, recordMatchResult } from './utils/bracketGenerator';
+import { 
+  loadInitialTournament, 
+  saveTournamentToStore, 
+  buildRegistrationUrl, 
+  buildAdminUrl, 
+  parseTournamentSessionFromUrl 
+} from './utils/sessionHelper';
+import {
+  fetchTournamentApi,
+  saveTournamentApi,
+  registerPlayerApi,
+  updatePlayerStatusApi
+} from './utils/api';
+import { Header } from './components/Header';
+import { DualWingBracket } from './components/DualWingBracket';
+import { PlayerManagement } from './components/PlayerManagement';
+import { LineInviteView } from './components/LineInviteView';
+import { MatchRefereeModal } from './components/MatchRefereeModal';
+import { PodiumRankings } from './components/PodiumRankings';
+import { ScoreboardDisplay } from './components/ScoreboardDisplay';
+import { CreateTournamentModal } from './components/CreateTournamentModal';
+import { ExportShareModal } from './components/ExportShareModal';
+import { Trophy, Swords, Users, Shield, Plus, Sparkles } from 'lucide-react';
+
+export default function App() {
+  const initial = loadInitialTournament();
+  const [tournament, setTournament] = useState<Tournament | null>(initial.tournament);
+  const [isLineOnlyMode, setIsLineOnlyMode] = useState<boolean>(initial.isRegisterMode);
+
+  const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium'>('bracket');
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const isSyncingRef = useRef(false);
+
+  // Sync with server on initial mount
+  useEffect(() => {
+    if (tournament?.id) {
+      fetchTournamentApi(tournament.id).then((serverTour) => {
+        if (serverTour) {
+          setTournament(serverTour);
+          saveTournamentToStore(serverTour);
+        } else {
+          // If not on server, save current state to server
+          saveTournamentApi(tournament);
+        }
+      });
+    }
+  }, []);
+
+  // Background polling for real-time registrations from LINE on any device
+  useEffect(() => {
+    if (!tournament?.id) return;
+
+    const interval = setInterval(async () => {
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      try {
+        const serverTour = await fetchTournamentApi(tournament.id);
+        if (serverTour && serverTour.id === tournament.id) {
+          // Check if players count or player status changed
+          const localPlayersJson = JSON.stringify(tournament.players);
+          const serverPlayersJson = JSON.stringify(serverTour.players);
+
+          if (localPlayersJson !== serverPlayersJson) {
+            console.log('[Real-time Sync] Detected updated registrations from server!');
+            setTournament((prev) => {
+              if (!prev || prev.id !== serverTour.id) return prev;
+              const merged: Tournament = {
+                ...prev,
+                players: serverTour.players,
+                // keep local matches if currently playing match, otherwise take server matches
+                matches: prev.matches.length > 0 ? prev.matches : serverTour.matches
+              };
+              saveTournamentToStore(merged);
+              return merged;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Sync Error]', err);
+      } finally {
+        isSyncingRef.current = false;
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [tournament?.id, tournament?.players]);
+
+  // Listen to popstate / url changes and reload matching session if changed
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const urlSession = parseTournamentSessionFromUrl();
+      setIsLineOnlyMode(urlSession.isRegisterMode);
+      if (urlSession.tid && (!tournament || tournament.id !== urlSession.tid)) {
+        const loaded = loadInitialTournament();
+        setTournament(loaded.tournament);
+        if (loaded.tournament.id) {
+          fetchTournamentApi(loaded.tournament.id).then((res) => {
+            if (res) {
+              setTournament(res);
+              saveTournamentToStore(res);
+            }
+          });
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, [tournament]);
+
+  // Save to multi-session storage whenever tournament changes
+  useEffect(() => {
+    if (tournament) {
+      saveTournamentToStore(tournament);
+    }
+  }, [tournament]);
+
+  // Create a new tournament
+  const handleCreateTournament = (config: {
+    name: string;
+    targetSize: TournamentSize;
+    targetScore: number;
+    seedMode: 'none' | 'manual' | 'random';
+    seedCount: number;
+    populateSamplePlayers: boolean;
+  }) => {
+    let initialPlayers: Player[] = [];
+
+    if (config.populateSamplePlayers) {
+      // Build sample players matching the target size
+      initialPlayers = Array.from({ length: config.targetSize }, (_, idx) => {
+        const sample = SAMPLE_PLAYERS[idx % SAMPLE_PLAYERS.length];
+        const isSeed = config.seedMode !== 'none' && idx < config.seedCount;
+        const b = POPULAR_BEYBLADES[idx % POPULAR_BEYBLADES.length];
+        return {
+          id: `player_${idx + 1}_${Date.now()}`,
+          name: idx < SAMPLE_PLAYERS.length ? sample.name : `陀螺戰士 #${idx + 1} (${sample.name.split(' ')[0]})`,
+          lineId: sample.lineId ? `${sample.lineId}_${idx + 1}` : undefined,
+          beybladeName: b.name,
+          beybladeType: b.type,
+          blade: b.combo,
+          clubOrTeam: sample.clubOrTeam || '戰鬥陀螺交流群',
+          status: 'approved' as const,
+          registeredAt: Date.now() - (config.targetSize - idx) * 60000,
+          isSeed,
+          seedNumber: isSeed ? idx + 1 : undefined
+        };
+      });
+    }
+
+    const newTournament = generateDualWingBracket(
+      config.name,
+      config.targetSize,
+      initialPlayers,
+      config.seedMode,
+      config.seedCount,
+      config.targetScore
+    );
+
+    saveTournamentToStore(newTournament);
+    saveTournamentApi(newTournament);
+    setTournament(newTournament);
+    setActiveTab('bracket');
+
+    // Update URL to point to this new tournament session
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.origin + window.location.pathname);
+      url.searchParams.set('tid', newTournament.id);
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  // Register a player from LINE Portal (defaults to 'pending' for organizer review)
+  const handleRegisterFromLine = async (playerData: Omit<Player, 'id' | 'status' | 'registeredAt'>) => {
+    if (!tournament) return;
+
+    const fallbackPlayer: Player = {
+      ...playerData,
+      id: `player_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      status: 'pending',
+      registeredAt: Date.now()
+    };
+
+    // Optimistically update local state
+    setTournament((prev) => {
+      if (!prev) return null;
+      const updated = {
+        ...prev,
+        players: [...prev.players, fallbackPlayer]
+      };
+      saveTournamentToStore(updated);
+      return updated;
+    });
+
+    // Send to backend API so the host and other participants immediately receive it
+    const res = await registerPlayerApi(tournament.id, playerData, tournament);
+    if (res && res.tournament) {
+      setTournament(res.tournament);
+      saveTournamentToStore(res.tournament);
+    }
+  };
+
+  // Organizer approves a player
+  const handleApprovePlayer = (playerId: string) => {
+    if (!tournament) return;
+    const updatedPlayers = tournament.players.map((p) => (p.id === playerId ? { ...p, status: 'approved' as const } : p));
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: updatedPlayers
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Organizer rejects a player
+  const handleRejectPlayer = (playerId: string) => {
+    if (!tournament) return;
+    const updatedPlayers = tournament.players.filter((p) => p.id !== playerId);
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: updatedPlayers
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Approve all pending
+  const handleApproveAllPending = () => {
+    if (!tournament) return;
+    const updatedPlayers = tournament.players.map((p) => ({ ...p, status: 'approved' as const }));
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: updatedPlayers
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Add a player directly (e.g. from Admin manual modal)
+  const handleAddPlayer = (playerData: Omit<Player, 'id' | 'status' | 'registeredAt'>, autoApprove = true) => {
+    if (!tournament) return;
+
+    const newPlayer: Player = {
+      ...playerData,
+      id: `player_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      status: autoApprove ? 'approved' : 'pending',
+      registeredAt: Date.now()
+    };
+
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: [...tournament.players, newPlayer]
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Remove player
+  const handleRemovePlayer = (playerId: string) => {
+    if (!tournament) return;
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: tournament.players.filter((p) => p.id !== playerId)
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Update player
+  const handleUpdatePlayer = (updatedPlayer: Player) => {
+    if (!tournament) return;
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: tournament.players.map((p) => (p.id === updatedPlayer.id ? updatedPlayer : p))
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Seed toggling
+  const handleSetSeedStatus = (playerId: string, isSeed: boolean, seedNumber?: number) => {
+    if (!tournament) return;
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: tournament.players.map((p) =>
+        p.id === playerId ? { ...p, isSeed, seedNumber: isSeed ? seedNumber : undefined } : p
+      )
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Randomize seeds among approved players
+  const handleRandomizeSeeds = (seedCount: number) => {
+    if (!tournament) return;
+    const approved = tournament.players.filter((p) => p.status === 'approved');
+    const shuffled = [...approved].sort(() => Math.random() - 0.5);
+
+    const updatedMap = new Map<string, { isSeed: boolean; seedNumber?: number }>();
+    shuffled.forEach((p, idx) => {
+      if (idx < seedCount) {
+        updatedMap.set(p.id, { isSeed: true, seedNumber: idx + 1 });
+      } else {
+        updatedMap.set(p.id, { isSeed: false, seedNumber: undefined });
+      }
+    });
+
+    const updatedTour: Tournament = {
+      ...tournament,
+      seedMode: 'random',
+      seedCount,
+      players: tournament.players.map((p) => {
+        const update = updatedMap.get(p.id);
+        return update ? { ...p, ...update } : p;
+      })
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Quick populate sample players for specific count
+  const handlePopulateSamplePlayers = (count: number) => {
+    if (!tournament) return;
+    const newPlayers: Player[] = Array.from({ length: count }, (_, idx) => {
+      const sample = SAMPLE_PLAYERS[idx % SAMPLE_PLAYERS.length];
+      const isSeed = idx < Math.min(4, count / 2);
+      const b = POPULAR_BEYBLADES[idx % POPULAR_BEYBLADES.length];
+      return {
+        id: `player_sample_${idx + 1}_${Date.now()}`,
+        name: idx < SAMPLE_PLAYERS.length ? sample.name : `陀螺戰士 #${idx + 1} (${sample.name.split(' ')[0]})`,
+        lineId: sample.lineId ? `${sample.lineId}_${idx + 1}` : undefined,
+        beybladeName: b.name,
+        beybladeType: b.type,
+        blade: b.combo,
+        clubOrTeam: sample.clubOrTeam || '戰鬥陀螺菁英會',
+        status: 'approved',
+        registeredAt: Date.now() - (count - idx) * 30000,
+        isSeed,
+        seedNumber: isSeed ? idx + 1 : undefined
+      };
+    });
+
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: newPlayers
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Re-generate Dual-Wing Bracket based on approved players
+  const handleGenerateBracket = () => {
+    if (!tournament) return;
+    const newTournament = generateDualWingBracket(
+      tournament.name,
+      tournament.targetSize,
+      tournament.players,
+      tournament.seedMode,
+      tournament.seedCount,
+      tournament.matchTargetScore
+    );
+    setTournament(newTournament);
+    saveTournamentToStore(newTournament);
+    saveTournamentApi(newTournament);
+    setActiveTab('bracket');
+  };
+
+  // Record a match result (scores 0-11) and advance winner
+  const handleSaveMatchResult = (
+    matchId: string,
+    p1Score: number,
+    p2Score: number,
+    roundsHistory: BattleRoundRecord[]
+  ) => {
+    if (!tournament) return;
+    const updated = recordMatchResult(tournament, matchId, p1Score, p2Score, roundsHistory);
+    setTournament(updated);
+    saveTournamentToStore(updated);
+    saveTournamentApi(updated);
+
+    // If tournament completed, jump to podium
+    if (updated.status === 'completed' && updated.rankings?.champion) {
+      setActiveTab('podium');
+    }
+  };
+
+  const pendingCount = tournament?.players.filter((p) => p.status === 'pending').length || 0;
+  const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
+
+  // Handle switching between admin mode and pure registration mode
+  const handleSwitchToAdmin = () => {
+    setIsLineOnlyMode(false);
+    if (tournament) {
+      const adminUrl = buildAdminUrl(tournament);
+      window.history.pushState({}, '', adminUrl);
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('mode');
+      url.searchParams.delete('invite');
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  const handleSwitchToLineMode = () => {
+    setIsLineOnlyMode(true);
+    if (tournament) {
+      const regUrl = buildRegistrationUrl(tournament);
+      window.history.pushState({}, '', regUrl);
+    } else {
+      const url = new URL(window.location.href);
+      url.searchParams.set('mode', 'register');
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  // Pure LINE Registration view (只顯示場次與登記內容，其他完全不顯示)
+  if (isLineOnlyMode) {
+    return (
+      <div className="min-h-screen bg-[#05070a] text-[#e0e6ed] flex flex-col font-sans selection:bg-[#00f2ff] selection:text-black relative overflow-x-hidden">
+        {/* Ambient background */}
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-0 left-1/3 w-96 h-96 bg-[#00f2ff]/5 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 right-1/4 w-96 h-96 bg-[#06C755]/5 rounded-full blur-3xl" />
+          <div className="absolute inset-0 cyber-grid-bg opacity-25" />
+        </div>
+
+        <main className="flex-1 py-4 sm:py-6 relative z-10">
+          <LineInviteView
+            tournament={tournament}
+            onRegisterPlayer={handleRegisterFromLine}
+            pendingCount={pendingCount}
+            approvedCount={approvedCount}
+            isStandaloneMode={true}
+            onSwitchToAdmin={handleSwitchToAdmin}
+          />
+        </main>
+
+        <footer className="py-4 text-center text-xs font-mono text-gray-500 border-t border-[#ffffff0a] relative z-10">
+          <span>戰鬥陀螺 X 雙翼爭霸賽 • LINE 賽事登記系統</span>
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#05070a] text-[#e0e6ed] flex flex-col font-sans selection:bg-[#00f2ff] selection:text-black relative overflow-x-hidden">
+      {/* Immersive background aura */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#00f2ff]/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-[#7000ff]/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 cyber-grid-bg opacity-30" />
+      </div>
+
+      {/* Top Navigation & Status Bar */}
+      <Header
+        tournament={tournament}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenCreateModal={() => setIsCreateModalOpen(true)}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+        onToggleLineOnlyMode={handleSwitchToLineMode}
+        pendingCount={pendingCount}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 py-6 relative z-10">
+        {tournament && (
+          <>
+            {activeTab === 'bracket' && (
+              <DualWingBracket
+                tournament={tournament}
+                onSelectMatch={(m) => setSelectedMatch(m)}
+                onOpenCreateModal={() => setIsCreateModalOpen(true)}
+              />
+            )}
+
+            {activeTab === 'players' && (
+              <PlayerManagement
+                tournament={tournament}
+                onApprovePlayer={handleApprovePlayer}
+                onRejectPlayer={handleRejectPlayer}
+                onApproveAllPending={handleApproveAllPending}
+                onAddPlayer={handleAddPlayer}
+                onRemovePlayer={handleRemovePlayer}
+                onUpdatePlayer={handleUpdatePlayer}
+                onGenerateBracket={handleGenerateBracket}
+                onSetSeedStatus={handleSetSeedStatus}
+                onRandomizeSeeds={handleRandomizeSeeds}
+                onPopulateSamplePlayers={handlePopulateSamplePlayers}
+                onRefreshRoster={async () => {
+                  if (tournament?.id) {
+                    const res = await fetchTournamentApi(tournament.id);
+                    if (res) {
+                      setTournament(res);
+                      saveTournamentToStore(res);
+                    }
+                  }
+                }}
+              />
+            )}
+
+            {activeTab === 'line-invite' && (
+              <LineInviteView
+                tournament={tournament}
+                onRegisterPlayer={handleRegisterFromLine}
+                pendingCount={pendingCount}
+                approvedCount={approvedCount}
+                isStandaloneMode={false}
+              />
+            )}
+
+            {activeTab === 'scoreboard' && (
+              <ScoreboardDisplay
+                tournament={tournament}
+                onSelectMatch={(m) => setSelectedMatch(m)}
+                onQuickScore={(matchId, p1, p2) => handleSaveMatchResult(matchId, p1, p2, [])}
+              />
+            )}
+
+            {activeTab === 'podium' && (
+              <PodiumRankings
+                tournament={tournament}
+                onSelectMatchById={(matchId) => {
+                  const m = tournament.matches.find((item) => item.id === matchId);
+                  if (m) setSelectedMatch(m);
+                }}
+              />
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Immersive HUD Footer */}
+      <footer className="bg-[#0a0c12]/90 border-t border-[#ffffff10] text-[#717b8c] text-[11px] py-3 px-4 sm:px-8 relative z-10 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-3 font-mono">
+            <span className="flex items-center gap-1.5 text-green-400 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
+              ARENA ONLINE
+            </span>
+            <span>•</span>
+            <span>BEYBLADE X DUAL-WING ENGINE</span>
+            <span>•</span>
+            <span className="text-gray-400">LATENCY: 12ms</span>
+          </div>
+          <div className="font-mono text-gray-500">
+            SYSTEM 0-11 PTS MATCH TRACKER • LINE INVITATION INTEGRATION
+          </div>
+        </div>
+      </footer>
+
+      {/* Match Referee Scoring Modal (0 - 11 分) */}
+      <MatchRefereeModal
+        match={selectedMatch}
+        players={tournament?.players || []}
+        isOpen={Boolean(selectedMatch)}
+        onClose={() => setSelectedMatch(null)}
+        onSaveMatchResult={handleSaveMatchResult}
+      />
+
+      {/* Create / Reset Tournament Modal */}
+      <CreateTournamentModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreate={handleCreateTournament}
+        currentSize={tournament?.targetSize || 16}
+      />
+
+      {/* Export & LINE Share Modal */}
+      <ExportShareModal
+        tournament={tournament}
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
+    </div>
+  );
+}

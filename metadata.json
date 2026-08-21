@@ -1,0 +1,6 @@
+{
+  "name": "戰鬥陀螺雙翼對戰賽程系統",
+  "description": "支援LINE群組報名審核、種子指定與隨機、4至128人雙翼賽程生成、0-11分陀螺對戰計分及冠亞季殿軍排名的專業戰鬥陀螺賽事管理平台",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

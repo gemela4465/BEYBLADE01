@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  .cyber-glow-cyan {
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4), 0 0 30px rgba(0, 242, 255, 0.15);
+  }
+
+  .cyber-glow-purple {
+    box-shadow: 0 0 15px rgba(112, 0, 255, 0.4), 0 0 30px rgba(112, 0, 255, 0.15);
+  }
+
+  .cyber-glow-gold {
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.35), 0 0 40px rgba(245, 158, 11, 0.15);
+  }
+
+  .cyber-grid-bg {
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+/* Custom dark scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05070a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a1f2c;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 242, 255, 0.15);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00f2ff;
+}
+
