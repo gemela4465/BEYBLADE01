@@ -61,7 +61,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
 
   const [datePrefix, setDatePrefix] = useState(initialValues?.datePrefix || getTodayDateStr());
   const [sessionNumber, setSessionNumber] = useState(initialValues?.sessionNumber || '第1場');
-  const [customTitle, setCustomTitle] = useState(initialValues?.customTitle || '戰鬥陀螺 X 雙翼極限爭霸賽');
+  const [customTitle, setCustomTitle] = useState(initialValues?.customTitle || '黃家、皇家戰鬥陀螺賽程');
   
   const [startTime, setStartTime] = useState(initialValues?.startTime || defaultTimes.start);
   const [registrationDeadline, setRegistrationDeadline] = useState(initialValues?.registrationDeadline || defaultTimes.deadline);

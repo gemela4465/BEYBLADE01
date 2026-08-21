@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-lg sm:text-xl font-black tracking-tight uppercase italic text-white">
-                  {tournament?.name || '2026 戰鬥陀螺雙翼對戰賽'}
+                  {tournament?.name || '黃家、皇家戰鬥陀螺賽程'}
                 </h1>
                 {tournament && (
                   <>
@@ -83,10 +83,6 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <p className="text-[10px] text-[#00f2ff] uppercase tracking-[0.2em] font-medium flex items-center gap-2 mt-0.5">
                 <span>TOURNAMENT SYSTEM V2.0</span>
-                <span className="text-gray-600">•</span>
-                <span className="text-gray-400">LINE BOT 官方連動</span>
-                <span className="text-gray-600">•</span>
-                <span className="text-gray-400">雙翼賽程排盤</span>
               </p>
             </div>
           </div>
@@ -125,18 +121,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Radio className="w-3.5 h-3.5" />
                 📢 補發賽事通知至 LINE 群
-              </button>
-            )}
-
-            {!readOnly && onToggleLineOnlyMode && (
-              <button
-                id="btn-preview-line-invite"
-                onClick={onToggleLineOnlyMode}
-                className="px-3 py-2 rounded-lg bg-[#06C755]/15 hover:bg-[#06C755]/25 text-[#06C755] text-xs font-mono font-bold border border-[#06C755]/40 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,199,85,0.15)]"
-                title="切換至 LINE 專屬報名頁面 (僅顯示場次與登記內容)"
-              >
-                <Link2 className="w-3.5 h-3.5" />
-                LINE 報名視角
               </button>
             )}
 
