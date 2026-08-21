@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Swords, Trophy, Play, Pause, RotateCcw, Volume2, Flame, Shield, Award } from 'lucide-react';
+import { Swords, Trophy, Play, Pause, RotateCcw, Volume2, Flame, Shield, Award, Radio, Send, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Tournament, Match, Player } from '../types';
 import { FINISH_RULES } from '../data/beybladeData';
+import { broadcastMatchApi } from '../utils/api';
+import { buildReadOnlyBracketUrl, isViewOnlyMode } from '../utils/sessionHelper';
 
 interface ScoreboardDisplayProps {
   tournament: Tournament;
@@ -18,6 +20,8 @@ export const ScoreboardDisplay: React.FC<ScoreboardDisplayProps> = ({
   const playerMap = new Map<string, Player>();
   tournament.players.forEach((p) => playerMap.set(p.id, p));
 
+  const readOnly = isViewOnlyMode();
+
   // Find active or first uncompleted match with players
   const activeMatches = matches.filter(
     (m) => m.player1Id && m.player2Id && m.status !== 'bye'
@@ -28,6 +32,14 @@ export const ScoreboardDisplay: React.FC<ScoreboardDisplayProps> = ({
     activeMatches.find((m) => m.status === 'pending')?.id ||
     matches[0]?.id || ''
   );
+
+  const [isBroadcastingMatch, setIsBroadcastingMatch] = useState<boolean>(false);
+  const [broadcastResult, setBroadcastResult] = useState<{
+    success: boolean;
+    broadcastSuccess: boolean;
+    pushedGroupCount?: number;
+    announcementText?: string;
+  } | null>(null);
 
   const currentMatch = matches.find((m) => m.id === selectedMatchId) || matches[0];
   const p1 = currentMatch?.player1Id ? playerMap.get(currentMatch.player1Id) : null;
@@ -52,34 +64,80 @@ export const ScoreboardDisplay: React.FC<ScoreboardDisplayProps> = ({
     }, 3000);
   };
 
+  const handleBroadcastLiveMatch = async () => {
+    if (!currentMatch) return;
+    setIsBroadcastingMatch(true);
+    setBroadcastResult(null);
+
+    const readOnlyUrl = buildReadOnlyBracketUrl(tournament);
+    const res = await broadcastMatchApi(tournament.id, {
+      matchId: currentMatch.id,
+      readOnlyUrl
+    });
+
+    setIsBroadcastingMatch(false);
+    setBroadcastResult(res);
+    setTimeout(() => setBroadcastResult(null), 4000);
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-      {/* Match Selector Dropdown / Pills */}
+      {/* Match Selector Dropdown / Quick Actions */}
       <div className="bg-[#0a0c12] border border-[#ffffff10] p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-[#00f2ff] animate-ping" />
           <span className="text-xs font-mono font-bold text-white tracking-wider uppercase">大螢幕對戰投影台 (Live Arena Display)</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-mono text-gray-400">焦點對決場次：</label>
-          <select
-            value={selectedMatchId}
-            onChange={(e) => setSelectedMatchId(e.target.value)}
-            className="bg-[#05070a] border border-[#ffffff15] text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-[#00f2ff] font-mono"
-          >
-            {matches.map((m) => {
-              const mp1 = m.player1Id ? playerMap.get(m.player1Id) : null;
-              const mp2 = m.player2Id ? playerMap.get(m.player2Id) : null;
-              return (
-                <option key={m.id} value={m.id}>
-                  #{m.matchNumber} {m.label} ({mp1 ? mp1.name : '待定'} vs {mp2 ? mp2.name : '待定'}) - {m.status === 'completed' ? '已完賽' : '進行中'}
-                </option>
-              );
-            })}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-mono text-gray-400">焦點對決場次：</label>
+            <select
+              value={selectedMatchId}
+              onChange={(e) => setSelectedMatchId(e.target.value)}
+              className="bg-[#05070a] border border-[#ffffff15] text-white text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-[#00f2ff] font-mono"
+            >
+              {matches.map((m) => {
+                const mp1 = m.player1Id ? playerMap.get(m.player1Id) : null;
+                const mp2 = m.player2Id ? playerMap.get(m.player2Id) : null;
+                return (
+                  <option key={m.id} value={m.id}>
+                    #{m.matchNumber} {m.label} ({mp1 ? mp1.name : '待定'} vs {mp2 ? mp2.name : '待定'}) - {m.status === 'completed' ? '已完賽' : '進行中'}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {!readOnly && (
+            <button
+              onClick={handleBroadcastLiveMatch}
+              disabled={isBroadcastingMatch}
+              className="px-3 py-2 bg-gradient-to-r from-[#06C755]/20 to-[#00f2ff]/20 hover:from-[#06C755]/30 hover:to-[#00f2ff]/30 border border-[#06C755]/40 rounded-lg text-xs font-mono font-bold text-[#06C755] flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(6,199,85,0.15)] disabled:opacity-50"
+              title="將當前比分與即時戰況推播至 LINE 群組"
+            >
+              {isBroadcastingMatch ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+              )}
+              <span>{isBroadcastingMatch ? '廣播中...' : '手動補發即時賽況至 LINE'}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Broadcast Result Toast */}
+      {broadcastResult && (
+        <div className="bg-[#06C755]/15 border border-[#06C755]/40 text-[#06C755] px-4 py-2.5 rounded-xl text-xs font-mono flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#06C755]" />
+            <span>
+              已成功補發即時戰況至 {broadcastResult.pushedGroupCount || 0} 個 LINE 群組與好友！
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Main Stadium Jumbotron (大螢幕看板) */}
       <div className="bg-gradient-to-b from-[#0e111a] via-[#080a10] to-[#05070a] border-2 border-[#00f2ff]/40 rounded-3xl p-6 sm:p-10 shadow-[0_0_60px_rgba(0,242,255,0.15)] relative overflow-hidden">

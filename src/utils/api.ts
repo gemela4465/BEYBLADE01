@@ -222,6 +222,92 @@ export async function broadcastAnnouncementApi(
   }
 }
 
+export async function uploadBracketImageApi(
+  imageBase64: string,
+  filename?: string
+): Promise<{
+  success: boolean;
+  filename?: string;
+  imageUrl?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch('/api/upload-bracket-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64, filename }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err: any) {
+    console.error('[API] Error uploading bracket image snapshot:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function broadcastBracketApi(
+  tournamentId: string,
+  options?: {
+    message?: string;
+    imageUrl?: string;
+    readOnlyUrl?: string;
+  }
+): Promise<{
+  success: boolean;
+  broadcastSuccess: boolean;
+  pushedGroupCount?: number;
+  pushedGroups?: string[];
+  failedGroups?: string[];
+  totalGroups?: number;
+  announcementText: string;
+  imageUrl?: string | null;
+  readOnlyUrl?: string;
+}> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-bracket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error broadcasting bracket to LINE:', err);
+    return { success: false, broadcastSuccess: false, announcementText: '' };
+  }
+}
+
+export async function broadcastMatchApi(
+  tournamentId: string,
+  options?: {
+    matchId?: string;
+    message?: string;
+    readOnlyUrl?: string;
+  }
+): Promise<{
+  success: boolean;
+  broadcastSuccess: boolean;
+  pushedGroupCount?: number;
+  pushedGroups?: string[];
+  failedGroups?: string[];
+  totalGroups?: number;
+  announcementText: string;
+  readOnlyUrl?: string;
+}> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/broadcast-match`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error broadcasting live match status to LINE:', err);
+    return { success: false, broadcastSuccess: false, announcementText: '' };
+  }
+}
+
 export async function fetchConnectedGroupsApi(): Promise<{
   totalCount: number;
   groups: Array<{

@@ -5,6 +5,27 @@ const TOURNAMENT_STORE_KEY = 'BEYBLADE_DUAL_WING_TOURNAMENTS_STORE_V1';
 const ACTIVE_TOURNAMENT_ID_KEY = 'BEYBLADE_ACTIVE_TOURNAMENT_ID_V1';
 
 /**
+ * Check if the current browser window is in view-only / readonly mode
+ */
+export function isViewOnlyMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get('mode');
+  return mode === 'view' || mode === 'readonly' || mode === 'bracket_only';
+}
+
+/**
+ * Builds the read-only live bracket URL that anyone can view but cannot edit
+ */
+export function buildReadOnlyBracketUrl(tournament: Tournament): string {
+  if (typeof window === 'undefined') return '';
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set('mode', 'view');
+  url.searchParams.set('tid', tournament.id);
+  return url.toString();
+}
+
+/**
  * Builds the exact LINE registration link for the current tournament session
  */
 export function buildRegistrationUrl(tournament: Tournament): string {
@@ -38,6 +59,7 @@ export function buildAdminUrl(tournament?: Tournament | null): string {
  */
 export function parseTournamentSessionFromUrl(): {
   isRegisterMode: boolean;
+  isViewOnlyMode: boolean;
   tid: string | null;
   name: string | null;
   targetSize: TournamentSize | null;
@@ -49,6 +71,7 @@ export function parseTournamentSessionFromUrl(): {
   if (typeof window === 'undefined') {
     return {
       isRegisterMode: false,
+      isViewOnlyMode: false,
       tid: null,
       name: null,
       targetSize: null,
@@ -63,6 +86,7 @@ export function parseTournamentSessionFromUrl(): {
   const mode = params.get('mode');
   const invite = params.get('invite');
   const isRegisterMode = mode === 'register' || invite === 'line' || window.location.hash === '#register';
+  const isViewOnlyMode = mode === 'view' || mode === 'readonly' || mode === 'bracket_only';
 
   const tid = params.get('tid');
   const rawTname = params.get('tname');
@@ -97,6 +121,7 @@ export function parseTournamentSessionFromUrl(): {
 
   return {
     isRegisterMode,
+    isViewOnlyMode,
     tid,
     name,
     targetSize,
@@ -139,7 +164,11 @@ export function saveTournamentToStore(tournament: Tournament): void {
 /**
  * Retrieves the active tournament from storage or hydrates it from URL parameters
  */
-export function loadInitialTournament(): { tournament: Tournament; isRegisterMode: boolean } {
+export function loadInitialTournament(): {
+  tournament: Tournament;
+  isRegisterMode: boolean;
+  isViewOnlyMode: boolean;
+} {
   const urlSession = parseTournamentSessionFromUrl();
   const store = getAllTournamentsFromStore();
 
@@ -149,7 +178,8 @@ export function loadInitialTournament(): { tournament: Tournament; isRegisterMod
       // Found exact tournament in local storage!
       return {
         tournament: store[urlSession.tid],
-        isRegisterMode: urlSession.isRegisterMode
+        isRegisterMode: urlSession.isRegisterMode,
+        isViewOnlyMode: urlSession.isViewOnlyMode
       };
     }
 
@@ -180,7 +210,8 @@ export function loadInitialTournament(): { tournament: Tournament; isRegisterMod
     saveTournamentToStore(freshTournament);
     return {
       tournament: freshTournament,
-      isRegisterMode: urlSession.isRegisterMode
+      isRegisterMode: urlSession.isRegisterMode,
+      isViewOnlyMode: urlSession.isViewOnlyMode
     };
   }
 
@@ -189,7 +220,8 @@ export function loadInitialTournament(): { tournament: Tournament; isRegisterMod
   if (activeId && store[activeId]) {
     return {
       tournament: store[activeId],
-      isRegisterMode: urlSession.isRegisterMode
+      isRegisterMode: urlSession.isRegisterMode,
+      isViewOnlyMode: urlSession.isViewOnlyMode
     };
   }
 
@@ -198,7 +230,8 @@ export function loadInitialTournament(): { tournament: Tournament; isRegisterMod
   if (storedList.length > 0) {
     return {
       tournament: storedList[storedList.length - 1],
-      isRegisterMode: urlSession.isRegisterMode
+      isRegisterMode: urlSession.isRegisterMode,
+      isViewOnlyMode: urlSession.isViewOnlyMode
     };
   }
 
@@ -214,6 +247,7 @@ export function loadInitialTournament(): { tournament: Tournament; isRegisterMod
   saveTournamentToStore(defaultTour);
   return {
     tournament: defaultTour,
-    isRegisterMode: urlSession.isRegisterMode
+    isRegisterMode: urlSession.isRegisterMode,
+    isViewOnlyMode: urlSession.isViewOnlyMode
   };
 }

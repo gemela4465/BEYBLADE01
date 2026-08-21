@@ -1,6 +1,7 @@
 import React from 'react';
-import { Trophy, Users, Shield, Award, Swords, Link2, Monitor, RefreshCw, Plus, Download, Radio, Bot, Archive, Clock, Calendar } from 'lucide-react';
+import { Trophy, Users, Shield, Award, Swords, Link2, Monitor, RefreshCw, Plus, Download, Radio, Bot, Archive, Clock, Calendar, Eye } from 'lucide-react';
 import { Tournament } from '../types';
+import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface HeaderProps {
   tournament: Tournament | null;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleLineOnlyMode,
   pendingCount
 }) => {
+  const readOnly = isViewOnlyMode();
   const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
   const completedMatches = tournament?.matches.filter((m) => m.status === 'completed' || m.status === 'bye').length || 0;
   const totalMatches = tournament?.matches.length || 0;
@@ -57,6 +59,11 @@ export const Header: React.FC<HeaderProps> = ({
                         {tournament.sessionNumber}
                       </span>
                     )}
+                    {readOnly && (
+                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                        <Eye className="w-3 h-3" /> 唯讀查閱模式 (不能編輯)
+                      </span>
+                    )}
                   </>
                 )}
                 {tournament?.status === 'completed' && (
@@ -77,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* HUD Status & Actions */}
           <div className="flex items-center gap-2 sm:gap-2.5 w-full md:w-auto justify-end flex-wrap">
-            {onOpenBroadcastModal && (
+            {!readOnly && onOpenBroadcastModal && (
               <button
                 id="btn-broadcast-announcement-header"
                 onClick={onOpenBroadcastModal}
@@ -89,7 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {onToggleLineOnlyMode && (
+            {!readOnly && onToggleLineOnlyMode && (
               <button
                 id="btn-preview-line-invite"
                 onClick={onToggleLineOnlyMode}
@@ -111,15 +118,17 @@ export const Header: React.FC<HeaderProps> = ({
               賽事存檔備查
             </button>
 
-            <button
-              id="btn-reset-tournament"
-              onClick={onOpenResetModal}
-              className="px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-mono font-medium border border-amber-500/30 transition-all flex items-center gap-1.5"
-              title="未開賽前取消或重新開賽 (可選保留已審核成員)"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-              重置 / 重新開賽
-            </button>
+            {!readOnly && (
+              <button
+                id="btn-reset-tournament"
+                onClick={onOpenResetModal}
+                className="px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-mono font-medium border border-amber-500/30 transition-all flex items-center gap-1.5"
+                title="未開賽前取消或重新開賽 (可選保留已審核成員)"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                重置 / 重新開賽
+              </button>
+            )}
 
             <button
               id="btn-export-share"
@@ -130,14 +139,16 @@ export const Header: React.FC<HeaderProps> = ({
               戰報匯出
             </button>
 
-            <button
-              id="btn-new-tournament"
-              onClick={onOpenCreateModal}
-              className="px-3.5 py-2 bg-[#00f2ff] text-black font-bold rounded-lg shadow-[0_0_20px_rgba(0,242,255,0.3)] hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 uppercase tracking-wide font-mono"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              新開賽
-            </button>
+            {!readOnly && (
+              <button
+                id="btn-new-tournament"
+                onClick={onOpenCreateModal}
+                className="px-3.5 py-2 bg-[#00f2ff] text-black font-bold rounded-lg shadow-[0_0_20px_rgba(0,242,255,0.3)] hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 uppercase tracking-wide font-mono"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                新開賽
+              </button>
+            )}
           </div>
         </div>
 

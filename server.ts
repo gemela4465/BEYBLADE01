@@ -78,17 +78,25 @@ interface Tournament {
 }
 
 const DATA_DIR = path.join(process.cwd(), "data");
+const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 const DB_FILE = path.join(DATA_DIR, "tournaments.json");
 const HISTORY_FILE = path.join(DATA_DIR, "tournaments_history.json");
 const GROUPS_FILE = path.join(DATA_DIR, "line_groups.json");
 const ACTIVE_FILE = path.join(DATA_DIR, "active_tournament.json");
 
-// Ensure data directory exists
+// Ensure data & uploads directories exist
 if (!fs.existsSync(DATA_DIR)) {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   } catch (err) {
     console.error("Failed to create data directory:", err);
+  }
+}
+if (!fs.existsSync(UPLOADS_DIR)) {
+  try {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (err) {
+    console.error("Failed to create uploads directory:", err);
   }
 }
 
@@ -218,7 +226,43 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({ limit: "10mb" }));
+  app.use(express.json({ limit: "25mb" }));
+
+  // Serve static uploaded bracket images for LINE messaging API
+  app.use("/uploads", express.static(UPLOADS_DIR));
+
+  // Upload bracket snapshot image for LINE image message broadcast
+  app.post("/api/upload-bracket-image", (req, res) => {
+    const { imageBase64, filename } = req.body || {};
+    if (!imageBase64) {
+      return res.status(400).json({ error: "imageBase64 is required" });
+    }
+
+    try {
+      const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(cleanBase64, "base64");
+      const safeFilename = filename 
+        ? `${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, "")}`
+        : `bracket_${Date.now()}.png`;
+      const filePath = path.join(UPLOADS_DIR, safeFilename);
+
+      fs.writeFileSync(filePath, buffer);
+
+      // Determine public base URL (handling forwarded proto/host from Render / proxies)
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      const host = req.headers["x-forwarded-host"] || req.headers.host || "beyblade-4qyw.onrender.com";
+      const imageUrl = `${protocol}://${host}/uploads/${safeFilename}`;
+
+      res.json({
+        success: true,
+        filename: safeFilename,
+        imageUrl
+      });
+    } catch (err) {
+      console.error("[Upload Image Error]", err);
+      res.status(500).json({ error: "Failed to save image" });
+    }
+  });
 
   // API Routes
   app.get("/api/health", (_req, res) => {
@@ -699,6 +743,126 @@ async function startServer() {
     });
   });
 
+  // Broadcast Bracket Tree & Read-Only URL / Photo to LINE Groups & Friends (Requirement 5)
+  app.post("/api/tournaments/:id/broadcast-bracket", async (req, res) => {
+    const { id } = req.params;
+    const { message, imageUrl, readOnlyUrl } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    currentActiveTournamentId = id;
+    saveActiveTournamentFile();
+
+    // Determine default read-only URL if not explicitly provided
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "beyblade-4qyw.onrender.com";
+    const fallbackViewUrl = `${protocol}://${host}/?mode=view&tid=${tournament.id}`;
+    const effectiveViewUrl = readOnlyUrl || fallbackViewUrl;
+
+    const approvedPlayers = (tournament.players || []).filter((p) => p.status === "approved");
+    const activeMatches = (tournament.matches || []).filter((m) => m.status === "in_progress");
+    const completedMatches = (tournament.matches || []).filter((m) => m.status === "completed");
+
+    let statusLine = "⚡ 賽程樹狀圖已正式生成，雙翼對決即將全面開打！";
+    if (tournament.status === "completed" && tournament.rankings?.champion) {
+      statusLine = `🏆 賽事圓滿完賽！總冠軍：${tournament.rankings.champion.name}`;
+    } else if (activeMatches.length > 0) {
+      statusLine = `🔥 賽程激戰進行中（已完成 ${completedMatches.length} 場 / 進行中 ${activeMatches.length} 場）`;
+    }
+
+    const defaultText = `⚔️【${tournament.name} 雙翼賽程表發布】\n${statusLine}\n\n📊 賽制資訊：\n• 參賽人數：${approvedPlayers.length} / ${tournament.targetSize} 人\n• 爭霸分制：率先奪得 ${tournament.matchTargetScore} 分晉級\n• 賽程結構：左翼 ${tournament.targetSize / 2} 強 ⚔️ 右翼 ${tournament.targetSize / 2} 強 ➔ 中央總決賽\n\n🌐 線上即時賽程表（免登入唯讀查看，即時同步）：\n${effectiveViewUrl}\n\n💬 LINE 快速指令：傳送「賽程」或「查榜」即可隨時查看最新比分！`;
+
+    const textToSend = message || defaultText;
+    const messagesPayload: any[] = [];
+
+    // If an image URL is attached, append an image message first
+    if (imageUrl) {
+      messagesPayload.push({
+        type: "image",
+        originalContentUrl: imageUrl,
+        previewImageUrl: imageUrl
+      });
+    }
+
+    messagesPayload.push({
+      type: "text",
+      text: textToSend
+    });
+
+    const broadcastResult = await broadcastToAllGroupsAndFollowers(messagesPayload);
+
+    res.json({
+      success: true,
+      broadcastSuccess: broadcastResult.broadcastSuccess,
+      pushedGroupCount: broadcastResult.pushedGroupCount,
+      pushedGroups: broadcastResult.pushedGroups,
+      failedGroups: broadcastResult.failedGroups,
+      totalGroups: broadcastResult.totalGroups,
+      announcementText: textToSend,
+      imageUrl: imageUrl || null,
+      readOnlyUrl: effectiveViewUrl
+    });
+  });
+
+  // Broadcast Live Match Status / Score Update to LINE Groups (Requirement 5 手動補發即時賽況)
+  app.post("/api/tournaments/:id/broadcast-match", async (req, res) => {
+    const { id } = req.params;
+    const { matchId, message, readOnlyUrl } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    currentActiveTournamentId = id;
+    saveActiveTournamentFile();
+
+    const targetMatch = (tournament.matches || []).find((m) => m.id === matchId) || (tournament.matches || []).find((m) => m.status === 'in_progress');
+    const playerMap = new Map<string, Player>();
+    (tournament.players || []).forEach((p) => playerMap.set(p.id, p));
+
+    const p1 = targetMatch?.player1Id ? playerMap.get(targetMatch.player1Id) : null;
+    const p2 = targetMatch?.player2Id ? playerMap.get(targetMatch.player2Id) : null;
+
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const host = req.headers["x-forwarded-host"] || req.headers.host || "beyblade-4qyw.onrender.com";
+    const fallbackViewUrl = `${protocol}://${host}/?mode=view&tid=${tournament.id}`;
+    const effectiveViewUrl = readOnlyUrl || fallbackViewUrl;
+
+    let matchStatusText = "";
+    if (targetMatch) {
+      const matchState = targetMatch.status === 'completed' ? '🏁 [已完賽]' : targetMatch.status === 'in_progress' ? '🔥 [激戰中]' : '⏳ [即將開打]';
+      matchStatusText = `🥊【即時戰況速報】${targetMatch.label} ${matchState}\n` +
+        `🔵 藍方 1P：${p1?.name || '待定'} [${p1?.beybladeName || '陀螺'}] ➔ ${targetMatch.score1} 分\n` +
+        `🔴 紅方 2P：${p2?.name || '待定'} [${p2?.beybladeName || '陀螺'}] ➔ ${targetMatch.score2} 分\n` +
+        `🎯 目標分制：率先奪得 ${targetMatch.targetScore || tournament.matchTargetScore} 分晉級\n`;
+      
+      if (targetMatch.winnerId) {
+        const winner = playerMap.get(targetMatch.winnerId);
+        matchStatusText += `🎉 獲勝晉級：${winner?.name || '選手'}\n`;
+      }
+    } else {
+      const completedCount = (tournament.matches || []).filter((m) => m.status === 'completed').length;
+      matchStatusText = `⚡【賽事即時進度更新】\n🏆 ${tournament.name}\n📊 目前已完成 ${completedCount} 場對決\n`;
+    }
+
+    const fullMessage = message || `${matchStatusText}\n🌐 線上即時賽況看板（唯讀免登入）：\n${effectiveViewUrl}\n\n隨時傳送「賽程」獲取最新對決狀態！`;
+
+    const broadcastResult = await broadcastToAllGroupsAndFollowers(fullMessage);
+
+    res.json({
+      success: true,
+      broadcastSuccess: broadcastResult.broadcastSuccess,
+      pushedGroupCount: broadcastResult.pushedGroupCount,
+      pushedGroups: broadcastResult.pushedGroups,
+      failedGroups: broadcastResult.failedGroups,
+      totalGroups: broadcastResult.totalGroups,
+      announcementText: fullMessage,
+      readOnlyUrl: effectiveViewUrl
+    });
+  });
+
   // Get all connected LINE groups & rooms
   app.get("/api/line/groups", (_req, res) => {
     const groupsList = Object.values(connectedLineGroups).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
@@ -874,11 +1038,15 @@ async function startServer() {
     return false;
   }
 
-  // Send LINE Push message to specific group / room
-  async function sendLinePushToGroup(groupId: string, text: string): Promise<boolean> {
+  // Send LINE Push message (single text or multiple messages) to specific group / room
+  async function sendLinePushToGroup(groupId: string, messagePayload: string | any[]): Promise<boolean> {
     if (!groupId) return false;
     const token = await getLineAccessToken();
     if (!token) return false;
+
+    const messages = Array.isArray(messagePayload)
+      ? messagePayload
+      : [{ type: "text", text: messagePayload }];
 
     try {
       const resp = await fetch("https://api.line.me/v2/bot/message/push", {
@@ -889,7 +1057,7 @@ async function startServer() {
         },
         body: JSON.stringify({
           to: groupId,
-          messages: [{ type: "text", text }],
+          messages,
         }),
       });
 
@@ -907,9 +1075,13 @@ async function startServer() {
   }
 
   // Broadcast LINE message to all 1-on-1 followers
-  async function broadcastLineMessage(text: string): Promise<boolean> {
+  async function broadcastLineMessage(messagePayload: string | any[]): Promise<boolean> {
     const token = await getLineAccessToken();
     if (!token) return false;
+
+    const messages = Array.isArray(messagePayload)
+      ? messagePayload
+      : [{ type: "text", text: messagePayload }];
 
     try {
       const resp = await fetch("https://api.line.me/v2/bot/message/broadcast", {
@@ -919,12 +1091,12 @@ async function startServer() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          messages: [{ type: "text", text }],
+          messages,
         }),
       });
 
       if (resp.ok) {
-        console.log(`[LINE Broadcast] Successfully broadcasted open tournament message to 1-on-1 followers`);
+        console.log(`[LINE Broadcast] Successfully broadcasted message to 1-on-1 followers`);
         return true;
       } else {
         const err = await resp.text();
@@ -937,7 +1109,7 @@ async function startServer() {
   }
 
   // Broadcast to BOTH 1-on-1 followers AND all connected LINE Groups & Rooms
-  async function broadcastToAllGroupsAndFollowers(text: string): Promise<{
+  async function broadcastToAllGroupsAndFollowers(messagePayload: string | any[]): Promise<{
     broadcastSuccess: boolean;
     pushedGroupCount: number;
     pushedGroups: string[];
@@ -945,7 +1117,7 @@ async function startServer() {
     totalGroups: number;
   }> {
     // 1. Broadcast to 1-on-1 followers
-    const broadcastSuccess = await broadcastLineMessage(text);
+    const broadcastSuccess = await broadcastLineMessage(messagePayload);
 
     // 2. Push to all recorded groups & rooms
     const groupEntries = Object.values(connectedLineGroups);
@@ -953,7 +1125,7 @@ async function startServer() {
     const failedGroups: string[] = [];
 
     for (const group of groupEntries) {
-      const success = await sendLinePushToGroup(group.id, text);
+      const success = await sendLinePushToGroup(group.id, messagePayload);
       if (success) {
         pushedGroups.push(group.id);
       } else {

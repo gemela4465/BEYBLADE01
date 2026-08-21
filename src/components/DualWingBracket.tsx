@@ -1,10 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { 
   Trophy, Swords, ZoomIn, ZoomOut, RotateCcw, Award, Layers, 
-  Maximize2, Filter, ChevronLeft, ChevronRight, Sparkles, CheckCircle2
+  Maximize2, Filter, ChevronLeft, ChevronRight, Sparkles, CheckCircle2,
+  Radio, Share2, ExternalLink
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
+import { BroadcastBracketModal } from './BroadcastBracketModal';
+import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface DualWingBracketProps {
   tournament: Tournament;
@@ -20,7 +23,9 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   const [zoom, setZoom] = useState(1);
   const [viewMode, setViewMode] = useState<'bracket' | 'rounds' | 'list'>('bracket');
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
   const bracketContainerRef = useRef<HTMLDivElement>(null);
+  const readOnly = isViewOnlyMode();
 
   const playerMap = new Map<string, Player>();
   tournament.players.forEach((p) => playerMap.set(p.id, p));
@@ -109,8 +114,19 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
           <span className="font-mono text-gray-300">{tournament.targetSize} 人雙翼淘汰賽（左翼 {tournament.targetSize / 2} 人 ⚔️ 右翼 {tournament.targetSize / 2} 人）</span>
         </div>
 
-        {/* Right: Zoom & Quick Tools */}
+        {/* Right: Zoom, Share & Quick Tools */}
         <div className="flex items-center gap-2">
+          {!readOnly && (
+            <button
+              onClick={() => setIsBroadcastModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#06C755]/20 to-[#00f2ff]/20 hover:from-[#06C755]/30 hover:to-[#00f2ff]/30 border border-[#06C755]/40 text-[#06C755] text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-[0_0_12px_rgba(6,199,85,0.15)]"
+              title="將賽程圖與唯讀網址發布至 LINE 群組"
+            >
+              <Radio className="w-3.5 h-3.5 text-[#06C755] animate-pulse" />
+              <span>發布賽程至 LINE 群</span>
+            </button>
+          )}
+
           {viewMode === 'bracket' && (
             <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300 text-xs">
               <button
@@ -144,7 +160,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (
-        <div className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
+        <div id="dual-wing-bracket-board" className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
           <div
             ref={bracketContainerRef}
             style={{
@@ -152,7 +168,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               transformOrigin: 'top center',
               transition: 'transform 0.15s ease-out'
             }}
-            className="flex items-center justify-center gap-8 min-w-max mx-auto py-8"
+            className="flex items-center justify-center gap-8 min-w-max mx-auto py-8 dual-wing-tree-container"
           >
             {/* ====== LEFT WING (Left-to-Right Progression) ====== */}
             <div className="flex items-center gap-8">
@@ -390,6 +406,14 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
           </div>
         </div>
       )}
+
+      {/* Broadcast Bracket Modal (Requirement 5) */}
+      <BroadcastBracketModal
+        isOpen={isBroadcastModalOpen}
+        onClose={() => setIsBroadcastModalOpen(false)}
+        tournament={tournament}
+        bracketContainerRef={bracketContainerRef}
+      />
     </div>
   );
 };
