@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, CheckCircle2, XCircle, Shield, Sparkles, Plus, Trash2, 
-  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, UserPlus
+  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, UserPlus,
+  Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink
 } from 'lucide-react';
-import { Player, Tournament, BeybladeType } from '../types';
+import { Player, Tournament, BeybladeType, VipPlayer } from '../types';
 import { POPULAR_BEYBLADES, SAMPLE_PLAYERS } from '../data/beybladeData';
+import { fetchVipPlayersApi, saveVipPlayerApi, deleteVipPlayerApi, importVipPlayersApi } from '../utils/api';
 
 interface PlayerManagementProps {
   tournament: Tournament | null;
@@ -14,6 +16,8 @@ interface PlayerManagementProps {
   onAddPlayer: (playerData: Omit<Player, 'id' | 'status' | 'registeredAt'>, autoApprove?: boolean) => void;
   onRemovePlayer: (playerId: string) => void;
   onUpdatePlayer: (player: Player) => void;
+  onToggleVip?: (player: Player) => void;
+  onImportVip?: (vipIds?: string[]) => void;
   onGenerateBracket: () => void;
   onSetSeedStatus: (playerId: string, isSeed: boolean, seedNumber?: number) => void;
   onRandomizeSeeds: (seedCount: number) => void;
@@ -29,6 +33,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onAddPlayer,
   onRemovePlayer,
   onUpdatePlayer,
+  onToggleVip,
+  onImportVip,
   onGenerateBracket,
   onSetSeedStatus,
   onRandomizeSeeds,
@@ -36,14 +42,39 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onRefreshRoster
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showVipModal, setShowVipModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [vipList, setVipList] = useState<VipPlayer[]>([]);
+  const [isImportingVip, setIsImportingVip] = useState(false);
+  const [vipFeedback, setVipFeedback] = useState<string | null>(null);
+  const [playerToDelete, setPlayerToDelete] = useState<Player | null>(null);
+
+  // VIP Management Form State
+  const [newVipName, setNewVipName] = useState('');
+  const [newVipLineId, setNewVipLineId] = useState('');
+  const [newVipBeyblade, setNewVipBeyblade] = useState(POPULAR_BEYBLADES[0].name);
+  const [newVipType, setNewVipType] = useState<BeybladeType>('attack');
+  const [newVipBlade, setNewVipBlade] = useState(POPULAR_BEYBLADES[0].combo);
+  const [newVipClub, setNewVipClub] = useState('戰鬥陀螺菁英隊');
+  const [newVipIsSeed, setNewVipIsSeed] = useState(false);
+
+  // Fetch VIP list on mount and when modal opens
+  const refreshVipList = async () => {
+    const list = await fetchVipPlayersApi();
+    setVipList(list);
+  };
+
+  useEffect(() => {
+    refreshVipList();
+  }, []);
 
   const handleManualRefresh = () => {
     setIsRefreshing(true);
     if (onRefreshRoster) {
       onRefreshRoster();
     }
+    refreshVipList();
     setTimeout(() => setIsRefreshing(false), 800);
   };
 
@@ -56,6 +87,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [manualClub, setManualClub] = useState('戰鬥陀螺菁英隊');
   const [manualIsSeed, setManualIsSeed] = useState(false);
   const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
+  const [manualIsVip, setManualIsVip] = useState(false);
 
   // Strictly filter out any reserve players: only allow LINE participants and manually added participants
   const rawPlayers = tournament?.players || [];
@@ -78,15 +110,29 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         blade: manualCombo,
         clubOrTeam: manualClub.trim() || '個人選手',
         isSeed: manualIsSeed,
-        seedNumber: manualIsSeed ? manualSeedNum : undefined
+        seedNumber: manualIsSeed ? manualSeedNum : undefined,
+        isVip: manualIsVip
       },
       true // auto-approved since admin manually added
     );
+
+    if (manualIsVip) {
+      saveVipPlayerApi({
+        name: manualName.trim(),
+        lineId: manualLineId.trim() || undefined,
+        beybladeName: manualBeyblade,
+        beybladeType: manualType,
+        blade: manualCombo,
+        clubOrTeam: manualClub.trim() || '個人選手',
+        isSeed: manualIsSeed
+      }).then(() => refreshVipList());
+    }
 
     setManualName('');
     setManualLineId('');
     setManualIsSeed(false);
     setManualSeedNum(undefined);
+    setManualIsVip(false);
     setShowAddModal(false);
   };
 
@@ -95,6 +141,81 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     if (!editingPlayer) return;
     onUpdatePlayer(editingPlayer);
     setEditingPlayer(null);
+  };
+
+  // Toggle VIP directly on a player
+  const handleToggleVipClick = async (player: Player) => {
+    if (onToggleVip) {
+      onToggleVip(player);
+    } else {
+      const newVip = !player.isVip;
+      onUpdatePlayer({ ...player, isVip: newVip });
+      if (newVip) {
+        await saveVipPlayerApi({
+          name: player.name,
+          lineId: player.lineId,
+          beybladeName: player.beybladeName,
+          beybladeType: player.beybladeType,
+          blade: player.blade,
+          clubOrTeam: player.clubOrTeam,
+          isSeed: player.isSeed
+        });
+      }
+    }
+    refreshVipList();
+  };
+
+  // Quick import all VIP players to pending queue
+  const handleQuickImportVip = async () => {
+    if (!tournament) return;
+    setIsImportingVip(true);
+    try {
+      if (onImportVip) {
+        await onImportVip();
+      } else {
+        const res = await importVipPlayersApi(tournament.id);
+        if (res && res.addedCount > 0) {
+          if (onRefreshRoster) onRefreshRoster();
+        }
+      }
+      setVipFeedback(`已快速將優質選手加入待審核名單！`);
+      setTimeout(() => setVipFeedback(null), 3500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsImportingVip(false);
+    }
+  };
+
+  // Add a new VIP player to the global registry
+  const handleCreateVipSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVipName.trim()) return;
+
+    await saveVipPlayerApi({
+      name: newVipName.trim(),
+      lineId: newVipLineId.trim() || undefined,
+      beybladeName: newVipBeyblade,
+      beybladeType: newVipType,
+      blade: newVipBlade,
+      clubOrTeam: newVipClub.trim() || '戰鬥陀螺菁英隊',
+      isSeed: newVipIsSeed
+    });
+
+    setNewVipName('');
+    setNewVipLineId('');
+    setNewVipIsSeed(false);
+    await refreshVipList();
+    setVipFeedback(`成功將 ${newVipName.trim()} 登錄為優質選手！`);
+    setTimeout(() => setVipFeedback(null), 3000);
+  };
+
+  // Delete a VIP player from global registry
+  const handleDeleteVip = async (vipId: string, name: string) => {
+    await deleteVipPlayerApi(vipId);
+    await refreshVipList();
+    setVipFeedback(`已將 ${name} 從優質選手清單移除`);
+    setTimeout(() => setVipFeedback(null), 2500);
   };
 
   const getAttributeBadge = (type: BeybladeType) => {
@@ -125,7 +246,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
-            成員審核登記與種子排位管理
+            選手審核登記與種子排位管理
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
             審核 LINE 群組送來的報名名單（支援 <code className="text-emerald-400 font-mono">+1</code> 與代報 <code className="text-purple-400 font-mono">++1 AAA</code>），通過後自動推播通知用戶！
@@ -156,10 +277,47 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         </div>
       </div>
 
+      {/* VIP Feedback Alert if any */}
+      {vipFeedback && (
+        <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl flex items-center justify-between text-amber-300 text-xs font-mono animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <span>{vipFeedback}</span>
+          </div>
+          <button onClick={() => setVipFeedback(null)} className="text-amber-400 hover:text-white font-bold">✕</button>
+        </div>
+      )}
+
       {/* Quick Fill / Tools bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 font-mono">
         <div className="flex items-center gap-2 flex-wrap text-xs text-slate-300">
           <span className="font-semibold text-white">⚡ 管理者快速工具：</span>
+          
+          {/* Quick Import VIPs button */}
+          <button
+            id="btn-quick-import-vip"
+            onClick={handleQuickImportVip}
+            disabled={isImportingVip}
+            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            title="將已儲存的優質選手快速帶入待審核清單"
+          >
+            <Star className={`w-3.5 h-3.5 text-amber-400 fill-amber-400 ${isImportingVip ? 'animate-spin' : ''}`} />
+            快速產生優質選手至待審核 ({vipList.length}人)
+          </button>
+
+          {/* Manage VIP Pool modal button */}
+          <button
+            id="btn-manage-vip-pool"
+            onClick={() => {
+              refreshVipList();
+              setShowVipModal(true);
+            }}
+            className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+          >
+            <Settings2 className="w-3.5 h-3.5 text-purple-400" />
+            管理優質選手名冊
+          </button>
+
           <button
             id="btn-quick-fill-size"
             onClick={() => onPopulateSamplePlayers(targetSize)}
@@ -168,23 +326,14 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
             一鍵填滿 {targetSize} 位選手
           </button>
-          {targetSize === 16 && (
-            <button
-              id="btn-quick-fill-12"
-              onClick={() => onPopulateSamplePlayers(12)}
-              className="px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              填入 12 人 (測試 16 人制補 4 位預備選手)
-            </button>
-          )}
+          
           <button
             id="btn-random-seed"
             onClick={() => onRandomizeSeeds(Math.min(4, Math.max(2, targetSize / 4)))}
-            className="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-medium transition-colors flex items-center gap-1.5"
           >
             <Shuffle className="w-3.5 h-3.5 text-purple-400" />
-            隨機抽籤指定 {Math.min(4, Math.max(2, targetSize / 4))} 位種子
+            抽籤 {Math.min(4, Math.max(2, targetSize / 4))} 種子
           </button>
         </div>
 
@@ -194,12 +343,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           className="px-3.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
-          手動新增參賽成員
+          手動新增參賽選手
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left: Pending Approval Queue from LINE (LINE 待審核成員列表) */}
+        {/* Left: Pending Approval Queue from LINE (LINE 待審核選手列表) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-2 flex-wrap">
@@ -247,24 +396,44 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             {pendingPlayers.length === 0 ? (
               <div className="text-center py-10 px-4 text-slate-500 space-y-2 font-mono">
                 <UserCheck className="w-10 h-10 mx-auto text-slate-600" />
-                <p className="text-sm font-semibold text-slate-400">目前沒有待審核的 LINE 報名成員</p>
+                <p className="text-sm font-semibold text-slate-400">目前沒有待審核的 LINE 報名選手</p>
                 <p className="text-xs">分享 LINE 邀請連結或群組指令 <code className="text-emerald-400">+1</code> 立即報名！</p>
+                <button
+                  onClick={handleQuickImportVip}
+                  className="mt-3 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  點此快速匯入優質選手
+                </button>
               </div>
             ) : (
               <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 font-mono">
                 {pendingPlayers.map((player) => (
                   <div
                     key={player.id}
-                    className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 hover:border-slate-600 transition-all space-y-2"
+                    className={`p-3.5 rounded-xl border transition-all space-y-2 ${
+                      player.isVip 
+                        ? 'bg-amber-950/20 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.06)]' 
+                        : 'bg-slate-800/80 border-slate-700 hover:border-slate-600'
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-white text-sm">{player.name}</span>
+                          
+                          {/* VIP Badge */}
+                          {player.isVip && (
+                            <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-600/60 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold shadow-sm">
+                              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                              優質選手
+                            </span>
+                          )}
+
                           {player.isProxy && (
                             <span className="text-[10px] text-purple-300 bg-purple-950/70 border border-purple-800 px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold">
                               <UserPlus className="w-3 h-3 text-purple-400" />
-                              代報成員
+                              代報選手
                             </span>
                           )}
                           {player.lineId && (
@@ -280,7 +449,22 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         )}
                         <div className="text-xs text-slate-400 mt-0.5">{player.clubOrTeam || '自由選手'}</div>
                       </div>
+                      
                       <div className="flex items-center gap-1.5">
+                        {/* Toggle VIP button */}
+                        <button
+                          id={`btn-toggle-vip-${player.id}`}
+                          onClick={() => handleToggleVipClick(player)}
+                          className={`p-1.5 rounded-lg border text-xs transition-colors flex items-center ${
+                            player.isVip
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300 hover:border-amber-500/30'
+                          }`}
+                          title={player.isVip ? '取消優質選手標記' : '設為優質選手並儲存名冊'}
+                        >
+                          <Star className={`w-3.5 h-3.5 ${player.isVip ? 'text-amber-400 fill-amber-400' : ''}`} />
+                        </button>
+
                         <button
                           id={`btn-approve-${player.id}`}
                           onClick={() => onApprovePlayer(player.id)}
@@ -319,7 +503,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           </div>
         </div>
 
-        {/* Right: Approved Registered Member List & Seed Management (已確認參賽名單) */}
+        {/* Right: Approved Registered Member List & Seed Management (已確認參賽選手名單) */}
         <div className="lg:col-span-7 space-y-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl font-mono">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-2">
@@ -329,24 +513,32 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-white text-base">已登記參賽名單 ({approvedPlayers.length} / {targetSize})</h3>
-                  <p className="text-[11px] text-slate-400">已審核完成之正式參賽者，可指定種子序號</p>
+                  <p className="text-[11px] text-slate-400">已審核完成之正式參賽選手，可指定種子序號或刪除選手</p>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-400 font-medium">
-                種子選手：
-                <span className="text-purple-400 font-bold ml-1">
-                  {approvedPlayers.filter((p) => p.isSeed).length} 位
-                </span>
+              <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+                <div>
+                  種子選手：
+                  <span className="text-purple-400 font-bold ml-1">
+                    {approvedPlayers.filter((p) => p.isSeed).length} 位
+                  </span>
+                </div>
+                <div>
+                  優質選手：
+                  <span className="text-amber-400 font-bold ml-1">
+                    {approvedPlayers.filter((p) => p.isVip).length} 位
+                  </span>
+                </div>
               </div>
             </div>
 
             {approvedPlayers.length === 0 ? (
               <div className="text-center py-12 px-4 text-slate-500 space-y-3">
                 <Users className="w-12 h-12 mx-auto text-slate-600" />
-                <p className="text-base font-bold text-slate-400">尚未有確認登記的正式參賽成員</p>
+                <p className="text-base font-bold text-slate-400">尚未有確認登記的正式參賽選手</p>
                 <p className="text-xs max-w-sm mx-auto">
-                  請審核左側待審核的 LINE 報名成員，或點擊「手動新增」/「一鍵填滿」快速載入選手！
+                  請審核左側待審核的 LINE 報名選手，或點擊「手動新增」/「優質選手」/「一鍵填滿」快速載入選手！
                 </p>
               </div>
             ) : (
@@ -357,6 +549,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                     className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                       player.pendingCancelConfirm
                         ? 'bg-amber-950/30 border-amber-500/50 shadow-sm'
+                        : player.isVip
+                        ? 'bg-amber-950/15 border-amber-500/35 shadow-sm'
                         : player.isSeed
                         ? 'bg-purple-950/20 border-purple-500/40 shadow-sm'
                         : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
@@ -371,6 +565,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-white text-sm truncate">{player.name}</span>
+                          
+                          {/* VIP Badge */}
+                          {player.isVip && (
+                            <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-600/60 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold">
+                              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                              優質選手
+                            </span>
+                          )}
+
                           {player.isProxy && (
                             <span className="text-[10px] text-purple-300 bg-purple-950/70 border border-purple-800 px-1.5 py-0.5 rounded">
                               代報
@@ -400,9 +603,24 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       </div>
                     </div>
 
-                    {/* Right Attributes & Seed Controls */}
+                    {/* Right Attributes & Controls */}
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                       {getAttributeBadge(player.beybladeType)}
+
+                      {/* VIP Toggle button */}
+                      <button
+                        id={`btn-vip-approved-${player.id}`}
+                        onClick={() => handleToggleVipClick(player)}
+                        className={`px-2 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1 ${
+                          player.isVip
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300 hover:border-amber-500/30'
+                        }`}
+                        title={player.isVip ? '取消優質選手' : '設為優質選手'}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${player.isVip ? 'text-amber-400 fill-amber-400' : ''}`} />
+                        <span className="hidden sm:inline">{player.isVip ? '優質' : '設優質'}</span>
+                      </button>
 
                       {/* Seed Toggle button */}
                       <button
@@ -419,11 +637,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         title="切換是否為種子選手"
                       >
                         <Shield className="w-3.5 h-3.5" />
-                        {player.isSeed ? `種子 #${player.seedNumber || index + 1}` : '設為種子'}
+                        {player.isSeed ? `種子 #${player.seedNumber || index + 1}` : '設種子'}
                       </button>
 
                       {/* Edit button */}
                       <button
+                        id={`btn-edit-player-${player.id}`}
                         onClick={() => setEditingPlayer(player)}
                         className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors"
                         title="編輯資料"
@@ -431,11 +650,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Delete button */}
+                      {/* Delete button (Direct & with confirmation state) */}
                       <button
-                        onClick={() => onRemovePlayer(player.id)}
-                        className="p-1.5 bg-slate-800 hover:bg-rose-900/40 text-slate-400 hover:text-rose-300 rounded-lg border border-slate-700 transition-colors"
-                        title="移除成員"
+                        id={`btn-delete-player-${player.id}`}
+                        onClick={() => setPlayerToDelete(player)}
+                        className="p-1.5 bg-rose-950/30 hover:bg-rose-600 text-rose-400 hover:text-white rounded-lg border border-rose-800/60 hover:border-rose-500 transition-all shadow-sm active:scale-95"
+                        title="刪除選手"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -448,13 +668,237 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         </div>
       </div>
 
+      {/* Delete Confirmation Modal */}
+      {playerToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-rose-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2 bg-rose-500/20 rounded-xl border border-rose-500/30">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">確認刪除選手</h3>
+                <p className="text-xs text-slate-400">從本場已登記參賽名單中移除</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 font-mono space-y-1">
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                <span>{playerToDelete.name}</span>
+                {playerToDelete.lineId && <span className="text-xs text-emerald-400">@{playerToDelete.lineId}</span>}
+              </div>
+              <div className="text-xs text-slate-400">陀螺：{playerToDelete.beybladeName} ({playerToDelete.blade || '標準'})</div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setPlayerToDelete(null)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-delete-player"
+                onClick={() => {
+                  onRemovePlayer(playerToDelete.id);
+                  setPlayerToDelete(null);
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/30 flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                確認刪除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIP Registry Management Modal (優質選手名冊管理) */}
+      {showVipModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-2xl max-w-2xl w-full p-6 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <Star className="w-5 h-5 fill-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">優質選手名冊管理 (VIP Registry)</h3>
+                  <p className="text-xs text-slate-400">
+                    若選手透過 LINE 重新報名，系統將以 LINE 報名的簡稱為主並自動更新此名冊
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowVipModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Action: Import all to tournament */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-amber-950/20 border border-amber-500/30 rounded-xl">
+              <div className="text-xs text-amber-200">
+                <span className="font-bold">現有已登錄優質選手：</span> {vipList.length} 位
+              </div>
+              <button
+                onClick={() => {
+                  handleQuickImportVip();
+                  setShowVipModal(false);
+                }}
+                disabled={vipList.length === 0 || isImportingVip}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all active:scale-95"
+              >
+                <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                全部快速匯入待審核名單 ➔
+              </button>
+            </div>
+
+            {/* VIP List Grid */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">已儲存之優質選手清單</h4>
+              {vipList.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-xs font-mono bg-slate-800/40 rounded-xl">
+                  目前名冊中尚未有優質選手，請在下方新增或於選手名單點擊「設為優質」
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                  {vipList.map((vip) => (
+                    <div
+                      key={vip.id}
+                      className="p-3 bg-slate-800/90 rounded-xl border border-slate-700 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                          <span className="font-bold text-white text-xs truncate">{vip.name}</span>
+                          {vip.lineId && (
+                            <span className="text-[10px] text-emerald-400 font-mono truncate">@{vip.lineId}</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                          {vip.beybladeName} • {vip.clubOrTeam || '菁英戰隊'}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteVip(vip.id, vip.name)}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-950/40 transition-colors shrink-0"
+                        title="從優質選手名冊刪除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add New VIP Form */}
+            <form onSubmit={handleCreateVipSubmit} className="p-4 bg-slate-800/60 border border-slate-700/80 rounded-xl space-y-3">
+              <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                新增優質選手至永久名冊
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">選手姓名/簡稱 *</label>
+                  <input
+                    type="text"
+                    value={newVipName}
+                    onChange={(e) => setNewVipName(e.target.value)}
+                    placeholder="例：戰鬥蒼鷹"
+                    required
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">LINE 帳號 (選填)</label>
+                  <input
+                    type="text"
+                    value={newVipLineId}
+                    onChange={(e) => setNewVipLineId(e.target.value)}
+                    placeholder="LINE ID"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">主要使用陀螺</label>
+                  <select
+                    value={newVipBeyblade}
+                    onChange={(e) => {
+                      setNewVipBeyblade(e.target.value);
+                      const b = POPULAR_BEYBLADES.find((item) => item.name === e.target.value);
+                      if (b) {
+                        setNewVipType(b.type);
+                        setNewVipBlade(b.combo);
+                      }
+                    }}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs"
+                  >
+                    {POPULAR_BEYBLADES.map((b) => (
+                      <option key={b.name} value={b.name}>{b.name} ({b.combo})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">所屬戰隊/俱樂部</label>
+                  <input
+                    type="text"
+                    value={newVipClub}
+                    onChange={(e) => setNewVipClub(e.target.value)}
+                    placeholder="例：戰鬥陀螺菁英隊"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newVipIsSeed}
+                    onChange={(e) => setNewVipIsSeed(e.target.checked)}
+                    className="w-4 h-4 accent-purple-500 rounded"
+                  />
+                  預設指定為種子選手
+                </label>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  加入名冊
+                </button>
+              </div>
+            </form>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowVipModal(false)}
+                className="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-semibold"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Manual Add Player Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100">
             <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <Plus className="w-5 h-5 text-emerald-400" />
-              手動登記參賽成員
+              手動登記參賽選手
             </h3>
             <form onSubmit={handleCreateManual} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -529,29 +973,47 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-white">指定為種子選手</div>
-                  <div className="text-[11px] text-slate-400">安排在種子保護籤位</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-white">指定為種子選手</div>
+                    <div className="text-[11px] text-slate-400">安排在種子保護籤位</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={manualIsSeed}
+                      onChange={(e) => setManualIsSeed(e.target.checked)}
+                      className="w-4 h-4 accent-purple-500 rounded"
+                    />
+                    {manualIsSeed && (
+                      <input
+                        type="number"
+                        min={1}
+                        max={targetSize}
+                        value={manualSeedNum || 1}
+                        onChange={(e) => setManualSeedNum(parseInt(e.target.value) || 1)}
+                        className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                        placeholder="序號"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-amber-400" />
+                      設為優質選手
+                    </div>
+                    <div className="text-[11px] text-slate-400">同步儲存至常駐名冊</div>
+                  </div>
                   <input
                     type="checkbox"
-                    checked={manualIsSeed}
-                    onChange={(e) => setManualIsSeed(e.target.checked)}
-                    className="w-4 h-4 accent-purple-500 rounded"
+                    checked={manualIsVip}
+                    onChange={(e) => setManualIsVip(e.target.checked)}
+                    className="w-4 h-4 accent-amber-500 rounded"
                   />
-                  {manualIsSeed && (
-                    <input
-                      type="number"
-                      min={1}
-                      max={targetSize}
-                      value={manualSeedNum || 1}
-                      onChange={(e) => setManualSeedNum(parseInt(e.target.value) || 1)}
-                      className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white"
-                      placeholder="序號"
-                    />
-                  )}
                 </div>
               </div>
 
@@ -628,6 +1090,22 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 </div>
               </div>
 
+              <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-amber-400" />
+                    標記為優質選手
+                  </div>
+                  <div className="text-[11px] text-slate-400">保留在常駐優質選手名冊中</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(editingPlayer.isVip)}
+                  onChange={(e) => setEditingPlayer({ ...editingPlayer, isVip: e.target.checked })}
+                  className="w-4 h-4 accent-amber-500 rounded"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -650,4 +1128,3 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     </div>
   );
 };
-

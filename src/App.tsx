@@ -21,7 +21,10 @@ import {
   approveAllPlayersApi,
   broadcastOpenTournamentApi,
   resetTournamentApi,
-  archiveTournamentApi
+  archiveTournamentApi,
+  deletePlayerApi,
+  saveVipPlayerApi,
+  importVipPlayersApi
 } from './utils/api';
 import { Header } from './components/Header';
 import { DualWingBracket } from './components/DualWingBracket';
@@ -44,7 +47,7 @@ export default function App() {
   const [isLineOnlyMode, setIsLineOnlyMode] = useState<boolean>(initial.isRegisterMode);
   const [isViewOnlyModeState, setIsViewOnlyModeState] = useState<boolean>(initial.isViewOnlyMode);
 
-  const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium'>('bracket');
+  const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'scoreboard' | 'podium'>('bracket');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -384,8 +387,8 @@ export default function App() {
     saveTournamentApi(updatedTour);
   };
 
-  // Remove player
-  const handleRemovePlayer = (playerId: string) => {
+  // Remove player (fully calls DELETE API as well)
+  const handleRemovePlayer = async (playerId: string) => {
     if (!tournament) return;
     const updatedTour: Tournament = {
       ...tournament,
@@ -393,7 +396,49 @@ export default function App() {
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
+    await deletePlayerApi(tournament.id, playerId);
+  };
+
+  // Toggle player VIP status (優質選手)
+  const handleToggleVip = async (player: Player) => {
+    if (!tournament) return;
+    const newIsVip = !player.isVip;
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: tournament.players.map((p) => (p.id === player.id ? { ...p, isVip: newIsVip } : p))
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
     saveTournamentApi(updatedTour);
+
+    if (newIsVip) {
+      await saveVipPlayerApi({
+        id: `vip_${player.id.replace('player_', '').replace('p_bot_', '')}`,
+        name: player.name,
+        lineId: player.lineId,
+        beybladeName: player.beybladeName,
+        beybladeType: player.beybladeType,
+        blade: player.blade,
+        clubOrTeam: player.clubOrTeam,
+        isSeed: player.isSeed
+      });
+    }
+  };
+
+  // Import VIP players into tournament pending queue
+  const handleImportVip = async (vipIds?: string[]) => {
+    if (!tournament) return;
+    const res = await importVipPlayersApi(tournament.id, vipIds);
+    if (res && res.tournament) {
+      setTournament(res.tournament);
+      saveTournamentToStore(res.tournament);
+    } else {
+      const serverTour = await fetchTournamentApi(tournament.id);
+      if (serverTour) {
+        setTournament(serverTour);
+        saveTournamentToStore(serverTour);
+      }
+    }
   };
 
   // Update player
@@ -681,6 +726,8 @@ export default function App() {
                 onAddPlayer={handleAddPlayer}
                 onRemovePlayer={handleRemovePlayer}
                 onUpdatePlayer={handleUpdatePlayer}
+                onToggleVip={handleToggleVip}
+                onImportVip={handleImportVip}
                 onGenerateBracket={handleGenerateBracket}
                 onSetSeedStatus={handleSetSeedStatus}
                 onRandomizeSeeds={handleRandomizeSeeds}
@@ -694,16 +741,6 @@ export default function App() {
                     }
                   }
                 }}
-              />
-            )}
-
-            {activeTab === 'line-invite' && (
-              <LineInviteView
-                tournament={tournament}
-                onRegisterPlayer={handleRegisterFromLine}
-                pendingCount={pendingCount}
-                approvedCount={approvedCount}
-                isStandaloneMode={false}
               />
             )}
 

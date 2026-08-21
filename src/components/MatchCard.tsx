@@ -1,6 +1,6 @@
 import React from 'react';
-import { Shield, Trophy, Swords, Check, ArrowRight, Clock } from 'lucide-react';
-import { Match, Player, BeybladeType } from '../types';
+import { Trophy, Shield, Check } from 'lucide-react';
+import { Match, Player } from '../types';
 
 interface MatchCardProps {
   match: Match;
@@ -24,39 +24,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
   const isCompleted = match.status === 'completed';
   const isBye = match.status === 'bye';
-  const isInProgress = match.status === 'in_progress' || (p1 && p2 && !isCompleted);
+  const isReady = p1 && p2 && !isCompleted;
 
   const isP1Highlighted = highlightedPlayerName && p1?.name.toLowerCase().includes(highlightedPlayerName.toLowerCase().trim());
   const isP2Highlighted = highlightedPlayerName && p2?.name.toLowerCase().includes(highlightedPlayerName.toLowerCase().trim());
   const hasHighlight = isP1Highlighted || isP2Highlighted;
 
-  const getAttributeColor = (type?: BeybladeType) => {
-    switch (type) {
-      case 'attack':
-        return 'text-red-400 border-red-500/40 bg-red-500/10';
-      case 'defense':
-        return 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10';
-      case 'stamina':
-        return 'text-amber-400 border-amber-500/40 bg-amber-500/10';
-      case 'balance':
-        return 'text-purple-400 border-purple-500/40 bg-purple-500/10';
-      default:
-        return 'text-slate-400 border-slate-700 bg-slate-800';
-    }
-  };
-
-  const getStatusBadge = () => {
-    if (isBye) {
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">輪空晉級 (BYE)</span>;
-    }
-    if (isCompleted) {
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">已完賽</span>;
-    }
-    if (p1 && p2) {
-      return <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 animate-pulse">可開戰 (0-11分)</span>;
-    }
-    return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-500">等待勝者</span>;
-  };
+  const isP1Winner = isCompleted && match.winnerId === p1?.id;
+  const isP2Winner = isCompleted && match.winnerId === p2?.id;
 
   return (
     <div
@@ -64,194 +39,135 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       onClick={() => {
         if (p1 || p2) onSelectMatch(match);
       }}
-      className={`relative w-72 rounded-xl transition-all duration-200 cursor-pointer overflow-hidden border ${
+      className={`relative w-64 rounded-lg transition-all duration-150 cursor-pointer overflow-hidden border select-none ${
         hasHighlight
-          ? 'bg-[#0e1726] border-[#00f2ff] shadow-[0_0_30px_rgba(0,242,255,0.4)] ring-2 ring-[#00f2ff]/60 scale-[1.02]'
+          ? 'bg-[#0e1726] border-[#00f2ff] shadow-[0_0_25px_rgba(0,242,255,0.4)] ring-2 ring-[#00f2ff]/60 scale-[1.02]'
           : isCenter
-          ? 'bg-[#0e111a] border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.25)] hover:border-amber-300'
-          : match.status === 'completed'
-          ? 'bg-[#0a0c12] border-[#ffffff15] hover:border-[#00f2ff]/50'
-          : p1 && p2
-          ? 'bg-[#0a0c12] border-[#00f2ff]/50 hover:border-[#00f2ff] shadow-[0_0_15px_rgba(0,242,255,0.1)]'
-          : 'bg-[#07090f]/80 border-[#ffffff0a] opacity-75 hover:opacity-100 hover:border-[#ffffff20]'
+          ? 'bg-[#0e111a] border-amber-400/80 shadow-[0_0_20px_rgba(245,158,11,0.25)] hover:border-amber-300'
+          : isCompleted
+          ? 'bg-[#0a0c12] border-[#ffffff15] hover:border-[#00f2ff]/40'
+          : isReady
+          ? 'bg-[#0a0c12] border-[#00f2ff]/40 hover:border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.1)]'
+          : 'bg-[#07090f]/90 border-[#ffffff0a] opacity-80 hover:opacity-100 hover:border-[#ffffff20]'
       }`}
     >
-      {/* Header Bar */}
-      <div className="px-3 py-1.5 bg-[#05070a]/90 border-b border-[#ffffff10] flex items-center justify-between text-[11px] font-mono">
-        <div className="flex items-center gap-1.5 font-bold text-gray-300">
+      {/* Top Streamlined Header Bar: 場次號碼 */}
+      <div className="px-2.5 py-1 bg-[#05070a] border-b border-[#ffffff10] flex items-center justify-between text-[11px] font-mono">
+        <div className="flex items-center gap-1.5 font-bold">
           {match.bracketWing === 'final' ? (
             <span className="text-amber-400 font-black flex items-center gap-1">
-              <Trophy className="w-3.5 h-3.5" /> 總冠軍戰
+              <Trophy className="w-3 h-3" /> 總冠軍賽
             </span>
           ) : match.bracketWing === 'third_place' ? (
-            <span className="text-amber-300/90 font-black">🥉 季殿軍戰</span>
+            <span className="text-amber-300/90 font-black">🥉 季軍賽</span>
           ) : (
             <span className="text-[#00f2ff] font-bold">場次 #{match.matchNumber}</span>
           )}
-          <span className="text-gray-600">•</span>
-          <span className="text-gray-400 truncate max-w-[120px]">{match.label}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          {hasHighlight && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-[#00f2ff] text-black uppercase tracking-wider animate-bounce">
-              搜尋命中
-            </span>
+        <div className="text-[10px]">
+          {isBye ? (
+            <span className="text-gray-500">輪空</span>
+          ) : isCompleted ? (
+            <span className="text-emerald-400 font-bold">完賽</span>
+          ) : isReady ? (
+            <span className="text-orange-400 font-bold animate-pulse">進行中</span>
+          ) : (
+            <span className="text-gray-600">待定</span>
           )}
-          {getStatusBadge()}
         </div>
       </div>
 
-      {/* Players Section */}
-      <div className="p-2 space-y-1.5">
-        {/* Player 1 */}
+      {/* Players & Scores Section: 選手簡稱 + 得分 */}
+      <div className="p-1.5 space-y-1">
+        {/* Player 1 Row */}
         <div
-          className={`p-2 rounded-lg transition-all flex items-center justify-between ${
-            match.winnerId === p1?.id && isCompleted
-              ? 'bg-emerald-950/40 border border-emerald-500/50 font-bold text-white shadow-[0_0_10px_rgba(16,185,129,0.15)]'
-              : match.loserId === p1?.id && isCompleted
-              ? 'bg-[#07090f]/50 text-gray-600 line-through border border-transparent'
+          className={`px-2 py-1 rounded flex items-center justify-between transition-colors ${
+            isP1Winner
+              ? 'bg-emerald-950/40 text-white font-bold border border-emerald-500/40'
+              : isCompleted && match.loserId === p1?.id
+              ? 'bg-[#07090f]/40 text-gray-500'
               : p1
-              ? 'bg-[#11141d]/80 text-gray-200 border border-[#ffffff0a] hover:border-[#ffffff18]'
-              : 'bg-[#07090f]/30 text-gray-600 border border-dashed border-[#ffffff10]'
+              ? 'bg-[#11141d]/70 text-gray-200 hover:bg-[#11141d]'
+              : 'bg-[#07090f]/30 text-gray-600'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <div className="w-5 h-5 rounded bg-[#05070a] border border-[#ffffff15] flex items-center justify-center text-[10px] font-mono font-bold text-[#00f2ff] shrink-0">
-              {p1?.isSeed ? (
-                <Shield className="w-3 h-3 text-purple-400" />
-              ) : (
-                '1'
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-bold truncate text-white">
-                  {p1 ? p1.name : isBye && !p2 ? '—' : '待定選手'}
-                </span>
-                {p1?.isSeed && (
-                  <span className="text-[9px] font-mono font-black px-1 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50 shrink-0">
-                    #{p1.seedNumber}
-                  </span>
-                )}
-                {p1?.isReserve && (
-                  <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                    預備席
-                  </span>
-                )}
-                {p1?.isRepechage && (
-                  <span className="text-[9px] font-mono font-black px-1 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 shrink-0 flex items-center gap-0.5">
-                    ⚡ 敗部復活
-                  </span>
-                )}
-              </div>
-              {p1 && (
-                <div className="text-[10px] text-gray-400 truncate flex items-center gap-1 font-mono">
-                  <span>{p1.beybladeName}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {p1 && isCompleted && match.winnerId === p1.id && (
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 min-w-0 pr-1">
+            <span className={`text-xs truncate ${isP1Winner ? 'text-white font-black' : p1 ? 'text-gray-200 font-bold' : 'text-gray-500'}`}>
+              {p1 ? p1.name : isBye && !p2 ? '—' : '待定'}
+            </span>
+            {p1?.isSeed && (
+              <span className="text-[9px] font-mono px-1 rounded bg-[#7000ff]/20 text-purple-300 shrink-0">
+                #{p1.seedNumber}
+              </span>
             )}
-            <div
-              className={`w-8 h-7 rounded flex items-center justify-center text-sm font-mono font-black ${
-                match.winnerId === p1?.id && isCompleted
-                  ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
-                  : 'bg-[#05070a] text-white border border-[#ffffff15]'
-              }`}
-            >
-              {p1 ? match.player1Score : '-'}
-            </div>
+            {p1?.isReserve && (
+              <span className="text-[9px] font-mono px-1 rounded bg-amber-500/20 text-amber-300 shrink-0">
+                預備
+              </span>
+            )}
+            {p1?.isRepechage && (
+              <span className="text-[9px] font-mono px-1 rounded bg-amber-500/30 text-amber-300 font-bold shrink-0">
+                復活
+              </span>
+            )}
+          </div>
+
+          <div
+            className={`w-6 h-5 rounded flex items-center justify-center text-xs font-mono font-black shrink-0 ${
+              isP1Winner
+                ? 'bg-emerald-500 text-black font-bold shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                : 'bg-[#05070a] text-white border border-[#ffffff15]'
+            }`}
+          >
+            {p1 ? match.player1Score : '-'}
           </div>
         </div>
 
-        {/* VS Divider */}
-        <div className="flex items-center justify-center text-[9px] font-mono font-black text-gray-600 uppercase tracking-widest py-0.5">
-          VS
-        </div>
-
-        {/* Player 2 */}
+        {/* Player 2 Row */}
         <div
-          className={`p-2 rounded-lg transition-all flex items-center justify-between ${
-            match.winnerId === p2?.id && isCompleted
-              ? 'bg-emerald-950/40 border border-emerald-500/50 font-bold text-white shadow-[0_0_10px_rgba(16,185,129,0.15)]'
-              : match.loserId === p2?.id && isCompleted
-              ? 'bg-[#07090f]/50 text-gray-600 line-through border border-transparent'
+          className={`px-2 py-1 rounded flex items-center justify-between transition-colors ${
+            isP2Winner
+              ? 'bg-emerald-950/40 text-white font-bold border border-emerald-500/40'
+              : isCompleted && match.loserId === p2?.id
+              ? 'bg-[#07090f]/40 text-gray-500'
               : p2
-              ? 'bg-[#11141d]/80 text-gray-200 border border-[#ffffff0a] hover:border-[#ffffff18]'
-              : 'bg-[#07090f]/30 text-gray-600 border border-dashed border-[#ffffff10]'
+              ? 'bg-[#11141d]/70 text-gray-200 hover:bg-[#11141d]'
+              : 'bg-[#07090f]/30 text-gray-600'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <div className="w-5 h-5 rounded bg-[#05070a] border border-[#ffffff15] flex items-center justify-center text-[10px] font-mono font-bold text-[#00f2ff] shrink-0">
-              {p2?.isSeed ? (
-                <Shield className="w-3 h-3 text-purple-400" />
-              ) : (
-                '2'
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-bold truncate text-white">
-                  {p2 ? p2.name : isBye ? '輪空 (BYE)' : '待定選手'}
-                </span>
-                {p2?.isSeed && (
-                  <span className="text-[9px] font-mono font-black px-1 rounded bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/50 shrink-0">
-                    #{p2.seedNumber}
-                  </span>
-                )}
-                {p2?.isReserve && (
-                  <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">
-                    預備席
-                  </span>
-                )}
-                {p2?.isRepechage && (
-                  <span className="text-[9px] font-mono font-black px-1 rounded bg-gradient-to-r from-purple-500/30 to-amber-500/30 text-amber-300 border border-amber-500/50 shrink-0 flex items-center gap-0.5">
-                    ⚡ 敗部復活
-                  </span>
-                )}
-              </div>
-              {p2 && (
-                <div className="text-[10px] text-gray-400 truncate flex items-center gap-1 font-mono">
-                  <span>{p2.beybladeName}</span>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center gap-1.5 min-w-0 pr-1">
+            <span className={`text-xs truncate ${isP2Winner ? 'text-white font-black' : p2 ? 'text-gray-200 font-bold' : 'text-gray-500'}`}>
+              {p2 ? p2.name : isBye ? '輪空' : '待定'}
+            </span>
+            {p2?.isSeed && (
+              <span className="text-[9px] font-mono px-1 rounded bg-[#7000ff]/20 text-purple-300 shrink-0">
+                #{p2.seedNumber}
+              </span>
+            )}
+            {p2?.isReserve && (
+              <span className="text-[9px] font-mono px-1 rounded bg-amber-500/20 text-amber-300 shrink-0">
+                預備
+              </span>
+            )}
+            {p2?.isRepechage && (
+              <span className="text-[9px] font-mono px-1 rounded bg-amber-500/30 text-amber-300 font-bold shrink-0">
+                復活
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {p2 && isCompleted && match.winnerId === p2.id && (
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-            )}
-            <div
-              className={`w-8 h-7 rounded flex items-center justify-center text-sm font-mono font-black ${
-                match.winnerId === p2?.id && isCompleted
-                  ? 'bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.4)]'
-                  : 'bg-[#05070a] text-white border border-[#ffffff15]'
-              }`}
-            >
-              {p2 ? match.player2Score : '-'}
-            </div>
+          <div
+            className={`w-6 h-5 rounded flex items-center justify-center text-xs font-mono font-black shrink-0 ${
+              isP2Winner
+                ? 'bg-emerald-500 text-black font-bold shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                : 'bg-[#05070a] text-white border border-[#ffffff15]'
+            }`}
+          >
+            {p2 ? match.player2Score : '-'}
           </div>
         </div>
-      </div>
-
-      {/* Bottom hint */}
-      <div className="px-3 py-1 bg-[#05070a]/70 border-t border-[#ffffff0a] text-[10px] text-gray-400 flex items-center justify-between font-mono">
-        <span>{match.roundsHistory.length > 0 ? `已戰 ${match.roundsHistory.length} 回合` : '0-11分 高者晉級'}</span>
-        {isReadOnly ? (
-          <span className="text-[#00f2ff] font-medium flex items-center gap-0.5">
-            {isCompleted ? '✓ 已完賽記錄' : '⚡ 觀看戰況 ➔'}
-          </span>
-        ) : (
-          <span className="text-[#00f2ff] font-bold hover:underline flex items-center gap-0.5">
-            點擊裁判計分 ➔
-          </span>
-        )}
       </div>
     </div>
   );
 };
+

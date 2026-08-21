@@ -1,5 +1,19 @@
 export type BeybladeType = 'attack' | 'defense' | 'stamina' | 'balance';
 
+export interface VipPlayer {
+  id: string;
+  name: string;
+  lineId?: string;
+  lineAvatar?: string;
+  beybladeName: string;
+  beybladeType: BeybladeType;
+  blade?: string;
+  clubOrTeam?: string;
+  addedAt: number;
+  isSeed?: boolean;
+  notes?: string;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -18,6 +32,7 @@ export interface Player {
   registeredAt: number;
   seedNumber?: number; // 1, 2, 3...
   isSeed: boolean;
+  isVip?: boolean; // True if designated as a VIP / 優質選手
   isReserve?: boolean; // True if auto-filled placeholder reserve player (預備選手)
   reserveIndex?: number; // 1, 2, 3, 4...
   isRepechage?: boolean; // True if this player entered via repechage (敗部復活)

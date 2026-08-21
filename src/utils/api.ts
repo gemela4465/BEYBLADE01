@@ -1,4 +1,77 @@
-import { Tournament, Player } from '../types';
+import { Tournament, Player, VipPlayer } from '../types';
+
+export async function deletePlayerApi(
+  tournamentId: string,
+  playerId: string
+): Promise<{ success: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error deleting player from tournament:', err);
+    return { success: false };
+  }
+}
+
+export async function fetchVipPlayersApi(): Promise<VipPlayer[]> {
+  try {
+    const res = await fetch('/api/vip-players');
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    console.warn('[API] Could not fetch VIP players:', err);
+    return [];
+  }
+}
+
+export async function saveVipPlayerApi(vip: Partial<VipPlayer>): Promise<{ success: boolean; vipPlayer?: VipPlayer }> {
+  try {
+    const res = await fetch('/api/vip-players', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vip),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error saving VIP player:', err);
+    return { success: false };
+  }
+}
+
+export async function deleteVipPlayerApi(vipId: string): Promise<{ success: boolean }> {
+  try {
+    const res = await fetch(`/api/vip-players/${encodeURIComponent(vipId)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error deleting VIP player:', err);
+    return { success: false };
+  }
+}
+
+export async function importVipPlayersApi(
+  tournamentId: string,
+  vipIds?: string[]
+): Promise<{ success: boolean; addedCount: number; addedPlayers: Player[]; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/import-vip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vipIds }),
+    });
+    if (!res.ok) return { success: false, addedCount: 0, addedPlayers: [] };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error importing VIP players:', err);
+    return { success: false, addedCount: 0, addedPlayers: [] };
+  }
+}
 
 export async function fetchTournamentApi(id: string): Promise<Tournament | null> {
   try {

@@ -9,6 +9,7 @@ interface Player {
   seedRank?: number;
   seedNumber?: number;
   isSeed?: boolean;
+  isVip?: boolean;
   isReserve?: boolean;
   reserveIndex?: number;
   score?: number;
@@ -28,6 +29,20 @@ interface Player {
   teamName?: string;
   notes?: string;
   pendingCancelConfirm?: boolean;
+}
+
+interface VipPlayer {
+  id: string;
+  name: string;
+  lineId?: string;
+  lineAvatar?: string;
+  beybladeName: string;
+  beybladeType: 'attack' | 'defense' | 'stamina' | 'balance';
+  blade?: string;
+  clubOrTeam?: string;
+  addedAt: number;
+  isSeed?: boolean;
+  notes?: string;
 }
 
 interface Match {
@@ -85,6 +100,7 @@ const DB_FILE = path.join(DATA_DIR, "tournaments.json");
 const HISTORY_FILE = path.join(DATA_DIR, "tournaments_history.json");
 const GROUPS_FILE = path.join(DATA_DIR, "line_groups.json");
 const ACTIVE_FILE = path.join(DATA_DIR, "active_tournament.json");
+const VIP_FILE = path.join(DATA_DIR, "vip_players.json");
 
 // Ensure data & uploads directories exist
 if (!fs.existsSync(DATA_DIR)) {
@@ -114,6 +130,102 @@ let connectedLineGroups: Record<string, {
   messageCount: number;
 }> = {};
 let currentActiveTournamentId: string | null = null;
+let vipPlayersDb: Record<string, VipPlayer> = {};
+
+const DEFAULT_VIP_PLAYERS: VipPlayer[] = [
+  {
+    id: "vip_1",
+    name: "蒼井霸斗",
+    lineId: "U_valtryek_01",
+    beybladeName: "勝利武神 1-60F",
+    beybladeType: "attack",
+    blade: "1-60F",
+    clubOrTeam: "BC Sol 戰隊",
+    addedAt: Date.now() - 86400000 * 3,
+    isSeed: true
+  },
+  {
+    id: "vip_2",
+    name: "紅愁",
+    lineId: "U_spriggan_02",
+    beybladeName: "烈焰巨神 0B.Br",
+    beybladeType: "balance",
+    blade: "0B.Br",
+    clubOrTeam: "Raging Bulls",
+    addedAt: Date.now() - 86400000 * 2,
+    isSeed: true
+  },
+  {
+    id: "vip_3",
+    name: "白鷺城類",
+    lineId: "U_longinus_03",
+    beybladeName: "狂暴龍王 3-60F",
+    beybladeType: "attack",
+    blade: "3-60F",
+    clubOrTeam: "Rideout 戰隊",
+    addedAt: Date.now() - 86400000 * 2,
+    isSeed: true
+  },
+  {
+    id: "vip_4",
+    name: "費利",
+    lineId: "U_farnir_04",
+    beybladeName: "虛無魔龍 8.Nt",
+    beybladeType: "stamina",
+    blade: "8.Nt",
+    clubOrTeam: "BC Sol 戰隊",
+    addedAt: Date.now() - 86400000,
+    isSeed: true
+  }
+];
+
+function loadVipDb() {
+  try {
+    if (fs.existsSync(VIP_FILE)) {
+      const data = fs.readFileSync(VIP_FILE, "utf-8");
+      vipPlayersDb = JSON.parse(data);
+    } else {
+      DEFAULT_VIP_PLAYERS.forEach(vip => {
+        vipPlayersDb[vip.id] = vip;
+      });
+      saveVipDb();
+    }
+  } catch (err) {
+    console.error("Error reading vip players file:", err);
+    vipPlayersDb = {};
+  }
+}
+
+function saveVipDb() {
+  try {
+    fs.writeFileSync(VIP_FILE, JSON.stringify(vipPlayersDb, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error writing vip players file:", err);
+  }
+}
+
+function syncVipPlayerFromLine(finalShortName: string, lineId?: string): { isVip: boolean; vipPlayer?: VipPlayer } {
+  if (!finalShortName && !lineId) return { isVip: false };
+  
+  const vipList = Object.values(vipPlayersDb);
+  const matched = vipList.find(
+    (v) => (lineId && v.lineId && v.lineId === lineId) || (finalShortName && v.name.trim().toLowerCase() === finalShortName.trim().toLowerCase())
+  );
+
+  if (matched) {
+    // If LINE gives a new/updated short name, update the VIP player list name!
+    if (finalShortName && finalShortName.trim() && matched.name !== finalShortName.trim()) {
+      console.log(`[VIP Sync] Updating VIP Player (${matched.id}) name from "${matched.name}" to "${finalShortName.trim()}" based on LINE registration`);
+      matched.name = finalShortName.trim();
+    }
+    if (lineId && !matched.lineId) {
+      matched.lineId = lineId;
+    }
+    saveVipDb();
+    return { isVip: true, vipPlayer: matched };
+  }
+  return { isVip: false };
+}
 
 function loadDb() {
   try {
@@ -205,6 +317,7 @@ function recordConnectedGroup(id: string, type: 'group' | 'room' | 'user', name?
 }
 
 loadDb();
+loadVipDb();
 
 // Helper: Format default timing strings
 function getDefaultTimes() {
@@ -334,19 +447,6 @@ async function startServer() {
       isArchived: incoming.isArchived || false
     };
 
-    // Preserve existing registered players if updating tournament
-    const existing = tournamentsDb[tournament.id];
-    if (existing && existing.players && tournament.players) {
-      const playerMap = new Map<string, Player>();
-      tournament.players.forEach((p) => playerMap.set(p.id, p));
-      existing.players.forEach((p) => {
-        if (!playerMap.has(p.id)) {
-          playerMap.set(p.id, p);
-        }
-      });
-      tournament.players = Array.from(playerMap.values());
-    }
-
     tournamentsDb[tournament.id] = tournament;
     saveDb();
 
@@ -450,21 +550,149 @@ async function startServer() {
       return res.status(400).json({ error: "ID mismatch or invalid payload" });
     }
 
-    const existing = tournamentsDb[id];
-    if (existing && existing.players && tournament.players) {
-      const playerMap = new Map<string, Player>();
-      tournament.players.forEach((p) => playerMap.set(p.id, p));
-      existing.players.forEach((p) => {
-        if (!playerMap.has(p.id)) {
-          playerMap.set(p.id, p);
-        }
-      });
-      tournament.players = Array.from(playerMap.values());
-    }
-
     tournamentsDb[id] = tournament;
     saveDb();
     res.json(tournament);
+  });
+
+  // Delete player from tournament (Explicit delete to prevent resurrection)
+  app.delete("/api/tournaments/:id/players/:playerId", (req, res) => {
+    const { id, playerId } = req.params;
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (Array.isArray(tournament.players)) {
+      const initialCount = tournament.players.length;
+      tournament.players = tournament.players.filter((p) => p.id !== playerId);
+      if (tournament.players.length !== initialCount) {
+        saveDb();
+        console.log(`[Player Deleted] Successfully deleted player ${playerId} from tournament ${id}. Remaining: ${tournament.players.length}`);
+      }
+    }
+
+    res.json({ success: true, tournament });
+  });
+
+  // ===================== VIP PLAYERS (優質選手) API =====================
+  // GET all VIP players
+  app.get("/api/vip-players", (req, res) => {
+    res.json(Object.values(vipPlayersDb));
+  });
+
+  // Create or Update VIP player
+  app.post("/api/vip-players", (req, res) => {
+    const vip: Partial<VipPlayer> = req.body;
+    if (!vip || !vip.name) {
+      return res.status(400).json({ error: "Name is required for VIP player" });
+    }
+
+    const id = vip.id || `vip_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
+    const existing = vipPlayersDb[id];
+
+    const savedVip: VipPlayer = {
+      id,
+      name: vip.name.trim(),
+      lineId: vip.lineId ? vip.lineId.trim() : existing?.lineId,
+      lineAvatar: vip.lineAvatar || existing?.lineAvatar,
+      beybladeName: vip.beybladeName ? vip.beybladeName.trim() : (existing?.beybladeName || "戰鬥陀螺 X"),
+      beybladeType: vip.beybladeType || existing?.beybladeType || "attack",
+      blade: vip.blade || existing?.blade || "9-60GF",
+      clubOrTeam: vip.clubOrTeam ? vip.clubOrTeam.trim() : (existing?.clubOrTeam || "個人選手"),
+      addedAt: existing?.addedAt || Date.now(),
+      isSeed: typeof vip.isSeed === "boolean" ? vip.isSeed : (existing?.isSeed ?? true),
+      notes: vip.notes ? vip.notes.trim() : existing?.notes
+    };
+
+    vipPlayersDb[id] = savedVip;
+    saveVipDb();
+    console.log(`[VIP Player Saved] Saved VIP player ${savedVip.name} (ID: ${savedVip.id})`);
+    res.json({ success: true, vipPlayer: savedVip });
+  });
+
+  // Delete VIP player from VIP registry
+  app.delete("/api/vip-players/:id", (req, res) => {
+    const { id } = req.params;
+    if (vipPlayersDb[id]) {
+      const deletedName = vipPlayersDb[id].name;
+      delete vipPlayersDb[id];
+      saveVipDb();
+      console.log(`[VIP Player Deleted] Removed VIP player ${deletedName} (ID: ${id})`);
+      return res.json({ success: true, message: "VIP player deleted" });
+    }
+    res.status(404).json({ error: "VIP player not found" });
+  });
+
+  // Import VIP players into tournament pending queue
+  app.post("/api/tournaments/:id/import-vip", (req, res) => {
+    const { id } = req.params;
+    const { vipIds } = req.body || {}; // optional array of specific VIP IDs to import
+
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (!Array.isArray(tournament.players)) {
+      tournament.players = [];
+    }
+
+    const allVips = Object.values(vipPlayersDb);
+    const targetVips = Array.isArray(vipIds) && vipIds.length > 0
+      ? allVips.filter((v) => vipIds.includes(v.id))
+      : allVips;
+
+    let addedCount = 0;
+    const addedPlayers: Player[] = [];
+
+    for (const vip of targetVips) {
+      // Check if player with same lineId or same name already exists in this tournament
+      const alreadyIn = tournament.players.find(
+        (p) => (!p.isReserve && vip.lineId && p.lineId === vip.lineId) ||
+               (!p.isReserve && p.name.toLowerCase() === vip.name.toLowerCase())
+      );
+
+      if (alreadyIn) {
+        // Already in tournament; ensure isVip flag and latest name are updated
+        alreadyIn.isVip = true;
+        if (!alreadyIn.lineId && vip.lineId) alreadyIn.lineId = vip.lineId;
+        continue;
+      }
+
+      const newPendingPlayer: Player = {
+        id: `p_vip_${vip.id}_${Date.now().toString(36)}`,
+        name: vip.name,
+        lineId: vip.lineId,
+        isProxy: false,
+        beybladeName: vip.beybladeName || "戰鬥陀螺 X",
+        beybladeType: vip.beybladeType || "attack",
+        blade: vip.blade || "9-60GF",
+        customCombo: vip.blade || "9-60GF",
+        clubOrTeam: vip.clubOrTeam || "優質選手",
+        teamName: vip.clubOrTeam || "優質選手",
+        status: "pending", // directly populated into 待審核名單
+        registeredAt: Date.now(),
+        isSeed: !!vip.isSeed,
+        isVip: true,
+        score: 0,
+        totalPointsScored: 0
+      };
+
+      tournament.players.push(newPendingPlayer);
+      addedPlayers.push(newPendingPlayer);
+      addedCount++;
+    }
+
+    saveDb();
+    console.log(`[Import VIP] Imported ${addedCount} VIP players to tournament "${tournament.name}" (ID: ${id}) pending queue`);
+
+    res.json({
+      success: true,
+      addedCount,
+      addedPlayers,
+      tournament
+    });
   });
 
   // Register player endpoint (dedicated endpoint for LINE invitees)
@@ -1340,15 +1568,23 @@ async function startServer() {
       const finalShortName = parsed.shortName || sourceUser.displayName || '群組選手';
       const beybladeName = parsed.beyblade || '戰鬥陀螺 X (現場指定)';
 
-      // Check existing player by user's own LINE ID
+      // Sync with VIP Player Registry: If user is VIP or was registered as VIP, update VIP list name
+      const vipSyncResult = syncVipPlayerFromLine(finalShortName, sourceUser.userId);
+
+      // Check existing player by user's own LINE ID or by VIP link or by matching name
       const existing = tournament.players.find(
-        (p) => (!p.isReserve && !p.isProxy && p.lineId === sourceUser.userId) || (!p.isReserve && !p.isProxy && p.name.toLowerCase() === finalShortName.toLowerCase() && p.lineId === sourceUser.userId)
+        (p) => (!p.isReserve && !p.isProxy && p.lineId && p.lineId === sourceUser.userId) ||
+               (!p.isReserve && !p.isProxy && vipSyncResult.vipPlayer && (p.id.includes(vipSyncResult.vipPlayer.id) || p.name.toLowerCase() === vipSyncResult.vipPlayer.name.toLowerCase())) ||
+               (!p.isReserve && !p.isProxy && p.name.toLowerCase() === finalShortName.toLowerCase())
       );
 
       if (existing) {
-        // Update existing player
+        // Update existing player: prioritize LINE shortName and update VIP flag if matched
         existing.name = finalShortName;
         existing.lineId = sourceUser.userId;
+        if (vipSyncResult.isVip) {
+          existing.isVip = true;
+        }
         if (sourceUser.groupId) {
           existing.registeredInGroupId = sourceUser.groupId;
         }
@@ -1361,7 +1597,7 @@ async function startServer() {
 
         const statusLabel = existing.status === 'approved' ? '✅ 已通過審核正式排入賽程' : '⏳ 等待主辦方審核中';
         return {
-          replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${existing.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：${statusLabel}\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
+          replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${existing.name}${existing.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：${statusLabel}\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
           registered: true,
           player: existing,
           tournament
@@ -1378,11 +1614,12 @@ async function startServer() {
         beybladeType: 'attack',
         blade: parsed.beyblade || '9-60GF',
         customCombo: parsed.beyblade || '9-60GF',
-        clubOrTeam: 'LINE 群組報名',
-        teamName: 'LINE 群組報名',
+        clubOrTeam: vipSyncResult.vipPlayer?.clubOrTeam || 'LINE 群組報名',
+        teamName: vipSyncResult.vipPlayer?.clubOrTeam || 'LINE 群組報名',
         status: 'pending',
         registeredAt: Date.now(),
-        isSeed: false,
+        isSeed: vipSyncResult.vipPlayer?.isSeed ?? false,
+        isVip: vipSyncResult.isVip,
         score: 0,
         totalPointsScored: 0
       };
@@ -1390,10 +1627,10 @@ async function startServer() {
       tournament.players.push(newPlayer);
       saveDb();
 
-      console.log(`[LINE Bot Webhook] Registered player "${newPlayer.name}" (LINE ID: ${sourceUser.userId}, Group: ${sourceUser.groupId || 'none'}) to tournament "${tournament.name}"`);
+      console.log(`[LINE Bot Webhook] Registered player "${newPlayer.name}" (VIP: ${newPlayer.isVip}, LINE ID: ${sourceUser.userId}, Group: ${sourceUser.groupId || 'none'}) to tournament "${tournament.name}"`);
 
       return {
-        replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newPlayer.name}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
+        replyText: `🔄【報名資料已更新】\n👤 選手簡稱：${newPlayer.name}${newPlayer.isVip ? ' (⭐優質選手)' : ''}\n🏆 賽事場次：${tournament.name}\n📌 狀態：⏳ 待主辦方審核確認中\n🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}\n開賽時間: ${startTimeDisplay}\n報名截止時間: ${deadlineDisplay}`,
         registered: true,
         player: newPlayer,
         tournament

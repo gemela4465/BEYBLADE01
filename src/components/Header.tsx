@@ -5,8 +5,8 @@ import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface HeaderProps {
   tournament: Tournament | null;
-  activeTab: 'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium';
-  onTabChange: (tab: 'bracket' | 'players' | 'line-invite' | 'scoreboard' | 'podium') => void;
+  activeTab: 'bracket' | 'players' | 'scoreboard' | 'podium';
+  onTabChange: (tab: 'bracket' | 'players' | 'scoreboard' | 'podium') => void;
   onOpenCreateModal: () => void;
   onOpenExportModal: () => void;
   onOpenHistoryModal: () => void;
@@ -253,25 +253,12 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            成員審核與登記
+            選手審核與登記
             {pendingCount > 0 && (
               <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded bg-rose-500 text-white animate-pulse">
                 {pendingCount}
               </span>
             )}
-          </button>
-
-          <button
-            id="tab-line-invite"
-            onClick={() => onTabChange('line-invite')}
-            className={`px-4 py-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap uppercase tracking-wider ${
-              activeTab === 'line-invite'
-                ? 'text-emerald-400 border-emerald-400 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                : 'text-gray-400 border-transparent hover:text-white hover:bg-[#ffffff05]'
-            }`}
-          >
-            <Bot className="w-4 h-4 text-emerald-400" />
-            LINE BOT 報名傳送門
           </button>
 
           <button

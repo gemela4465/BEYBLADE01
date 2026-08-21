@@ -61,7 +61,7 @@ export const ResetTournamentModal: React.FC<ResetTournamentModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl font-black text-white tracking-wide">賽事重置 / 重新開賽</h2>
-            <p className="text-xs text-gray-400 font-mono">賽前取消並重設賽事狀態，可選擇是否保留已審核成員</p>
+            <p className="text-xs text-gray-400 font-mono">賽前取消並重設賽事狀態，可選擇是否保留已審核選手</p>
           </div>
         </div>
 
@@ -76,7 +76,7 @@ export const ResetTournamentModal: React.FC<ResetTournamentModalProps> = ({
           {/* Keep Approved Option (Requirement 7) */}
           <div className="p-4 bg-[#05070a] border border-[#ffffff15] rounded-2xl space-y-3">
             <div className="text-xs font-bold text-white uppercase tracking-wider flex items-center justify-between">
-              <span>已審核成員保留設定</span>
+              <span>已審核選手保留設定</span>
               <span className="text-[#00f2ff] font-bold">目前已審核 {approvedPlayersCount} 人</span>
             </div>
 
@@ -93,7 +93,7 @@ export const ResetTournamentModal: React.FC<ResetTournamentModalProps> = ({
               >
                 <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-400 mb-1">
                   <ShieldCheck className="w-4 h-4" />
-                  保留已審核成員
+                  保留已審核選手
                 </div>
                 <div className="text-[10px] text-gray-400">保留審核通過選手，僅清除待審核與樹狀圖籤位</div>
               </button>
@@ -110,7 +110,7 @@ export const ResetTournamentModal: React.FC<ResetTournamentModalProps> = ({
               >
                 <div className="flex items-center gap-1.5 font-bold text-xs text-rose-400 mb-1">
                   <X className="w-4 h-4" />
-                  清空所有成員名單
+                  清空所有選手名單
                 </div>
                 <div className="text-[10px] text-gray-400">完全清空所有報名選手，從 0 人重新開放報名</div>
               </button>
