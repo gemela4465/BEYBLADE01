@@ -202,13 +202,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               isReadOnly={isReadOnly}
                               highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                             />
-
-                            {/* Victory Path Node Badge - Static & aligned */}
-                            {isMatchCompleted && match.winnerId && (
-                              <div className="absolute -right-1 top-1/2 -translate-y-1/2 bg-emerald-500 text-slate-950 rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px] font-black shadow-[0_0_6px_rgba(16,185,129,0.8)] z-20 border border-white/40 pointer-events-none" title={`勝出晉級：${playerMap.get(match.winnerId)?.name}`}>
-                                ✓
-                              </div>
-                            )}
                           </div>
 
                           {/* Winner Podium for Final */}
