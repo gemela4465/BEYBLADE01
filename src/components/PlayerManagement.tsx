@@ -312,7 +312,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <Swords className="w-5 h-5" />
                 <span>
                   {approvedPlayers.length >= targetSize
-                    ? '名額已滿！生成雙翼賽程表 ➔'
+                    ? '名額已滿！生成賽程表 ➔'
                     : approvedPlayers.length >= 2
                     ? `未滿員生成 (${approvedPlayers.length}/${targetSize}人，自動安排預備選手1~${targetSize - approvedPlayers.length}席) ➔`
                     : `審核通過至少 2 人即可生成賽程 (${approvedPlayers.length}/${targetSize}) ➔`}

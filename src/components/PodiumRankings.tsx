@@ -1,16 +1,21 @@
-import React, { useEffect } from 'react';
-import { Trophy, Award, Medal, Crown, Sparkles, Share2, Swords, Shield } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Trophy, Award, Medal, Crown, Sparkles, Share2, Swords, Shield, CheckCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Tournament, Player } from '../types';
 
 interface PodiumRankingsProps {
   tournament: Tournament;
   onSelectMatchById?: (matchId: string) => void;
+  onFinishTournament?: () => void;
+  readOnly?: boolean;
 }
 
 export const PodiumRankings: React.FC<PodiumRankingsProps> = ({
-  tournament
+  tournament,
+  onFinishTournament,
+  readOnly = false
 }) => {
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const rankings = tournament.rankings;
   const isComplete = tournament.status === 'completed' || (rankings?.champion && rankings?.runnerUp);
 
@@ -37,15 +42,43 @@ export const PodiumRankings: React.FC<PodiumRankingsProps> = ({
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-black uppercase tracking-wider shadow-[0_0_15px_rgba(245,158,11,0.2)]">
           <Trophy className="w-4 h-4" />
-          雙翼淘汰賽榮譽之巔
+          榮譽榜 • 巔峰榮耀
         </div>
         <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-wide">
-          {tournament.name} — 榮譽名人堂
+          {tournament.name} — 榮譽榜
         </h2>
         <p className="text-xs sm:text-sm text-gray-400 font-mono">
           依決賽與季殿軍戰裁決，頒發 <strong className="text-white">冠、亞、季、殿軍</strong> 四大最高榮譽！
         </p>
       </div>
+
+      {/* Finish Tournament Action Bar (比賽結束 按鈕) */}
+      {!readOnly && onFinishTournament && tournament.status !== 'completed' && (
+        <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-amber-950/70 border-2 border-amber-500/60 rounded-2xl p-4 sm:p-5 shadow-[0_0_30px_rgba(245,158,11,0.25)] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/50 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/20">
+              <Trophy className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-white font-black text-base flex items-center gap-2">
+                <span>🏁 結束本場賽事並發布榮譽榜通知</span>
+              </div>
+              <p className="text-xs text-slate-300 font-mono mt-0.5">
+                按下按鈕後將自動存檔備查，並發布 LINE 冠亞季殿軍獲獎名單與完賽通知至所有群組與好友。
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            id="btn-finish-tournament-podium"
+            onClick={() => setShowFinishConfirm(true)}
+            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 hover:brightness-110 text-slate-950 rounded-xl text-sm font-black shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2 active:scale-95 transition-all uppercase tracking-wider font-mono shrink-0"
+          >
+            <CheckCheck className="w-5 h-5 stroke-[2.5]" />
+            <span>🏁 比賽結束</span>
+          </button>
+        </div>
+      )}
 
       {/* 3D Dynamic Podium (冠 亞 季 殿) */}
       <div className="bg-[#0a0c12]/90 border border-[#ffffff10] rounded-3xl p-6 sm:p-10 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative overflow-hidden">
@@ -289,6 +322,54 @@ export const PodiumRankings: React.FC<PodiumRankingsProps> = ({
               <div className="text-purple-200">{tournament.prizes.extraNotes}</div>
             </div>
           )}
+        </div>
+      )}
+      {/* Finish Tournament Confirmation Modal (比賽結束 確認視窗) */}
+      {showFinishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-3 bg-amber-500/20 rounded-xl border border-amber-500/40">
+                <CheckCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">確認比賽結束？</h3>
+                <p className="text-xs text-slate-400">場次：{tournament.name}</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-2 leading-relaxed">
+              <div className="text-amber-300 font-bold">🏁 比賽結束作業說明：</div>
+              <ul className="list-disc list-inside space-y-1 text-slate-300">
+                <li>賽事比分將<span className="text-rose-400 font-bold">全面永久鎖定</span>，不可再修改。</li>
+                <li>系統將<span className="text-amber-300 font-bold">自動發布 LINE 冠、亞、季、殿軍榮譽榜獲獎名單與完賽通知</span>至所有群組與好友。</li>
+                <li>系統將自動將完整賽事紀錄、比分歷程與榮譽榜<span className="text-amber-300 font-bold">存檔至歷史備查庫</span>。</li>
+                <li>完成後將<span className="text-cyan-300 font-bold">清空主頁</span>，等候建立下一場全新賽事。</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowFinishConfirm(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
+              >
+                返回榮譽榜
+              </button>
+              <button
+                type="button"
+                id="btn-confirm-finish-podium"
+                onClick={() => {
+                  setShowFinishConfirm(false);
+                  if (onFinishTournament) onFinishTournament();
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:brightness-110 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/30 flex items-center gap-2"
+              >
+                <CheckCheck className="w-4 h-4" />
+                確認比賽結束並發布 LINE ➔
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

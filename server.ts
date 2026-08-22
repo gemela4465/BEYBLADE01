@@ -624,8 +624,8 @@ async function startServer() {
     res.json({ success: true, tournament });
   });
 
-  // Finish Tournament endpoint (Requirement 2: 完賽按鈕)
-  app.post("/api/tournaments/:id/finish", (req, res) => {
+  // Finish Tournament endpoint (比賽結束：自動存檔備查，並發布 LINE 冠亞季殿軍獲獎名單與完賽通知)
+  app.post("/api/tournaments/:id/finish", async (req, res) => {
     const { id } = req.params;
     const tournament = tournamentsDb[id];
     if (!tournament) {
@@ -649,6 +649,57 @@ async function startServer() {
     }
 
     console.log(`[Tournament Completed & Archived] Tournament "${tournament.name}" (ID: ${id}) marked as completed and archived.`);
+
+    // Broadcast finish & honor roll rankings to all LINE groups and friends
+    try {
+      const champion = tournament.rankings?.champion;
+      const runnerUp = tournament.rankings?.runnerUp;
+      const thirdPlace = tournament.rankings?.thirdPlace;
+      const fourthPlace = tournament.rankings?.fourthPlace;
+
+      const rankLines: string[] = [];
+      if (champion) {
+        const b = champion.beybladeName ? `（${champion.beybladeName}）` : '';
+        const t = champion.clubOrTeam ? ` [${champion.clubOrTeam}]` : '';
+        rankLines.push(`🥇 總冠軍：${champion.name}${b}${t}`);
+      } else {
+        rankLines.push(`🥇 總冠軍：未產生`);
+      }
+
+      if (runnerUp) {
+        const b = runnerUp.beybladeName ? `（${runnerUp.beybladeName}）` : '';
+        const t = runnerUp.clubOrTeam ? ` [${runnerUp.clubOrTeam}]` : '';
+        rankLines.push(`🥈 亞軍：${runnerUp.name}${b}${t}`);
+      } else {
+        rankLines.push(`🥈 亞軍：未產生`);
+      }
+
+      if (thirdPlace) {
+        const b = thirdPlace.beybladeName ? `（${thirdPlace.beybladeName}）` : '';
+        const t = thirdPlace.clubOrTeam ? ` [${thirdPlace.clubOrTeam}]` : '';
+        rankLines.push(`🥉 季軍：${thirdPlace.name}${b}${t}`);
+      } else {
+        rankLines.push(`🥉 季軍：未產生`);
+      }
+
+      if (fourthPlace) {
+        const b = fourthPlace.beybladeName ? `（${fourthPlace.beybladeName}）` : '';
+        const t = fourthPlace.clubOrTeam ? ` [${fourthPlace.clubOrTeam}]` : '';
+        rankLines.push(`🏅 殿軍：${fourthPlace.name}${b}${t}`);
+      } else {
+        rankLines.push(`🏅 殿軍：未產生`);
+      }
+
+      const prizeSection = formatPrizeNotice(tournament);
+
+      const finishAnnouncement = `🏁【${tournament.name} 比賽圓滿結束公告】\n\n🏆【榮譽榜 • 冠亞季殿軍獲獎名單】\n${rankLines.join('\n')}${prizeSection}\n\n🎉 恭喜所有榮登榮譽榜的頂尖陀螺選手！感謝全體參賽選手的熱血激戰與參與！\n\n📦 本場賽事完整比分與紀錄已自動存檔備查，期待下場賽事再與各位戰友切磋！`;
+
+      await broadcastToAllGroupsAndFollowers(finishAnnouncement);
+      console.log(`[Finish Notification Sent to LINE] Sent honor roll & completion notice for tournament ${id}`);
+    } catch (broadcastErr) {
+      console.error("[Broadcast Finish Notification Error]", broadcastErr);
+    }
+
     res.json({ success: true, tournament });
   });
 
@@ -1149,7 +1200,7 @@ async function startServer() {
       statusLine = `🔥 賽程激戰進行中（已完成 ${completedMatches.length} 場 / 進行中 ${activeMatches.length} 場）`;
     }
 
-    const defaultText = `⚔️【${tournament.name} 雙翼賽程表發布】\n${statusLine}\n\n📊 賽制資訊：\n• 參賽人數：${approvedPlayers.length} / ${tournament.targetSize} 人\n• 爭霸分制：率先奪得 ${tournament.matchTargetScore} 分晉級\n• 賽程結構：左翼 ${tournament.targetSize / 2} 強 ⚔️ 右翼 ${tournament.targetSize / 2} 強 ➔ 中央總決賽\n\n🌐 線上即時賽程表（免登入唯讀查看，即時同步）：\n${effectiveViewUrl}\n\n💬 LINE 快速指令：傳送「賽程」或「查榜」即可隨時查看最新比分！`;
+    const defaultText = `⚔️【${tournament.name} 賽程表發布】\n${statusLine}\n\n📊 賽制資訊：\n• 參賽人數：${approvedPlayers.length} / ${tournament.targetSize} 人\n• 爭霸分制：率先奪得 ${tournament.matchTargetScore} 分晉級\n• 賽程結構：左翼 ${tournament.targetSize / 2} 強 ⚔️ 右翼 ${tournament.targetSize / 2} 強 ➔ 中央總決賽\n\n🌐 線上即時賽程表（免登入唯讀查看，即時同步）：\n${effectiveViewUrl}\n\n💬 LINE 快速指令：傳送「賽程」或「查榜」即可隨時查看最新比分！`;
 
     const textToSend = message || defaultText;
     const messagesPayload: any[] = [];

@@ -43,7 +43,7 @@ export const BroadcastBracketModal: React.FC<BroadcastBracketModalProps> = ({
   const readOnlyUrl = bracketStyle === 'single' ? `${baseReadOnlyUrl}&view=single` : baseReadOnlyUrl;
   const approvedCount = tournament.players.filter((p) => p.status === 'approved').length;
 
-  const dualDefaultMessage = `⚔️【${tournament.name} 雙翼賽程表發布】
+  const dualDefaultMessage = `⚔️【${tournament.name} 賽程表發布】
 ⚡ 賽程樹狀圖已正式生成，雙翼對決即將全面開打！
 
 📊 賽制資訊：

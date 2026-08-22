@@ -763,8 +763,8 @@ export default function App() {
     saveTournamentToStore(updated);
     saveTournamentApi(updated);
 
-    // If tournament completed, jump to podium
-    if (updated.status === 'completed' && updated.rankings?.champion) {
+    // If tournament champion is decided, jump to podium (榮譽榜)
+    if (updated.rankings?.champion) {
       setActiveTab('podium');
     }
   };
@@ -947,6 +947,7 @@ export default function App() {
             {activeTab === 'podium' && (
               <PodiumRankings
                 tournament={tournament}
+                onFinishTournament={handleFinishTournament}
                 onSelectMatchById={(matchId) => {
                   const m = tournament.matches.find((item) => item.id === matchId);
                   if (m) setSelectedMatch(m);

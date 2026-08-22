@@ -129,10 +129,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="btn-header-finish-tournament"
                 onClick={onFinishTournament}
-                className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-black shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all flex items-center gap-1.5 active:scale-95"
-                title="完賽並存檔：鎖定比分並存檔備查，清空主頁"
+                className="px-3.5 py-2 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:brightness-110 text-slate-950 text-xs font-mono font-black shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all flex items-center gap-1.5 active:scale-95"
+                title="比賽結束：自動存檔備查，並發布 LINE 冠亞季殿軍獲獎名單與完賽通知，清空主頁等候下一場賽事"
               >
-                <span>🏁 完賽並存檔</span>
+                <span>🏁 比賽結束</span>
               </button>
             )}
 
@@ -278,7 +278,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Swords className="w-4 h-4" />
-            雙翼賽程表 (Bracket)
+            賽程表 (Bracket)
           </button>
 
           <button
@@ -291,7 +291,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Award className="w-4 h-4" />
-            冠亞季殿軍榜
+            榮譽榜
             {tournament?.status === 'completed' && (
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
             )}

@@ -180,15 +180,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                 </button>
               )}
 
-              {/* Finish Tournament button (Requirement 2: 完賽按鈕) */}
+              {/* Finish Tournament button (比賽結束 按鈕) */}
               {(isStarted || completedMatchesCount === matches.length) && !isCompleted && onFinishTournament && (
                 <button
                   id="btn-finish-tournament-action"
                   onClick={() => setShowFinishConfirm(true)}
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 flex items-center gap-2 transition-all active:scale-95 uppercase tracking-wider font-mono"
+                  title="比賽結束：點擊後自動存檔備查，並發布 LINE 冠亞季殿軍選手訊息與完賽通知"
                 >
                   <CheckCheck className="w-4 h-4" />
-                  完賽並存檔 (Finish)
+                  🏁 比賽結束
                 </button>
               )}
             </div>
@@ -814,7 +815,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         </div>
       )}
 
-      {/* Finish Tournament Confirmation Modal (Requirement 2) */}
+      {/* Finish Tournament Confirmation Modal (比賽結束 確認視窗) */}
       {showFinishConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
           <div className="bg-slate-900 border border-amber-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100 space-y-4">
@@ -823,16 +824,17 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                 <CheckCheck className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-white">確認完賽並存檔備查？</h3>
+                <h3 className="text-lg font-black text-white">確認比賽結束？</h3>
                 <p className="text-xs text-slate-400">場次：{tournament.name}</p>
               </div>
             </div>
 
             <div className="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700 text-xs font-mono text-slate-300 space-y-2 leading-relaxed">
-              <div className="text-amber-300 font-bold">🏁 完賽處理作業說明：</div>
+              <div className="text-amber-300 font-bold">🏁 比賽結束作業說明：</div>
               <ul className="list-disc list-inside space-y-1 text-slate-300">
                 <li>賽事比分將<span className="text-rose-400 font-bold">全面永久鎖定</span>，不可再修改。</li>
-                <li>系統將自動將完整賽事紀錄、比分歷程與冠亞季軍榜<span className="text-amber-300 font-bold">存檔至歷史備查庫</span>。</li>
+                <li>系統將<span className="text-amber-300 font-bold">自動發布 LINE 冠、亞、季、殿軍榮譽榜選手訊息與完賽通知</span>至所有群組與好友。</li>
+                <li>系統將自動將完整賽事紀錄、比分歷程與榮譽榜<span className="text-amber-300 font-bold">存檔至歷史備查庫</span>。</li>
                 <li>完成後將<span className="text-cyan-300 font-bold">清空主頁</span>，等候建立下一場全新賽事。</li>
               </ul>
             </div>
@@ -852,10 +854,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                   setShowFinishConfirm(false);
                   if (onFinishTournament) onFinishTournament();
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/30 flex items-center gap-2"
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:brightness-110 text-slate-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/30 flex items-center gap-2"
               >
                 <CheckCheck className="w-4 h-4" />
-                確認完賽並清空主頁 ➔
+                確認比賽結束並發布 LINE ➔
               </button>
             </div>
           </div>

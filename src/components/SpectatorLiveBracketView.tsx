@@ -217,7 +217,7 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>雙翼賽程表樹狀圖</span>
+            <span>賽程表樹狀圖</span>
           </button>
 
           <button
@@ -229,7 +229,7 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
             }`}
           >
             <Trophy className="w-3.5 h-3.5 text-amber-400" />
-            <span>四強英雄榜 & 榮耀殿堂</span>
+            <span>榮譽榜（冠亞季殿軍）</span>
           </button>
 
           <button

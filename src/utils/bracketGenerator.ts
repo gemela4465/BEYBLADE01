@@ -601,7 +601,8 @@ export function recordMatchResult(
   tournament.players.forEach((p) => playerMap.set(p.id, p));
 
   let rankings = tournament.rankings;
-  let tournamentStatus = tournament.status;
+  // Note: Do not automatically mark tournament as completed. Tournament only completes when the organizer clicks the "比賽結束" button.
+  const tournamentStatus = tournament.status;
 
   if (grandFinal && grandFinal.status === 'completed' && grandFinal.winnerId && grandFinal.loserId) {
     const champion = playerMap.get(grandFinal.winnerId);
@@ -612,7 +613,6 @@ export function recordMatchResult(
     if (thirdPlace && thirdPlace.status === 'completed' && thirdPlace.winnerId && thirdPlace.loserId) {
       thirdPlacePlayer = playerMap.get(thirdPlace.winnerId);
       fourthPlacePlayer = playerMap.get(thirdPlace.loserId);
-      tournamentStatus = 'completed';
     }
 
     rankings = {
