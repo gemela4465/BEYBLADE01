@@ -88,7 +88,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
       {/* Zoom & Info Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#0a0c12]/80 border border-[#ffffff10] rounded-xl text-xs flex-wrap gap-2">
         <div className="flex items-center gap-2 text-gray-300 font-mono">
-          <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-[#00f2ff]" />
           <span className="font-bold text-white flex items-center gap-1.5">
             <GitBranch className="w-4 h-4 text-[#00f2ff]" />
             單側樹狀圖 (由左至右對戰晉級路徑)
@@ -96,7 +96,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
           <span className="text-gray-500">|</span>
           <span className="text-emerald-400 font-bold hidden sm:inline flex items-center gap-1">
             <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
-            線條指示 (含箭頭與勝者晉級動線)
+            每輪粗細一致 • 精準對準選手起迄位
           </span>
         </div>
 
@@ -149,11 +149,11 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
             return (
               <React.Fragment key={`single-round-col-${roundCol.round}`}>
-                {/* 1. Round Column: Compact width tailored for 152px MatchCards */}
-                <div className="flex flex-col space-y-3 min-w-[160px] max-w-[168px]">
-                  {/* Round Header */}
+                {/* 1. Round Column: Compact width tailored for 154px MatchCards */}
+                <div className="flex flex-col min-w-[156px] max-w-[162px]">
+                  {/* Fixed-height Round Header (h-[32px] mb-3) */}
                   <div
-                    className={`text-center py-1.5 px-2 rounded-lg text-xs font-black uppercase tracking-wider font-mono shadow-md border ${
+                    className={`text-center px-2 rounded-lg text-xs font-black uppercase tracking-wider font-mono shadow-md border h-[32px] mb-3 flex items-center justify-center shrink-0 ${
                       isFinalRound
                         ? 'bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
                         : isSemiRound
@@ -163,14 +163,11 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                   >
                     <div className="flex items-center justify-center gap-1">
                       {isFinalRound ? (
-                        <Trophy className="w-3 h-3 text-amber-400 animate-bounce" />
+                        <Trophy className="w-3 h-3 text-amber-400" />
                       ) : (
                         <span className="w-1.5 h-1.5 rounded-full bg-[#00f2ff]" />
                       )}
                       <span className="truncate">{roundCol.heading}</span>
-                    </div>
-                    <div className="text-[9px] text-gray-400 font-normal mt-0.5">
-                      {isFinalRound ? '決賽之巔' : `${roundCol.matches.length} 場對決`}
                     </div>
                   </div>
 
@@ -180,30 +177,12 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                       const isGrandFinalMatch = match.bracketWing === 'final';
                       const isThirdPlaceMatch = match.bracketWing === 'third_place';
                       const isMatchCompleted = hasWinner(match);
-                      const isChampionMatch = championId && (match.winnerId === championId || match.player1Id === championId || match.player2Id === championId);
 
                       return (
                         <div
                           key={match.id}
                           className="relative flex flex-col justify-center items-center group w-full my-auto"
                         >
-                          {/* Zone Indicator */}
-                          {!isFinalRound && (
-                            <div className="w-full flex items-center justify-between text-[9px] font-mono text-gray-400 mb-0.5 px-0.5">
-                              <span className="flex items-center gap-1 font-bold">
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    match.bracketWing === 'left' ? 'bg-[#00f2ff]' : 'bg-purple-400'
-                                  }`}
-                                />
-                                <span className={match.bracketWing === 'left' ? 'text-[#00f2ff]' : 'text-purple-300'}>
-                                  {match.bracketWing === 'left' ? '左翼' : '右翼'}
-                                </span>
-                              </span>
-                              <span className="text-gray-500 font-semibold">#{match.matchNumber}</span>
-                            </div>
-                          )}
-
                           {isThirdPlaceMatch && (
                             <div className="text-center text-[10px] font-bold text-amber-400 flex items-center justify-center gap-1 font-mono mb-1">
                               <Award className="w-3 h-3" /> 季軍爭奪戰
@@ -224,9 +203,9 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                             />
 
-                            {/* Victory Path Node Badge */}
+                            {/* Victory Path Node Badge - Static & aligned */}
                             {isMatchCompleted && match.winnerId && (
-                              <div className="absolute -right-2 top-1/2 -translate-y-1/2 bg-emerald-500 text-slate-950 rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-[0_0_8px_rgba(16,185,129,0.9)] z-20 border border-white/40 animate-pulse" title={`勝出晉級：${playerMap.get(match.winnerId)?.name}`}>
+                              <div className="absolute -right-1 top-1/2 -translate-y-1/2 bg-emerald-500 text-slate-950 rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px] font-black shadow-[0_0_6px_rgba(16,185,129,0.8)] z-20 border border-white/40 pointer-events-none" title={`勝出晉級：${playerMap.get(match.winnerId)?.name}`}>
                                 ✓
                               </div>
                             )}
@@ -234,9 +213,9 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
                           {/* Winner Podium for Final */}
                           {isGrandFinalMatch && tournament.rankings?.champion && (
-                            <div className="w-full bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-amber-950/70 border border-amber-500/70 rounded-xl p-2.5 text-center space-y-1 mt-3 shadow-[0_0_25px_rgba(245,158,11,0.3)] animate-fadeIn">
-                              <div className="w-7 h-7 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-400 mx-auto border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.5)]">
-                                <Trophy className="w-4 h-4 animate-bounce text-amber-300" />
+                            <div className="w-full bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-amber-950/70 border border-amber-500/70 rounded-xl p-2 text-center space-y-0.5 mt-2 shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+                              <div className="w-6 h-6 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-400 mx-auto border border-amber-500/50">
+                                <Trophy className="w-3.5 h-3.5 text-amber-300" />
                               </div>
                               <div>
                                 <div className="text-[9px] font-black uppercase text-amber-400 tracking-wider font-mono">
@@ -254,68 +233,73 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Connecting Tree Bracket 戰勝路徑圖片 (Victory Battle Paths) */}
+                {/* 2. Connecting Tree Bracket 戰勝路徑 (Victory Battle Paths) */}
                 {!isFinalRound && nextRoundCol && (
-                  <div className="flex flex-col justify-around min-w-[50px] max-w-[56px] pointer-events-none py-6 px-0.5">
-                    {Array.from({ length: Math.ceil(roundCol.matches.length / 2) }).map((_, pairIdx) => {
-                      const upperMatch = roundCol.matches[pairIdx * 2];
-                      const lowerMatch = roundCol.matches[pairIdx * 2 + 1];
+                  <div className="flex flex-col min-w-[56px] max-w-[64px] pointer-events-none self-stretch">
+                    {/* Header spacer to perfectly align line heights with match cards (h-[32px] mb-3) */}
+                    <div className="h-[32px] mb-3 invisible select-none shrink-0" />
 
-                      const upperWinnerId = upperMatch?.winnerId;
-                      const lowerWinnerId = lowerMatch?.winnerId;
+                    <div className="flex flex-col justify-around flex-1 py-1">
+                      {Array.from({ length: Math.ceil(roundCol.matches.length / 2) }).map((_, pairIdx) => {
+                        const upperMatch = roundCol.matches[pairIdx * 2];
+                        const lowerMatch = roundCol.matches[pairIdx * 2 + 1];
 
-                      const upperSlot: MatchWinnerSlot =
-                        (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId
-                          ? upperWinnerId === upperMatch?.player1Id
-                            ? 'p1'
-                            : upperWinnerId === upperMatch?.player2Id
-                            ? 'p2'
-                            : 'p1'
-                          : 'none';
+                        const upperWinnerId = upperMatch?.winnerId;
+                        const lowerWinnerId = lowerMatch?.winnerId;
 
-                      const lowerSlot: MatchWinnerSlot =
-                        (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId
-                          ? lowerWinnerId === lowerMatch?.player1Id
-                            ? 'p1'
-                            : lowerWinnerId === lowerMatch?.player2Id
-                            ? 'p2'
-                            : 'p1'
-                          : 'none';
+                        const upperSlot: MatchWinnerSlot =
+                          (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId
+                            ? upperWinnerId === upperMatch?.player1Id
+                              ? 'p1'
+                              : upperWinnerId === upperMatch?.player2Id
+                              ? 'p2'
+                              : 'p1'
+                            : 'none';
 
-                      const isChampionUpper = Boolean(championId && upperWinnerId === championId);
-                      const isChampionLower = Boolean(championId && lowerWinnerId === championId);
+                        const lowerSlot: MatchWinnerSlot =
+                          (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId
+                            ? lowerWinnerId === lowerMatch?.player1Id
+                              ? 'p1'
+                              : lowerWinnerId === lowerMatch?.player2Id
+                              ? 'p2'
+                              : 'p1'
+                            : 'none';
 
-                      const isTrackedUpper = Boolean(
-                        trackedPlayerId &&
-                          (upperWinnerId === trackedPlayerId ||
-                            upperMatch?.player1Id === trackedPlayerId ||
-                            upperMatch?.player2Id === trackedPlayerId)
-                      );
-                      const isTrackedLower = Boolean(
-                        trackedPlayerId &&
-                          (lowerWinnerId === trackedPlayerId ||
-                            lowerMatch?.player1Id === trackedPlayerId ||
-                            lowerMatch?.player2Id === trackedPlayerId)
-                      );
+                        const isChampionUpper = Boolean(championId && upperWinnerId === championId);
+                        const isChampionLower = Boolean(championId && lowerWinnerId === championId);
 
-                      return (
-                        <div
-                          key={`single-bracket-wire-${roundCol.round}-${pairIdx}`}
-                          className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[110px]"
-                        >
-                          <BracketRouteImage
-                            direction="left-to-right"
-                            upperWinnerSlot={upperSlot}
-                            lowerWinnerSlot={lowerSlot}
-                            isUpperChampion={isChampionUpper}
-                            isLowerChampion={isChampionLower}
-                            isUpperTracked={isTrackedUpper}
-                            isLowerTracked={isTrackedLower}
-                            colorTheme="emerald"
-                          />
-                        </div>
-                      );
-                    })}
+                        const isTrackedUpper = Boolean(
+                          trackedPlayerId &&
+                            (upperWinnerId === trackedPlayerId ||
+                              upperMatch?.player1Id === trackedPlayerId ||
+                              upperMatch?.player2Id === trackedPlayerId)
+                        );
+                        const isTrackedLower = Boolean(
+                          trackedPlayerId &&
+                            (lowerWinnerId === trackedPlayerId ||
+                              lowerMatch?.player1Id === trackedPlayerId ||
+                              lowerMatch?.player2Id === trackedPlayerId)
+                        );
+
+                        return (
+                          <div
+                            key={`single-bracket-wire-${roundCol.round}-${pairIdx}`}
+                            className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]"
+                          >
+                            <BracketRouteImage
+                              direction="left-to-right"
+                              upperWinnerSlot={upperSlot}
+                              lowerWinnerSlot={lowerSlot}
+                              isUpperChampion={isChampionUpper}
+                              isLowerChampion={isChampionLower}
+                              isUpperTracked={isTrackedUpper}
+                              isLowerTracked={isTrackedLower}
+                              colorTheme="emerald"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </React.Fragment>

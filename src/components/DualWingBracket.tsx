@@ -549,8 +549,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               {/* Victory Connection Line down to Champion Podium */}
               {tournament.rankings?.champion && (
                 <div className="flex flex-col items-center -my-3 pointer-events-none">
-                  <div className="w-0.5 h-6 bg-gradient-to-b from-amber-400 to-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.9)] animate-bounce" />
+                  <div className="w-0.5 h-6 bg-gradient-to-b from-amber-400 to-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                  <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]" />
                 </div>
               )}
 

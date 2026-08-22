@@ -28,34 +28,6 @@
                       linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 32px 32px;
   }
-
-  @keyframes laser-flow-right {
-    from {
-      stroke-dashoffset: 24;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes laser-flow-left {
-    from {
-      stroke-dashoffset: 0;
-    }
-    to {
-      stroke-dashoffset: 24;
-    }
-  }
-
-  .laser-pulse-right {
-    stroke-dasharray: 6 4;
-    animation: laser-flow-right 0.8s linear infinite;
-  }
-
-  .laser-pulse-left {
-    stroke-dasharray: 6 4;
-    animation: laser-flow-left 0.8s linear infinite;
-  }
 }
 
 /* Custom dark scrollbar */

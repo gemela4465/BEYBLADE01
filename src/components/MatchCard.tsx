@@ -42,7 +42,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       onClick={() => {
         if (p1 || p2) onSelectMatch(match);
       }}
-      className={`relative w-[152px] rounded-lg transition-all duration-150 cursor-pointer overflow-hidden border select-none shrink-0 ${
+      className={`relative w-[154px] h-[74px] rounded-lg transition-all duration-150 cursor-pointer overflow-hidden border select-none shrink-0 flex flex-col justify-between ${
         hasHighlight
           ? 'bg-[#0e1726] border-[#00f2ff] shadow-[0_0_20px_rgba(0,242,255,0.4)] ring-2 ring-[#00f2ff]/70 scale-[1.03] z-10'
           : isCenter
@@ -55,7 +55,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       }`}
     >
       {/* Top Streamlined Header Bar: 場次號碼 */}
-      <div className="px-2 py-0.5 bg-[#05070a] border-b border-[#ffffff10] flex items-center justify-between text-[10px] font-mono leading-tight">
+      <div className="h-[20px] px-2 bg-[#05070a] border-b border-[#ffffff10] flex items-center justify-between text-[10px] font-mono leading-tight shrink-0">
         <div className="flex items-center gap-1 font-bold truncate">
           {match.bracketWing === 'final' ? (
             <span className="text-amber-400 font-black flex items-center gap-0.5">
@@ -73,7 +73,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           ) : isCompleted ? (
             <span className="text-emerald-400 font-bold">完賽</span>
           ) : isReady ? (
-            <span className="text-orange-400 font-bold animate-pulse">進行中</span>
+            <span className="text-orange-400 font-bold">進行中</span>
           ) : (
             <span className="text-gray-600">待定</span>
           )}
@@ -81,10 +81,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       </div>
 
       {/* Players & Scores Section: 選手簡稱 (預設 6 個中文字寬度) + 得分 */}
-      <div className="p-1 space-y-0.5">
+      <div className="p-1 space-y-0.5 flex-1 flex flex-col justify-center">
         {/* Player 1 Row */}
         <div
-          className={`px-1.5 py-0.5 rounded flex items-center justify-between transition-colors ${
+          className={`h-[24px] px-1.5 rounded flex items-center justify-between transition-colors ${
             isP1Winner
               ? 'bg-emerald-950/50 text-white font-bold border border-emerald-500/40'
               : isCompleted && match.loserId === p1?.id
@@ -134,7 +134,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({
 
         {/* Player 2 Row */}
         <div
-          className={`px-1.5 py-0.5 rounded flex items-center justify-between transition-colors ${
+          className={`h-[24px] px-1.5 rounded flex items-center justify-between transition-colors ${
             isP2Winner
               ? 'bg-emerald-950/50 text-white font-bold border border-emerald-500/40'
               : isCompleted && match.loserId === p2?.id
@@ -183,18 +183,18 @@ export const MatchCard: React.FC<MatchCardProps> = ({
         </div>
       </div>
 
-      {/* Visual Advancement Output Port Indicator */}
+      {/* Visual Advancement Output Port Indicator - Static & Aligned */}
       {isCompleted && (
         <>
           {match.bracketWing === 'left' && (
             <div
-              className="absolute -right-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-emerald-200 shadow-[0_0_8px_rgba(16,185,129,0.9)] z-20"
+              className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400 border border-emerald-200 shadow-[0_0_6px_rgba(16,185,129,0.8)] z-20 pointer-events-none"
               title="勝者已晉級"
             />
           )}
           {match.bracketWing === 'right' && (
             <div
-              className="absolute -left-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-purple-400 border border-purple-200 shadow-[0_0_8px_rgba(192,132,252,0.9)] z-20"
+              className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-purple-400 border border-purple-200 shadow-[0_0_6px_rgba(192,132,252,0.8)] z-20 pointer-events-none"
               title="勝者已晉級"
             />
           )}

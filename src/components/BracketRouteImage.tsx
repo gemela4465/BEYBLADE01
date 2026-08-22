@@ -17,10 +17,11 @@ interface BracketRouteImageProps {
 
 /**
  * BracketRouteImage:
- * Renders high-clarity, professional tournament diagrammatic route connections
- * corresponding precisely to match outcomes (as drawn in user's diagram).
- * Eliminates distracting glowing laser animations in favor of crisp, clean,
- * publication-ready tournament bracket routing graphics.
+ * Renders precise, crisp, professional tournament diagrammatic route lines.
+ * Strictly adheres to:
+ * 1. No animations (晉級線 不用動畫)
+ * 2. Uniform stroke width across all rounds (每輪粗細一致 = 2px)
+ * 3. Exact alignment with Player 1 / Player 2 start rows and target rows (選手名稱 起位到迄位 都要對準)
  */
 export const BracketRouteImage: React.FC<BracketRouteImageProps> = ({
   direction,
@@ -45,18 +46,31 @@ export const BracketRouteImage: React.FC<BracketRouteImageProps> = ({
 
   const goldColor = '#fbbf24';
   const trackedColor = '#00f2ff';
-  const inactiveColor = '#334155'; // Dark slate for pending/unplayed routes
+  const inactiveColor = '#334155'; // Dark slate for pending routes
 
-  // Calculate coordinates in a 100x100 coordinate plane
-  // Upper Match:
-  // P1 row is at Y = 18, P2 row is at Y = 32, Default midpoint = 25
-  const upperStartY = upperWinnerSlot === 'p1' ? 18 : upperWinnerSlot === 'p2' ? 32 : 25;
-  const upperTargetY = 38; // Target: Top slot (P1) of Next Match
+  // Uniform stroke width for all rounds and all states (每輪粗細一致)
+  const UNIFORM_STROKE_WIDTH = 2;
 
-  // Lower Match:
-  // P1 row is at Y = 68, P2 row is at Y = 82, Default midpoint = 75
-  const lowerStartY = lowerWinnerSlot === 'p1' ? 68 : lowerWinnerSlot === 'p2' ? 82 : 75;
-  const lowerTargetY = 62; // Target: Bottom slot (P2) of Next Match
+  // Exact coordinates matching the MatchCard (74px height, 20px header, 24px P1, 24px P2):
+  // Upper Match Card (centered at Y = 25 in a 100-unit pair height):
+  // - P1 row center: Y = 30
+  // - P2 row center: Y = 42
+  // - Card midpoint: Y = 25
+  const upperStartY = upperWinnerSlot === 'p1' ? 30 : upperWinnerSlot === 'p2' ? 42 : 25;
+
+  // Next Match Card (centered at Y = 50):
+  // - Upper winner lands in Next Match Player 1 row: Y = 48 (起位到迄位 精準對準 P1)
+  const upperTargetY = 48;
+
+  // Lower Match Card (centered at Y = 75 in a 100-unit pair height):
+  // - P1 row center: Y = 79
+  // - P2 row center: Y = 91
+  // - Card midpoint: Y = 75
+  const lowerStartY = lowerWinnerSlot === 'p1' ? 79 : lowerWinnerSlot === 'p2' ? 91 : 75;
+
+  // Next Match Card (centered at Y = 50):
+  // - Lower winner lands in Next Match Player 2 row: Y = 62 (起位到迄位 精準對準 P2)
+  const lowerTargetY = 62;
 
   const isUpperAdvancing = upperWinnerSlot !== 'none';
   const isLowerAdvancing = lowerWinnerSlot !== 'none';
@@ -77,20 +91,16 @@ export const BracketRouteImage: React.FC<BracketRouteImageProps> = ({
     ? activeColor
     : inactiveColor;
 
-  const upperWidth = isUpperChampion ? 2.8 : isUpperTracked || isUpperAdvancing ? 2.2 : 1.4;
-  const lowerWidth = isLowerChampion ? 2.8 : isLowerTracked || isLowerAdvancing ? 2.2 : 1.4;
-
-  // Path definitions based on direction
+  // Path definitions based on direction (left-to-right vs right-to-left)
   const isLtoR = direction === 'left-to-right';
 
-  // Left to Right: X starts at 0 -> steps at X=50 -> ends at X=96
   const upperPathD = isLtoR
-    ? `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 96 ${upperTargetY}`
-    : `M 100 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 4 ${upperTargetY}`;
+    ? `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 100 ${upperTargetY}`
+    : `M 100 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 0 ${upperTargetY}`;
 
   const lowerPathD = isLtoR
-    ? `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 96 ${lowerTargetY}`
-    : `M 100 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 4 ${lowerTargetY}`;
+    ? `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 100 ${lowerTargetY}`
+    : `M 100 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 0 ${lowerTargetY}`;
 
   const uniqueId = React.useId().replace(/:/g, '_');
 
@@ -102,18 +112,18 @@ export const BracketRouteImage: React.FC<BracketRouteImageProps> = ({
         preserveAspectRatio="none"
       >
         <defs>
-          {/* Arrow Head Markers */}
+          {/* Arrow Head Markers - static, no animations */}
           <marker
             id={`arrow-upper-${uniqueId}`}
             viewBox="0 0 100 100"
             refX={isLtoR ? '80' : '20'}
             refY="50"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="5"
+            markerHeight="5"
             orient="auto"
           >
             <path
-              d={isLtoR ? 'M 0 15 L 90 50 L 0 85 z' : 'M 100 15 L 10 50 L 100 85 z'}
+              d={isLtoR ? 'M 0 15 L 85 50 L 0 85 z' : 'M 100 15 L 15 50 L 100 85 z'}
               fill={upperStroke}
             />
           </marker>
@@ -123,78 +133,78 @@ export const BracketRouteImage: React.FC<BracketRouteImageProps> = ({
             viewBox="0 0 100 100"
             refX={isLtoR ? '80' : '20'}
             refY="50"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="5"
+            markerHeight="5"
             orient="auto"
           >
             <path
-              d={isLtoR ? 'M 0 15 L 90 50 L 0 85 z' : 'M 100 15 L 10 50 L 100 85 z'}
+              d={isLtoR ? 'M 0 15 L 85 50 L 0 85 z' : 'M 100 15 L 15 50 L 100 85 z'}
               fill={lowerStroke}
             />
           </marker>
         </defs>
 
-        {/* Upper Match Routing Image Path */}
+        {/* Upper Match Routing Path (No animation, uniform stroke width 2) */}
         <path
           d={upperPathD}
           fill="none"
           stroke={upperStroke}
-          strokeWidth={upperWidth}
-          strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          strokeWidth={UNIFORM_STROKE_WIDTH}
+          strokeDasharray={isUpperAdvancing ? 'none' : '4 3'}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
           markerEnd={isUpperAdvancing ? `url(#arrow-upper-${uniqueId})` : undefined}
-          opacity={isUpperAdvancing ? 1 : 0.6}
+          opacity={isUpperAdvancing ? 1 : 0.45}
         />
 
-        {/* Upper Route Origin Point if winning */}
+        {/* Upper Route Origin Point if winning (Static clean node) */}
         {isUpperAdvancing && (
           <circle
-            cx={isLtoR ? 2 : 98}
+            cx={isLtoR ? 0 : 100}
             cy={upperStartY}
-            r="3"
+            r="2.5"
             fill={upperStroke}
           />
         )}
 
-        {/* Upper Route Corner Junction Node */}
+        {/* Upper Route Junction Node (Static clean node) */}
         <circle
           cx="50"
           cy={upperTargetY}
-          r={isUpperChampion ? 3.5 : isUpperAdvancing ? 3 : 1.8}
+          r="2.5"
           fill={upperStroke}
           stroke="#07090f"
           strokeWidth="1"
         />
 
-        {/* Lower Match Routing Image Path */}
+        {/* Lower Match Routing Path (No animation, uniform stroke width 2) */}
         <path
           d={lowerPathD}
           fill="none"
           stroke={lowerStroke}
-          strokeWidth={lowerWidth}
-          strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          strokeWidth={UNIFORM_STROKE_WIDTH}
+          strokeDasharray={isLowerAdvancing ? 'none' : '4 3'}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
           markerEnd={isLowerAdvancing ? `url(#arrow-lower-${uniqueId})` : undefined}
-          opacity={isLowerAdvancing ? 1 : 0.6}
+          opacity={isLowerAdvancing ? 1 : 0.45}
         />
 
-        {/* Lower Route Origin Point if winning */}
+        {/* Lower Route Origin Point if winning (Static clean node) */}
         {isLowerAdvancing && (
           <circle
-            cx={isLtoR ? 2 : 98}
+            cx={isLtoR ? 0 : 100}
             cy={lowerStartY}
-            r="3"
+            r="2.5"
             fill={lowerStroke}
           />
         )}
 
-        {/* Lower Route Corner Junction Node */}
+        {/* Lower Route Junction Node (Static clean node) */}
         <circle
           cx="50"
           cy={lowerTargetY}
-          r={isLowerChampion ? 3.5 : isLowerAdvancing ? 3 : 1.8}
+          r="2.5"
           fill={lowerStroke}
           stroke="#07090f"
           strokeWidth="1"
@@ -216,7 +226,8 @@ interface BridgeRouteImageProps {
 
 /**
  * BridgeRouteImage:
- * Renders the clean semi-final to grand final connecting bridge graphic.
+ * Renders the semi-final to grand final connecting bridge graphic.
+ * Clean, no animation, uniform stroke width 2, perfectly aligned with player slots.
  */
 export const BridgeRouteImage: React.FC<BridgeRouteImageProps> = ({
   direction,
@@ -240,11 +251,18 @@ export const BridgeRouteImage: React.FC<BridgeRouteImageProps> = ({
   const trackedColor = '#00f2ff';
   const inactiveColor = '#334155';
 
+  const UNIFORM_STROKE_WIDTH = 2;
   const isAdvancing = winnerSlot !== 'none';
   const isLtoR = direction === 'left-to-right';
 
-  const startY = winnerSlot === 'p1' ? 36 : winnerSlot === 'p2' ? 64 : 50;
-  const targetY = targetSlot === 'p1' ? 36 : 64;
+  // Semi-Final Card (centered at Y = 50 in a 100-unit height):
+  // P1 row center is at Y = 42, P2 row center is at Y = 58, midpoint is Y = 50
+  const startY = winnerSlot === 'p1' ? 42 : winnerSlot === 'p2' ? 58 : 50;
+
+  // Grand Final Card:
+  // Target P1 slot (Left winner) is at Y = 42
+  // Target P2 slot (Right winner) is at Y = 58
+  const targetY = targetSlot === 'p1' ? 42 : 58;
 
   const strokeColor = isChampion
     ? goldColor
@@ -254,11 +272,14 @@ export const BridgeRouteImage: React.FC<BridgeRouteImageProps> = ({
     ? activeColor
     : inactiveColor;
 
-  const strokeWidth = isChampion ? 2.8 : isAdvancing || isTracked ? 2.2 : 1.4;
-
+  // Path definition: If startY === targetY, it's a straight horizontal line
   const pathD = isLtoR
-    ? `M 0 ${startY} L 50 ${startY} L 50 ${targetY} L 94 ${targetY}`
-    : `M 100 ${startY} L 50 ${startY} L 50 ${targetY} L 6 ${targetY}`;
+    ? startY === targetY
+      ? `M 0 ${startY} L 100 ${targetY}`
+      : `M 0 ${startY} L 50 ${startY} L 50 ${targetY} L 100 ${targetY}`
+    : startY === targetY
+      ? `M 100 ${startY} L 0 ${targetY}`
+      : `M 100 ${startY} L 50 ${startY} L 50 ${targetY} L 0 ${targetY}`;
 
   const uniqueId = React.useId().replace(/:/g, '_');
 
@@ -275,12 +296,12 @@ export const BridgeRouteImage: React.FC<BridgeRouteImageProps> = ({
             viewBox="0 0 100 100"
             refX={isLtoR ? '80' : '20'}
             refY="50"
-            markerWidth="6"
-            markerHeight="6"
+            markerWidth="5"
+            markerHeight="5"
             orient="auto"
           >
             <path
-              d={isLtoR ? 'M 0 15 L 90 50 L 0 85 z' : 'M 100 15 L 10 50 L 100 85 z'}
+              d={isLtoR ? 'M 0 15 L 85 50 L 0 85 z' : 'M 100 15 L 15 50 L 100 85 z'}
               fill={strokeColor}
             />
           </marker>
@@ -290,31 +311,33 @@ export const BridgeRouteImage: React.FC<BridgeRouteImageProps> = ({
           d={pathD}
           fill="none"
           stroke={strokeColor}
-          strokeWidth={strokeWidth}
-          strokeDasharray={isAdvancing ? 'none' : '3,3'}
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          strokeWidth={UNIFORM_STROKE_WIDTH}
+          strokeDasharray={isAdvancing ? 'none' : '4 3'}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
           markerEnd={isAdvancing ? `url(#bridge-arrow-${uniqueId})` : undefined}
-          opacity={isAdvancing ? 1 : 0.6}
+          opacity={isAdvancing ? 1 : 0.45}
         />
 
         {isAdvancing && (
           <circle
-            cx={isLtoR ? 2 : 98}
+            cx={isLtoR ? 0 : 100}
             cy={startY}
-            r="3"
+            r="2.5"
             fill={strokeColor}
           />
         )}
 
-        <circle
-          cx="50"
-          cy={targetY}
-          r={isChampion ? 3.5 : isAdvancing ? 3 : 1.8}
-          fill={strokeColor}
-          stroke="#07090f"
-          strokeWidth="1"
-        />
+        {startY !== targetY && (
+          <circle
+            cx="50"
+            cy={targetY}
+            r="2.5"
+            fill={strokeColor}
+            stroke="#07090f"
+            strokeWidth="1"
+          />
+        )}
       </svg>
     </div>
   );
