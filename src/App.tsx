@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Tournament, Player, Match, TournamentSize, BattleRoundRecord, BeybladeType 
+  Tournament, Player, Match, TournamentSize, BattleRoundRecord, BeybladeType, TournamentPrizes 
 } from './types';
 import { SAMPLE_PLAYERS, POPULAR_BEYBLADES } from './data/beybladeData';
 import { generateDualWingBracket, recordMatchResult, substitutePlayerInMatch } from './utils/bracketGenerator';
@@ -27,7 +27,8 @@ import {
   saveVipPlayerApi,
   importVipPlayersApi,
   startTournamentApi,
-  finishTournamentApi
+  finishTournamentApi,
+  fetchVipPlayersApi
 } from './utils/api';
 import { Header } from './components/Header';
 import { DualWingBracket } from './components/DualWingBracket';
@@ -190,49 +191,69 @@ export default function App() {
     seedCount: number;
     populateSamplePlayers: boolean;
     broadcastToLine?: boolean;
+    prizes?: TournamentPrizes;
   }) => {
     let newTournament: Tournament;
 
     if (config.populateSamplePlayers) {
-      // Requirement 5: 預載優質選手資料，全部載入。若選手數超過原設定規模，自動調整為最適合的賽制規模 (4, 8, 16, 32, 64, 128)
-      const qualityCount = SAMPLE_PLAYERS.length;
-      const sizeOptions: TournamentSize[] = [4, 8, 16, 32, 64, 128];
-      let adjustedTargetSize: TournamentSize = config.targetSize;
-      
-      if (adjustedTargetSize < qualityCount) {
-        adjustedTargetSize = sizeOptions.find((s) => s >= qualityCount) || 16;
-      }
+      // Requirement 2: 5. 預載優質選手資料 產生資料來源是 優質名單 不是系統隨機選手
+      // Fetch actual registered VIP players from the backend VIP registry
+      const vipList = await fetchVipPlayersApi();
+      const qualityCount = vipList.length;
 
-      // Build all quality players
-      const countToGenerate = Math.max(adjustedTargetSize, qualityCount);
-      const initialPlayers: Player[] = Array.from({ length: countToGenerate }, (_, idx) => {
-        const sample = SAMPLE_PLAYERS[idx % SAMPLE_PLAYERS.length];
-        const isSeed = config.seedMode !== 'none' && idx < config.seedCount;
-        const b = POPULAR_BEYBLADES[idx % POPULAR_BEYBLADES.length];
-        return {
-          id: `player_${idx + 1}_${Date.now()}`,
-          name: idx < SAMPLE_PLAYERS.length ? sample.name : `陀螺戰士 #${idx + 1} (${sample.name.split(' ')[0]})`,
-          lineId: sample.lineId ? `${sample.lineId}_${idx + 1}` : undefined,
-          beybladeName: b.name,
-          beybladeType: b.type,
-          blade: b.combo,
-          clubOrTeam: sample.clubOrTeam || '戰鬥陀螺交流群',
-          status: 'approved' as const,
-          isVip: true,
-          registeredAt: Date.now() - (countToGenerate - idx) * 60000,
-          isSeed,
-          seedNumber: isSeed ? idx + 1 : undefined
+      if (qualityCount > 0) {
+        const sizeOptions: TournamentSize[] = [4, 8, 16, 32, 64, 128];
+        let adjustedTargetSize: TournamentSize = config.targetSize;
+        
+        if (adjustedTargetSize < qualityCount) {
+          adjustedTargetSize = sizeOptions.find((s) => s >= qualityCount) || 16;
+        }
+
+        // Build all real VIP players from registry
+        const initialPlayers: Player[] = vipList.map((vip, idx) => {
+          const isSeed = config.seedMode !== 'none' && idx < config.seedCount ? true : (vip.isSeed ?? false);
+          return {
+            id: `vip_${vip.id || idx + 1}_${Date.now()}_${idx}`,
+            name: vip.name,
+            lineId: vip.lineId,
+            beybladeName: vip.beybladeName || '戰鬥陀螺 X',
+            beybladeType: vip.beybladeType || 'attack',
+            blade: vip.blade || '9-60GF',
+            clubOrTeam: vip.clubOrTeam || '優質選手隊',
+            teamName: vip.clubOrTeam || '優質選手隊',
+            status: 'approved' as const,
+            isVip: true,
+            registeredAt: Date.now() - (qualityCount - idx) * 60000,
+            isSeed,
+            seedNumber: isSeed ? idx + 1 : undefined,
+            score: 0,
+            totalPointsScored: 0
+          };
+        });
+
+        newTournament = generateDualWingBracket(
+          config.name,
+          adjustedTargetSize,
+          initialPlayers,
+          config.seedMode,
+          config.seedCount,
+          config.targetScore
+        );
+      } else {
+        // When VIP registry is empty, start clean with 0 players (no random players generated)
+        newTournament = {
+          id: `tour_${Date.now()}`,
+          name: config.name,
+          targetSize: config.targetSize,
+          matchTargetScore: config.targetScore,
+          seedMode: config.seedMode,
+          seedCount: config.seedCount,
+          status: 'registration',
+          players: [],
+          matches: [],
+          createdAt: Date.now()
         };
-      }).slice(0, adjustedTargetSize);
-
-      newTournament = generateDualWingBracket(
-        config.name,
-        adjustedTargetSize,
-        initialPlayers,
-        config.seedMode,
-        config.seedCount,
-        config.targetScore
-      );
+      }
     } else {
       // Clean new tournament session for LINE and manual registrations: start in 'registration' status with 0 members
       newTournament = {
@@ -255,6 +276,7 @@ export default function App() {
     newTournament.customTitle = config.customTitle;
     newTournament.startTime = config.startTime;
     newTournament.registrationDeadline = config.registrationDeadline;
+    newTournament.prizes = config.prizes;
 
     saveTournamentToStore(newTournament);
     await saveTournamentApi(newTournament);

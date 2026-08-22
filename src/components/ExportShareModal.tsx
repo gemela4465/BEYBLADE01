@@ -32,6 +32,19 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
     lines.push(`📅 賽制規模：${tournament.targetSize} 人雙翼淘汰賽 (${tournament.matchTargetScore || 4} 分陀螺競程)`);
     lines.push(`⚡ 目前狀態：${tournament.status === 'completed' ? '已圓滿完賽' : '激戰進行中'}\n`);
 
+    if (tournament.prizes) {
+      const p = tournament.prizes;
+      const items: string[] = [];
+      if (p.champion?.trim()) items.push(`• 🥇 冠軍：${p.champion.trim()}`);
+      if (p.runnerUp?.trim()) items.push(`• 🥈 亞軍：${p.runnerUp.trim()}`);
+      if (p.thirdPlace?.trim()) items.push(`• 🥉 季軍：${p.thirdPlace.trim()}`);
+      if (p.fourthPlace?.trim()) items.push(`• 🏅 殿軍：${p.fourthPlace.trim()}`);
+      if (p.extraAwards?.trim()) items.push(`• 🎁 特別獎：${p.extraAwards.trim()}`);
+      if (items.length > 0) {
+        lines.push(`🎁【大會獎項】\n${items.join('\n')}\n`);
+      }
+    }
+
     if (tournament.rankings?.champion) {
       lines.push(`👑【最終榮譽榜】`);
       lines.push(`🥇 冠軍：${tournament.rankings.champion.name} (${tournament.rankings.champion.beybladeName})`);

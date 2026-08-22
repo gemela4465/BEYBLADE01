@@ -614,9 +614,10 @@ async function startServer() {
 
     console.log(`[Tournament Started] Tournament "${tournament.name}" (ID: ${id}) has officially started!`);
 
-    // Optionally broadcast start notification to LINE
+    // Optionally broadcast start notification to LINE (Requirement: LINE通知必須有 獎項通知，沒輸入則不註記)
     if (broadcastToLine) {
-      const startAnnouncement = `🔥【賽事正式開賽公告】\n🏆 賽事場次：${tournament.name}\n⚡ 雙翼對抗賽程已正式開賽，籤位已全數鎖定！\n🎯 第一輪對決即刻開打，請各位陀螺手就位！\n\n💬 傳送「賽程」或「查榜」即可隨時查看最新比分與晉級名單！`;
+      const prizeSection = formatPrizeNotice(tournament);
+      const startAnnouncement = `🔥【賽事正式開賽公告】\n🏆 賽事場次：${tournament.name}\n⚡ 雙翼對抗賽程已正式開賽，籤位已全數鎖定！\n🎯 第一輪對決即刻開打，請各位陀螺手就位！${prizeSection}\n\n💬 傳送「賽程」或「查榜」即可隨時查看最新比分與晉級名單！`;
       await broadcastToAllGroupsAndFollowers(startAnnouncement);
     }
 
@@ -1912,8 +1913,10 @@ async function startServer() {
         ? `\n⏳ 待審核佇列 (${pending.length} 人)：\n` + pending.map((p) => `• ${p.name}${p.isProxy ? ' (代報)' : ''}`).join('\n')
         : '';
 
+      const prizeText = formatPrizeNotice(tournament);
+
       return {
-        replyText: `📋【${tournament.name} 目前參賽榜單】\n⚡ 賽制規模：${tournament.targetSize} 人雙翼對決（${tournament.matchTargetScore} 分獲勝）\n⏰ 開賽時間：${startTimeDisplay}\n⏳ 報名截止：${deadlineDisplay}\n🔥 剩餘名額：${remainingSlots} / ${tournament.targetSize}\n\n✅ 正式參賽 (${approved.length}/${tournament.targetSize})：\n${approvedList}${pendingList}\n\n👉 報名請傳送：「+1 簡稱 陀螺」\n👉 替人報名：「++1 簡稱 陀螺」\n👉 取消報名：「-1 簡稱」`,
+        replyText: `📋【${tournament.name} 目前參賽榜單】\n⚡ 賽制規模：${tournament.targetSize} 人雙翼對決（${tournament.matchTargetScore} 分獲勝）\n⏰ 開賽時間：${startTimeDisplay}\n⏳ 報名截止：${deadlineDisplay}\n🔥 剩餘名額：${remainingSlots} / ${tournament.targetSize}${prizeText}\n\n✅ 正式參賽 (${approved.length}/${tournament.targetSize})：\n${approvedList}${pendingList}\n\n👉 報名請傳送：「+1 簡稱 陀螺」\n👉 替人報名：「++1 簡稱 陀螺」\n👉 取消報名：「-1 簡稱」`,
         registered: false,
         tournament
       };
@@ -1934,8 +1937,10 @@ async function startServer() {
         ? `🔥 當前激戰中的對戰：\n` + activeMatches.map((m) => `• #${m.matchNumber} ${m.label}: ${m.score1} vs ${m.score2}`).join('\n')
         : `⚡ 目前進度：已完賽 ${completedCount}/${totalMatches} 場 (${tournament.status === 'in_progress' ? '進行中' : '登記中'})`;
 
+      const prizeText = formatPrizeNotice(tournament);
+
       return {
-        replyText: `⚔️【${tournament.name} 即時賽程與戰況】\n${matchInfo}${championText}\n🎯 獲勝分制：${tournament.matchTargetScore} 分\n🏆 總規模：${tournament.targetSize} 人雙翼淘汰賽\n⏰ 開賽時間：${startTimeDisplay}\n\n🌐 線上即時唯讀賽程看板（即時連線更新）：\n請至官方發布的唯讀賽程連結查看完整樹狀圖與各回合擊倒比分！`,
+        replyText: `⚔️【${tournament.name} 即時賽程與戰況】\n${matchInfo}${championText}${prizeText}\n🎯 獲勝分制：${tournament.matchTargetScore} 分\n🏆 總規模：${tournament.targetSize} 人雙翼淘汰賽\n⏰ 開賽時間：${startTimeDisplay}\n\n🌐 線上即時唯讀賽程看板（即時連線更新）：\n請至官方發布的唯讀賽程連結查看完整樹狀圖與各回合擊倒比分！`,
         registered: false,
         tournament
       };

@@ -2,12 +2,14 @@ import React, { useState, useRef } from 'react';
 import { 
   Trophy, Swords, ZoomIn, ZoomOut, RotateCcw, Award, Layers, 
   Maximize2, Filter, ChevronLeft, ChevronRight, Sparkles, CheckCircle2,
-  Radio, Share2, ExternalLink, Play, CheckCheck, RefreshCw, GitBranch, AlertCircle, ShieldCheck
+  Radio, Share2, ExternalLink, Play, CheckCheck, RefreshCw, GitBranch, AlertCircle, ShieldCheck,
+  ArrowRight, ArrowLeft
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
 import { BroadcastBracketModal } from './BroadcastBracketModal';
 import { SingleWingBracket } from './SingleWingBracket';
+import { PlayerPathVisualizer } from './PlayerPathVisualizer';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface DualWingBracketProps {
@@ -43,6 +45,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
     return 'bracket';
   });
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
+  const [trackedPlayerId, setTrackedPlayerId] = useState<string | null>(null);
+  const [showPathVisualizer, setShowPathVisualizer] = useState<boolean>(true);
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
   const [showStartConfirm, setShowStartConfirm] = useState<boolean>(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
@@ -73,8 +77,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   const rightMatchesByRound: Match[][] = [];
 
   for (let r = 1; r <= wingRoundsCount; r++) {
-    leftMatchesByRound.push(leftMatches.filter((m) => m.round === r));
-    rightMatchesByRound.push(rightMatches.filter((m) => m.round === r));
+    leftMatchesByRound.push(leftMatches.filter((m) => m.round === r).sort((a, b) => a.matchIndex - b.matchIndex));
+    rightMatchesByRound.push(rightMatches.filter((m) => m.round === r).sort((a, b) => a.matchIndex - b.matchIndex));
   }
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.15, 1.6));
@@ -91,6 +95,11 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
     if (diff === 6) return '128強預賽';
     return `第 ${r} 輪`;
   };
+
+  const championId = tournament.rankings?.champion?.id || grandFinalMatch?.winnerId;
+
+  // Helper to check winner
+  const hasWinner = (m?: Match) => !!m?.winnerId && (m.status === 'completed' || m.status === 'bye');
 
   return (
     <div className="w-full flex flex-col space-y-4">
@@ -252,6 +261,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
         {/* Right: Zoom, Share & Quick Tools */}
         <div className="flex items-center gap-2">
+          {/* Toggle Battle Path Visualizer */}
+          <button
+            onClick={() => setShowPathVisualizer((prev) => !prev)}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+              showPathVisualizer
+                ? 'bg-[#00f2ff]/20 text-[#00f2ff] border-[#00f2ff]/50 shadow-[0_0_10px_rgba(0,242,255,0.2)]'
+                : 'bg-[#0a0c12] text-gray-400 hover:text-white border-[#ffffff15]'
+            }`}
+            title="開啟/關閉選手晉級戰績路徑檢視器"
+          >
+            <GitBranch className="w-3.5 h-3.5 text-[#00f2ff]" />
+            <span>戰績路徑</span>
+          </button>
+
           {!effectiveReadOnly && (
             <button
               onClick={() => setIsBroadcastModalOpen(true)}
@@ -294,6 +317,18 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         </div>
       </div>
 
+      {/* Battle Path Visualizer Component (Requirement 3: 賽程表要有戰績的路徑) */}
+      {showPathVisualizer && (
+        <div className="max-w-7xl mx-auto w-full px-4 animate-fadeIn">
+          <PlayerPathVisualizer
+            tournament={tournament}
+            selectedPlayerId={trackedPlayerId}
+            onSelectPlayer={(pId) => setTrackedPlayerId(pId)}
+            onSelectMatch={onSelectMatch}
+          />
+        </div>
+      )}
+
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (
         <div id="dual-wing-bracket-board" className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
@@ -304,37 +339,151 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               transformOrigin: 'top center',
               transition: 'transform 0.15s ease-out'
             }}
-            className="flex items-center justify-center gap-8 min-w-max mx-auto py-8 dual-wing-tree-container"
+            className="flex items-center justify-center gap-4 min-w-max mx-auto py-8 dual-wing-tree-container"
           >
             {/* ====== LEFT WING (Left-to-Right Progression) ====== */}
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
               {leftMatchesByRound.map((roundMatches, roundIdx) => {
                 const roundNumber = roundIdx + 1;
                 const heading = getRoundHeading(roundNumber, maxRound);
+                const nextRoundMatches = roundIdx < wingRoundsCount - 1 ? leftMatchesByRound[roundIdx + 1] : null;
+
                 return (
-                  <div key={`left-round-${roundNumber}`} className="flex flex-col space-y-4">
-                    <div className="text-center py-1.5 px-3 bg-[#00f2ff]/10 border border-[#00f2ff]/30 rounded-lg text-[11px] font-black text-[#00f2ff] uppercase tracking-wider shadow-[0_0_10px_rgba(0,242,255,0.15)] font-mono">
-                      左翼 {heading}
+                  <React.Fragment key={`left-round-col-${roundNumber}`}>
+                    <div className="flex flex-col space-y-3 min-w-[154px] max-w-[160px]">
+                      <div className="text-center py-1.5 px-2 bg-[#00f2ff]/10 border border-[#00f2ff]/30 rounded-lg text-[11px] font-black text-[#00f2ff] uppercase tracking-wider shadow-[0_0_10px_rgba(0,242,255,0.15)] font-mono">
+                        左翼 {heading}
+                      </div>
+
+                      <div className="flex flex-col justify-around flex-1 space-y-6">
+                        {roundMatches.map((match) => {
+                          const isMatchTracked = trackedPlayerId && (match.player1Id === trackedPlayerId || match.player2Id === trackedPlayerId || match.winnerId === trackedPlayerId);
+                          return (
+                            <div key={match.id} className="relative flex items-center justify-center">
+                              <MatchCard
+                                match={match}
+                                playerMap={playerMap}
+                                onSelectMatch={(m) => {
+                                  if (m.winnerId) setTrackedPlayerId(m.winnerId);
+                                  onSelectMatch(m);
+                                }}
+                                isReadOnly={effectiveReadOnly}
+                                highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col justify-around flex-1 space-y-8">
-                      {roundMatches.map((match) => (
-                        <div key={match.id} className="relative flex items-center">
-                          <MatchCard
-                            match={match}
-                            playerMap={playerMap}
-                            onSelectMatch={onSelectMatch}
-                            isReadOnly={effectiveReadOnly}
-                            highlightedPlayerName={highlightedPlayerName}
-                          />
-                          {/* Connecting circuit line to right */}
-                          <div className="w-8 h-[2px] bg-gradient-to-r from-[#00f2ff]/40 to-[#00f2ff]/10 pointer-events-none" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                    {/* SVG Tree Bracket Connector (Left-to-Right) */}
+                    {nextRoundMatches && (
+                      <div className="flex flex-col justify-around min-w-[44px] max-w-[50px] pointer-events-none py-6">
+                        {Array.from({ length: Math.ceil(roundMatches.length / 2) }).map((_, pairIdx) => {
+                          const upperMatch = roundMatches[pairIdx * 2];
+                          const lowerMatch = roundMatches[pairIdx * 2 + 1];
+                          const nextMatch = nextRoundMatches[pairIdx];
+
+                          const upperWinnerId = upperMatch?.winnerId;
+                          const lowerWinnerId = lowerMatch?.winnerId;
+
+                          const isUpperWinner = hasWinner(upperMatch);
+                          const isLowerWinner = hasWinner(lowerMatch);
+
+                          const isUpperAdvancing = isUpperWinner && nextMatch && (nextMatch.player1Id === upperWinnerId || nextMatch.player2Id === upperWinnerId);
+                          const isLowerAdvancing = isLowerWinner && nextMatch && (nextMatch.player1Id === lowerWinnerId || nextMatch.player2Id === lowerWinnerId);
+
+                          const isChampionUpper = championId && upperWinnerId === championId;
+                          const isChampionLower = championId && lowerWinnerId === championId;
+
+                          const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
+                          const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
+
+                          return (
+                            <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
+                              <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                {/* Upper Branch */}
+                                <path
+                                  d="M 0,25% L 50%,25% L 50%,50%"
+                                  fill="none"
+                                  stroke={
+                                    isChampionUpper
+                                      ? '#fbbf24'
+                                      : isTrackedUpper
+                                      ? '#00f2ff'
+                                      : isUpperAdvancing
+                                      ? '#10b981'
+                                      : '#334155'
+                                  }
+                                  strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.6 : 1.6}
+                                  strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                                  className={isChampionUpper ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTrackedUpper || isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                />
+
+                                {/* Lower Branch */}
+                                <path
+                                  d="M 0,75% L 50%,75% L 50%,50%"
+                                  fill="none"
+                                  stroke={
+                                    isChampionLower
+                                      ? '#fbbf24'
+                                      : isTrackedLower
+                                      ? '#00f2ff'
+                                      : isLowerAdvancing
+                                      ? '#10b981'
+                                      : '#334155'
+                                  }
+                                  strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.6 : 1.6}
+                                  strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                                  className={isChampionLower ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTrackedLower || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                />
+
+                                {/* Pivot Node */}
+                                <circle
+                                  cx="50%"
+                                  cy="50%"
+                                  r={isChampionUpper || isChampionLower ? 4 : isUpperAdvancing || isLowerAdvancing ? 3.5 : 2}
+                                  fill={
+                                    isChampionUpper || isChampionLower
+                                      ? '#fbbf24'
+                                      : isTrackedUpper || isTrackedLower
+                                      ? '#00f2ff'
+                                      : isUpperAdvancing || isLowerAdvancing
+                                      ? '#10b981'
+                                      : '#475569'
+                                  }
+                                />
+
+                                {/* Stem Line into next round */}
+                                <path
+                                  d="M 50%,50% L 96%,50%"
+                                  fill="none"
+                                  stroke={
+                                    isChampionUpper || isChampionLower
+                                      ? '#fbbf24'
+                                      : isTrackedUpper || isTrackedLower
+                                      ? '#00f2ff'
+                                      : isUpperAdvancing || isLowerAdvancing
+                                      ? '#10b981'
+                                      : '#334155'
+                                  }
+                                  strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.6 : 1.6}
+                                  className={isChampionUpper || isChampionLower ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isUpperAdvancing || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                />
+                              </svg>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
+            </div>
+
+            {/* Left Semi-Final -> Center Grand Final Bridge Connector */}
+            <div className="flex items-center min-w-[28px] max-w-[34px] pointer-events-none">
+              <div className="w-full h-[2px] bg-gradient-to-r from-[#00f2ff]/60 to-[#00f2ff]" />
             </div>
 
             {/* ====== CENTER STAGE (Grand Final & 3rd Place Match & Trophy) ====== */}
@@ -358,10 +507,13 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                   <MatchCard
                     match={grandFinalMatch}
                     playerMap={playerMap}
-                    onSelectMatch={onSelectMatch}
+                    onSelectMatch={(m) => {
+                      if (m.winnerId) setTrackedPlayerId(m.winnerId);
+                      onSelectMatch(m);
+                    }}
                     isCenter={true}
                     isReadOnly={effectiveReadOnly}
-                    highlightedPlayerName={highlightedPlayerName}
+                    highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                   />
                 </div>
               )}
@@ -397,45 +549,96 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     <MatchCard
                       match={thirdPlaceMatch}
                       playerMap={playerMap}
-                      onSelectMatch={onSelectMatch}
+                      onSelectMatch={(m) => {
+                        if (m.winnerId) setTrackedPlayerId(m.winnerId);
+                        onSelectMatch(m);
+                      }}
                       isReadOnly={effectiveReadOnly}
-                      highlightedPlayerName={highlightedPlayerName}
+                      highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* ====== RIGHT WING (Right-to-Left Progression) ====== */}
-            <div className="flex items-center gap-8">
+            {/* Right Semi-Final -> Center Grand Final Bridge Connector */}
+            <div className="flex items-center min-w-[28px] max-w-[34px] pointer-events-none">
+              <div className="w-full h-[2px] bg-gradient-to-r from-purple-500 to-[#7000ff]/60" />
+            </div>
+
+            {/* ====== RIGHT WING (Right-to-Left Progression towards Center) ====== */}
+            <div className="flex items-center gap-2">
               {rightMatchesByRound
                 .slice()
                 .reverse()
                 .map((roundMatches, reverseIdx) => {
                   const roundNumber = wingRoundsCount - reverseIdx;
                   const heading = getRoundHeading(roundNumber, maxRound);
+                  const isInitialRightRound = reverseIdx === wingRoundsCount - 1; // Round 1 on far right
+                  const nextDeeperRoundMatches = !isInitialRightRound ? rightMatchesByRound[wingRoundsCount - reverseIdx - 2] : null;
+
                   return (
-                    <div key={`right-round-${roundNumber}`} className="flex flex-col space-y-4">
-                      <div className="text-center py-1.5 px-3 bg-[#7000ff]/10 border border-[#7000ff]/30 rounded-lg text-[11px] font-black text-purple-300 uppercase tracking-wider shadow-[0_0_10px_rgba(112,0,255,0.15)] font-mono">
-                        右翼 {heading}
+                    <React.Fragment key={`right-round-col-${roundNumber}`}>
+                      <div className="flex flex-col space-y-3 min-w-[154px] max-w-[160px]">
+                        <div className="text-center py-1.5 px-2 bg-[#7000ff]/10 border border-[#7000ff]/30 rounded-lg text-[11px] font-black text-purple-300 uppercase tracking-wider shadow-[0_0_10px_rgba(112,0,255,0.15)] font-mono">
+                          右翼 {heading}
+                        </div>
+
+                        <div className="flex flex-col justify-around flex-1 space-y-6">
+                          {roundMatches.map((match) => (
+                            <div key={match.id} className="relative flex items-center justify-center">
+                              <MatchCard
+                                match={match}
+                                playerMap={playerMap}
+                                onSelectMatch={(m) => {
+                                  if (m.winnerId) setTrackedPlayerId(m.winnerId);
+                                  onSelectMatch(m);
+                                }}
+                                isReadOnly={effectiveReadOnly}
+                                highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
-                      <div className="flex flex-col justify-around flex-1 space-y-8">
-                        {roundMatches.map((match) => (
-                          <div key={match.id} className="relative flex items-center">
-                            {/* Connecting circuit line to left */}
-                            <div className="w-8 h-[2px] bg-gradient-to-l from-[#7000ff]/40 to-[#7000ff]/10 pointer-events-none" />
-                            <MatchCard
-                              match={match}
-                              playerMap={playerMap}
-                              onSelectMatch={onSelectMatch}
-                              isReadOnly={effectiveReadOnly}
-                              highlightedPlayerName={highlightedPlayerName}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                      {/* Right-to-Left SVG Tree Connector (joining pairs from right into left) */}
+                      {!isInitialRightRound && (
+                        <div className="flex flex-col justify-around min-w-[44px] max-w-[50px] pointer-events-none py-6">
+                          {Array.from({ length: Math.ceil(roundMatches.length) }).map((_, pairIdx) => {
+                            // On right wing, round on the right merges to round on the left
+                            const currMatch = roundMatches[pairIdx];
+                            const isWinner = hasWinner(currMatch);
+                            const winnerId = currMatch?.winnerId;
+                            const isChampion = championId && winnerId === championId;
+                            const isTracked = trackedPlayerId && (winnerId === trackedPlayerId || currMatch?.player1Id === trackedPlayerId || currMatch?.player2Id === trackedPlayerId);
+
+                            return (
+                              <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
+                                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                  <path
+                                    d="M 100%,50% L 0%,50%"
+                                    fill="none"
+                                    stroke={
+                                      isChampion
+                                        ? '#fbbf24'
+                                        : isTracked
+                                        ? '#00f2ff'
+                                        : isWinner
+                                        ? '#10b981'
+                                        : '#334155'
+                                    }
+                                    strokeWidth={isChampion ? 3.5 : isTracked || isWinner ? 2.6 : 1.6}
+                                    strokeDasharray={isWinner ? 'none' : '3,3'}
+                                    className={isChampion ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTracked || isWinner ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                  />
+                                </svg>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
             </div>

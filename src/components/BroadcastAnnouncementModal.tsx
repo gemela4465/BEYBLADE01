@@ -46,12 +46,27 @@ export const BroadcastAnnouncementModal: React.FC<BroadcastAnnouncementModalProp
       const approvedCount = tournament.players?.filter((p) => p.status === 'approved').length || 0;
       const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
 
+      // Prize formatting: only display non-empty prizes (沒輸入 則不註記)
+      let prizeSection = '';
+      if (tournament.prizes) {
+        const p = tournament.prizes;
+        const items: string[] = [];
+        if (p.champion?.trim()) items.push(`• 🥇 冠軍：${p.champion.trim()}`);
+        if (p.runnerUp?.trim()) items.push(`• 🥈 亞軍：${p.runnerUp.trim()}`);
+        if (p.thirdPlace?.trim()) items.push(`• 🥉 季軍：${p.thirdPlace.trim()}`);
+        if (p.fourthPlace?.trim()) items.push(`• 🏅 殿軍：${p.fourthPlace.trim()}`);
+        if (p.extraAwards?.trim()) items.push(`• 🎁 特別獎：${p.extraAwards.trim()}`);
+        if (items.length > 0) {
+          prizeSection = `\n\n🎁【大會獎項註記】\n${items.join('\n')}`;
+        }
+      }
+
       const defaultMsg = `📢【戰鬥陀螺 X 雙翼賽事 賽程公告】
 🏆 賽事場次：${tournament.name}
 ⚡ 賽制規模：${tournament.targetSize} 人雙翼對決（${tournament.matchTargetScore} 分制）
 🔥 本場剩餘名額：${remainingSlots} / ${tournament.targetSize}
 ⏰ 開賽時間：${startTimeDisplay}
-⏳ 報名截止時間：${deadlineDisplay}
+⏳ 報名截止時間：${deadlineDisplay}${prizeSection}
 
 📝 LINE 群友報名指令：
 👉 本人報名：「+1 選手簡稱 陀螺名稱」
