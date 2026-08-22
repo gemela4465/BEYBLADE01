@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
+import { BracketRouteImage, MatchWinnerSlot } from './BracketRouteImage';
 
 interface SingleWingBracketProps {
   tournament: Tournament;
@@ -253,211 +254,65 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Connecting Tree Bracket 戰勝路徑 (Victory Battle Paths) */}
+                {/* 2. Connecting Tree Bracket 戰勝路徑圖片 (Victory Battle Paths) */}
                 {!isFinalRound && nextRoundCol && (
                   <div className="flex flex-col justify-around min-w-[50px] max-w-[56px] pointer-events-none py-6 px-0.5">
                     {Array.from({ length: Math.ceil(roundCol.matches.length / 2) }).map((_, pairIdx) => {
                       const upperMatch = roundCol.matches[pairIdx * 2];
                       const lowerMatch = roundCol.matches[pairIdx * 2 + 1];
-                      const nextMatch = nextRoundCol.matches[pairIdx];
 
                       const upperWinnerId = upperMatch?.winnerId;
                       const lowerWinnerId = lowerMatch?.winnerId;
 
-                      const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
-                      const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
-                      const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
+                      const upperSlot: MatchWinnerSlot =
+                        (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId
+                          ? upperWinnerId === upperMatch?.player1Id
+                            ? 'p1'
+                            : upperWinnerId === upperMatch?.player2Id
+                            ? 'p2'
+                            : 'p1'
+                          : 'none';
 
-                      const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
-                      const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
-                      const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+                      const lowerSlot: MatchWinnerSlot =
+                        (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId
+                          ? lowerWinnerId === lowerMatch?.player1Id
+                            ? 'p1'
+                            : lowerWinnerId === lowerMatch?.player2Id
+                            ? 'p2'
+                            : 'p1'
+                          : 'none';
 
-                      const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
-                      const upperTargetY = 40; // Top slot (P1) of Next Round Match
+                      const isChampionUpper = Boolean(championId && upperWinnerId === championId);
+                      const isChampionLower = Boolean(championId && lowerWinnerId === championId);
 
-                      const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
-                      const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match
-
-                      const isChampionUpper = championId && upperWinnerId === championId;
-                      const isChampionLower = championId && lowerWinnerId === championId;
-
-                      const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
-                      const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
-
-                      const gradId = `single-grad-path-${roundCol.round}-${pairIdx}`;
-                      const upperPathD = `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 96 ${upperTargetY}`;
-                      const lowerPathD = `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 96 ${lowerTargetY}`;
+                      const isTrackedUpper = Boolean(
+                        trackedPlayerId &&
+                          (upperWinnerId === trackedPlayerId ||
+                            upperMatch?.player1Id === trackedPlayerId ||
+                            upperMatch?.player2Id === trackedPlayerId)
+                      );
+                      const isTrackedLower = Boolean(
+                        trackedPlayerId &&
+                          (lowerWinnerId === trackedPlayerId ||
+                            lowerMatch?.player1Id === trackedPlayerId ||
+                            lowerMatch?.player2Id === trackedPlayerId)
+                      );
 
                       return (
                         <div
                           key={`single-bracket-wire-${roundCol.round}-${pairIdx}`}
                           className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[110px]"
                         >
-                          <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <defs>
-                              {/* Arrow Head Markers for Line Indicators */}
-                              <marker
-                                id={`arrow-neutral-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 100 100"
-                                refX="80"
-                                refY="50"
-                                markerWidth="6"
-                                markerHeight="6"
-                                orient="auto-start-reverse"
-                              >
-                                <path d="M 0 10 L 100 50 L 0 90 z" fill="#64748b" />
-                              </marker>
-
-                              <marker
-                                id={`arrow-advancing-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 100 100"
-                                refX="80"
-                                refY="50"
-                                markerWidth="7"
-                                markerHeight="7"
-                                orient="auto-start-reverse"
-                              >
-                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#10b981" />
-                              </marker>
-
-                              <marker
-                                id={`arrow-tracked-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 100 100"
-                                refX="80"
-                                refY="50"
-                                markerWidth="7"
-                                markerHeight="7"
-                                orient="auto-start-reverse"
-                              >
-                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#00f2ff" />
-                              </marker>
-
-                              <marker
-                                id={`arrow-gold-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 100 100"
-                                refX="80"
-                                refY="50"
-                                markerWidth="8"
-                                markerHeight="8"
-                                orient="auto-start-reverse"
-                              >
-                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#fbbf24" />
-                              </marker>
-
-                              <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#00f2ff" stopOpacity="0.9" />
-                                <stop offset="100%" stopColor="#10b981" stopOpacity="1" />
-                              </linearGradient>
-                              <linearGradient id={`gold-grad-${roundCol.round}-${pairIdx}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
-                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="1" />
-                              </linearGradient>
-                            </defs>
-
-                            {/* Top Branch (Upper Match Winner -> Next Match P1) */}
-                            <path
-                              d={upperPathD}
-                              fill="none"
-                              stroke={
-                                isChampionUpper
-                                  ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
-                                  : isTrackedUpper
-                                  ? '#00f2ff'
-                                  : isUpperAdvancing
-                                  ? `url(#${gradId})`
-                                  : '#475569'
-                              }
-                              strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.8}
-                              strokeDasharray={isUpperAdvancing ? 'none' : '4,3'}
-                              className={
-                                isChampionUpper
-                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
-                                  : isTrackedUpper || isUpperAdvancing
-                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                                  : ''
-                              }
-                              markerEnd={
-                                isChampionUpper
-                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
-                                  : isTrackedUpper
-                                  ? `url(#arrow-tracked-${roundCol.round}-${pairIdx})`
-                                  : isUpperAdvancing
-                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
-                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
-                              }
-                            />
-
-                            {/* Upper Branch Pivot Node */}
-                            <circle
-                              cx="50"
-                              cy={upperTargetY}
-                              r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
-                              fill={
-                                isChampionUpper
-                                  ? '#fbbf24'
-                                  : isTrackedUpper
-                                  ? '#00f2ff'
-                                  : isUpperAdvancing
-                                  ? '#10b981'
-                                  : '#64748b'
-                              }
-                              stroke="#0a0c12"
-                              strokeWidth="1.5"
-                              className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
-                            />
-
-                            {/* Bottom Branch (Lower Match Winner -> Next Match P2) */}
-                            <path
-                              d={lowerPathD}
-                              fill="none"
-                              stroke={
-                                isChampionLower
-                                  ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
-                                  : isTrackedLower
-                                  ? '#00f2ff'
-                                  : isLowerAdvancing
-                                  ? `url(#${gradId})`
-                                  : '#475569'
-                              }
-                              strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.8}
-                              strokeDasharray={isLowerAdvancing ? 'none' : '4,3'}
-                              className={
-                                isChampionLower
-                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
-                                  : isTrackedLower || isLowerAdvancing
-                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                                  : ''
-                              }
-                              markerEnd={
-                                isChampionLower
-                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
-                                  : isTrackedLower
-                                  ? `url(#arrow-tracked-${roundCol.round}-${pairIdx})`
-                                  : isLowerAdvancing
-                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
-                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
-                              }
-                            />
-
-                            {/* Lower Branch Pivot Node */}
-                            <circle
-                              cx="50"
-                              cy={lowerTargetY}
-                              r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
-                              fill={
-                                isChampionLower
-                                  ? '#fbbf24'
-                                  : isTrackedLower
-                                  ? '#00f2ff'
-                                  : isLowerAdvancing
-                                  ? '#10b981'
-                                  : '#64748b'
-                              }
-                              stroke="#0a0c12"
-                              strokeWidth="1.5"
-                              className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
-                            />
-                          </svg>
+                          <BracketRouteImage
+                            direction="left-to-right"
+                            upperWinnerSlot={upperSlot}
+                            lowerWinnerSlot={lowerSlot}
+                            isUpperChampion={isChampionUpper}
+                            isLowerChampion={isChampionLower}
+                            isUpperTracked={isTrackedUpper}
+                            isLowerTracked={isTrackedLower}
+                            colorTheme="emerald"
+                          />
                         </div>
                       );
                     })}

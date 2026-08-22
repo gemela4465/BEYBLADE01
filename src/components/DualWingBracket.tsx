@@ -9,6 +9,7 @@ import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
 import { BroadcastBracketModal } from './BroadcastBracketModal';
 import { SingleWingBracket } from './SingleWingBracket';
+import { BracketRouteImage, BridgeRouteImage, MatchWinnerSlot } from './BracketRouteImage';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface DualWingBracketProps {
@@ -405,7 +406,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                       </div>
                     </div>
 
-                    {/* SVG Tree Bracket Connector (Left-to-Right) */}
+                    {/* SVG Tree Bracket Connector Image (Left-to-Right) */}
                     {nextRoundMatches && (
                       <div className="flex flex-col min-w-[56px] max-w-[64px] pointer-events-none self-stretch">
                         {/* Header spacer to perfectly align line heights with match cards */}
@@ -415,133 +416,59 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           {Array.from({ length: Math.ceil(roundMatches.length / 2) }).map((_, pairIdx) => {
                             const upperMatch = roundMatches[pairIdx * 2];
                             const lowerMatch = roundMatches[pairIdx * 2 + 1];
-                            const nextMatch = nextRoundMatches[pairIdx];
 
                             const upperWinnerId = upperMatch?.winnerId;
                             const lowerWinnerId = lowerMatch?.winnerId;
 
-                            const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
-                            const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
-                            const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
+                            const upperSlot: MatchWinnerSlot =
+                              (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId
+                                ? upperWinnerId === upperMatch?.player1Id
+                                  ? 'p1'
+                                  : upperWinnerId === upperMatch?.player2Id
+                                  ? 'p2'
+                                  : 'p1'
+                                : 'none';
 
-                            const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
-                            const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
-                            const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+                            const lowerSlot: MatchWinnerSlot =
+                              (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId
+                                ? lowerWinnerId === lowerMatch?.player1Id
+                                  ? 'p1'
+                                  : lowerWinnerId === lowerMatch?.player2Id
+                                  ? 'p2'
+                                  : 'p1'
+                                : 'none';
 
-                            // Calculate exact Y coordinates according to player position (user diagram)
-                            const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
-                            const upperTargetY = 40; // Top slot (P1) of Next Round Match
+                            const isChampionUpper = Boolean(championId && upperWinnerId === championId);
+                            const isChampionLower = Boolean(championId && lowerWinnerId === championId);
 
-                            const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
-                            const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match
-
-                            const isChampionUpper = championId && upperWinnerId === championId;
-                            const isChampionLower = championId && lowerWinnerId === championId;
-
-                            const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
-                            const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
-
-                            const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#10b981' : '#334155';
-                            const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#10b981' : '#334155';
-
-                            const upperPathD = `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 96 ${upperTargetY}`;
-                            const lowerPathD = `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 96 ${lowerTargetY}`;
+                            const isTrackedUpper = Boolean(
+                              trackedPlayerId &&
+                                (upperWinnerId === trackedPlayerId ||
+                                  upperMatch?.player1Id === trackedPlayerId ||
+                                  upperMatch?.player2Id === trackedPlayerId)
+                            );
+                            const isTrackedLower = Boolean(
+                              trackedPlayerId &&
+                                (lowerWinnerId === trackedPlayerId ||
+                                  lowerMatch?.player1Id === trackedPlayerId ||
+                                  lowerMatch?.player2Id === trackedPlayerId)
+                            );
 
                             return (
-                              <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                                <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                  {/* Upper Match Branch (From Winner Player Slot -> Next Round P1 Slot) */}
-                                  <path
-                                    d={upperPathD}
-                                    fill="none"
-                                    stroke={upperStrokeColor}
-                                    strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
-                                    strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionUpper
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isTrackedUpper || isUpperAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                        : ''
-                                    }
-                                    markerEnd={
-                                      isChampionUpper
-                                        ? 'url(#dual-arrow-gold-right)'
-                                        : isTrackedUpper
-                                        ? 'url(#dual-arrow-cyan-right)'
-                                        : isUpperAdvancing
-                                        ? 'url(#dual-arrow-emerald-right)'
-                                        : 'url(#dual-arrow-neutral-right)'
-                                    }
-                                  />
-                                  {/* Upper Branch Animated Laser Overlay if advancing */}
-                                  {isUpperAdvancing && (
-                                    <path
-                                      d={upperPathD}
-                                      fill="none"
-                                      stroke={isChampionUpper ? '#fef08a' : '#a7f3d0'}
-                                      strokeWidth={1.8}
-                                      className="laser-pulse-right"
-                                    />
-                                  )}
-
-                                  {/* Upper Branch Pivot Node */}
-                                  <circle
-                                    cx="50"
-                                    cy={upperTargetY}
-                                    r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
-                                    fill={isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#10b981' : '#475569'}
-                                    stroke="#07090f"
-                                    strokeWidth="1.5"
-                                    className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
-                                  />
-
-                                  {/* Lower Match Branch (From Winner Player Slot -> Next Round P2 Slot) */}
-                                  <path
-                                    d={lowerPathD}
-                                    fill="none"
-                                    stroke={lowerStrokeColor}
-                                    strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
-                                    strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionLower
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isTrackedLower || isLowerAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                        : ''
-                                    }
-                                    markerEnd={
-                                      isChampionLower
-                                        ? 'url(#dual-arrow-gold-right)'
-                                        : isTrackedLower
-                                        ? 'url(#dual-arrow-cyan-right)'
-                                        : isLowerAdvancing
-                                        ? 'url(#dual-arrow-emerald-right)'
-                                        : 'url(#dual-arrow-neutral-right)'
-                                    }
-                                  />
-                                  {/* Lower Branch Animated Laser Overlay if advancing */}
-                                  {isLowerAdvancing && (
-                                    <path
-                                      d={lowerPathD}
-                                      fill="none"
-                                      stroke={isChampionLower ? '#fef08a' : '#a7f3d0'}
-                                      strokeWidth={1.8}
-                                      className="laser-pulse-right"
-                                    />
-                                  )}
-
-                                  {/* Lower Branch Pivot Node */}
-                                  <circle
-                                    cx="50"
-                                    cy={lowerTargetY}
-                                    r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
-                                    fill={isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#10b981' : '#475569'}
-                                    stroke="#07090f"
-                                    strokeWidth="1.5"
-                                    className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
-                                  />
-                                </svg>
+                              <div
+                                key={`left-tree-${roundNumber}-${pairIdx}`}
+                                className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]"
+                              >
+                                <BracketRouteImage
+                                  direction="left-to-right"
+                                  upperWinnerSlot={upperSlot}
+                                  lowerWinnerSlot={lowerSlot}
+                                  isUpperChampion={isChampionUpper}
+                                  isLowerChampion={isChampionLower}
+                                  isUpperTracked={isTrackedUpper}
+                                  isLowerTracked={isTrackedLower}
+                                  colorTheme="emerald"
+                                />
                               </div>
                             );
                           })}
@@ -553,70 +480,32 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               })}
             </div>
 
-            {/* Left Semi-Final -> Center Grand Final Bridge Connector */}
+            {/* Left Semi-Final -> Center Grand Final Bridge Connector Image */}
             {(() => {
               const leftSemiMatch = leftMatchesByRound[wingRoundsCount - 1]?.[0];
               const isLeftSemiWinner = hasWinner(leftSemiMatch);
               const leftSemiWinnerPlayer = leftSemiMatch?.winnerId ? playerMap.get(leftSemiMatch.winnerId) : null;
-              const isChampionLeftSemi = championId && leftSemiMatch?.winnerId === championId;
+              const isChampionLeftSemi = Boolean(championId && leftSemiMatch?.winnerId === championId);
 
-              const isLeftP1 = (leftSemiMatch?.status === 'completed' || leftSemiMatch?.status === 'bye') && leftSemiMatch?.winnerId && leftSemiMatch?.winnerId === leftSemiMatch?.player1Id;
-              const isLeftP2 = (leftSemiMatch?.status === 'completed' || leftSemiMatch?.status === 'bye') && leftSemiMatch?.winnerId && leftSemiMatch?.winnerId === leftSemiMatch?.player2Id;
-              const leftStartY = isLeftP1 ? 36 : isLeftP2 ? 64 : 50;
-              const leftTargetY = 36; // Grand Final Player 1 (top slot)
-              const leftBridgeD = `M 0 ${leftStartY} L 50 ${leftStartY} L 50 ${leftTargetY} L 94 ${leftTargetY}`;
+              const leftWinnerSlot: MatchWinnerSlot =
+                (leftSemiMatch?.status === 'completed' || leftSemiMatch?.status === 'bye') && leftSemiMatch?.winnerId
+                  ? leftSemiMatch?.winnerId === leftSemiMatch?.player1Id
+                    ? 'p1'
+                    : 'p2'
+                  : 'none';
 
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-16 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path
-                      d={leftBridgeD}
-                      fill="none"
-                      stroke={
-                        isChampionLeftSemi
-                          ? '#fbbf24'
-                          : isLeftSemiWinner
-                          ? '#00f2ff'
-                          : '#334155'
-                      }
-                      strokeWidth={isChampionLeftSemi ? 3.5 : isLeftSemiWinner ? 3 : 1.6}
-                      strokeDasharray={isLeftSemiWinner ? 'none' : '3,3'}
-                      className={
-                        isChampionLeftSemi
-                          ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
-                          : isLeftSemiWinner
-                          ? 'drop-shadow-[0_0_8px_rgba(0,242,255,0.85)]'
-                          : ''
-                      }
-                      markerEnd={
-                        isChampionLeftSemi
-                          ? 'url(#dual-arrow-gold-right)'
-                          : isLeftSemiWinner
-                          ? 'url(#dual-arrow-cyan-right)'
-                          : 'url(#dual-arrow-neutral-right)'
-                      }
-                    />
-                    {isLeftSemiWinner && (
-                      <path
-                        d={leftBridgeD}
-                        fill="none"
-                        stroke="#e0f2fe"
-                        strokeWidth={1.8}
-                        className="laser-pulse-right"
-                      />
-                    )}
-                    <circle
-                      cx="50"
-                      cy={leftTargetY}
-                      r={isLeftSemiWinner ? 4.5 : 2.5}
-                      fill={isChampionLeftSemi ? '#fbbf24' : isLeftSemiWinner ? '#00f2ff' : '#475569'}
-                      stroke="#07090f"
-                      strokeWidth="1.5"
-                      className={isLeftSemiWinner ? 'drop-shadow-[0_0_6px_rgba(0,242,255,0.9)]' : ''}
-                    />
-                  </svg>
+                  <BridgeRouteImage
+                    direction="left-to-right"
+                    winnerSlot={leftWinnerSlot}
+                    isChampion={isChampionLeftSemi}
+                    isTracked={Boolean(trackedPlayerId && leftSemiMatch?.winnerId === trackedPlayerId)}
+                    colorTheme="cyan"
+                    targetSlot="p1"
+                  />
                   {isLeftSemiWinner && leftSemiWinnerPlayer && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#00f2ff]/20 border border-[#00f2ff]/60 text-[#00f2ff] text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(0,242,255,0.4)] animate-pulse flex items-center gap-0.5">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#00f2ff]/20 border border-[#00f2ff]/60 text-[#00f2ff] text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(0,242,255,0.4)] flex items-center gap-0.5">
                       <span>左翼冠軍</span>
                       <ArrowRight className="w-2.5 h-2.5 inline" />
                     </div>
@@ -708,70 +597,32 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               )}
             </div>
 
-            {/* Right Semi-Final -> Center Grand Final Bridge Connector */}
+            {/* Right Semi-Final -> Center Grand Final Bridge Connector Image */}
             {(() => {
               const rightSemiMatch = rightMatchesByRound[wingRoundsCount - 1]?.[0];
               const isRightSemiWinner = hasWinner(rightSemiMatch);
               const rightSemiWinnerPlayer = rightSemiMatch?.winnerId ? playerMap.get(rightSemiMatch.winnerId) : null;
-              const isChampionRightSemi = championId && rightSemiMatch?.winnerId === championId;
+              const isChampionRightSemi = Boolean(championId && rightSemiMatch?.winnerId === championId);
 
-              const isRightP1 = (rightSemiMatch?.status === 'completed' || rightSemiMatch?.status === 'bye') && rightSemiMatch?.winnerId && rightSemiMatch?.winnerId === rightSemiMatch?.player1Id;
-              const isRightP2 = (rightSemiMatch?.status === 'completed' || rightSemiMatch?.status === 'bye') && rightSemiMatch?.winnerId && rightSemiMatch?.winnerId === rightSemiMatch?.player2Id;
-              const rightStartY = isRightP1 ? 36 : isRightP2 ? 64 : 50;
-              const rightTargetY = 64; // Grand Final Player 2 (bottom slot)
-              const rightBridgeD = `M 100 ${rightStartY} L 50 ${rightStartY} L 50 ${rightTargetY} L 6 ${rightTargetY}`;
+              const rightWinnerSlot: MatchWinnerSlot =
+                (rightSemiMatch?.status === 'completed' || rightSemiMatch?.status === 'bye') && rightSemiMatch?.winnerId
+                  ? rightSemiMatch?.winnerId === rightSemiMatch?.player1Id
+                    ? 'p1'
+                    : 'p2'
+                  : 'none';
 
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-16 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path
-                      d={rightBridgeD}
-                      fill="none"
-                      stroke={
-                        isChampionRightSemi
-                          ? '#fbbf24'
-                          : isRightSemiWinner
-                          ? '#c084fc'
-                          : '#334155'
-                      }
-                      strokeWidth={isChampionRightSemi ? 3.5 : isRightSemiWinner ? 3 : 1.6}
-                      strokeDasharray={isRightSemiWinner ? 'none' : '3,3'}
-                      className={
-                        isChampionRightSemi
-                          ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
-                          : isRightSemiWinner
-                          ? 'drop-shadow-[0_0_8px_rgba(192,132,252,0.85)]'
-                          : ''
-                      }
-                      markerEnd={
-                        isChampionRightSemi
-                          ? 'url(#dual-arrow-gold-left)'
-                          : isRightSemiWinner
-                          ? 'url(#dual-arrow-purple-left)'
-                          : 'url(#dual-arrow-neutral-left)'
-                      }
-                    />
-                    {isRightSemiWinner && (
-                      <path
-                        d={rightBridgeD}
-                        fill="none"
-                        stroke="#f3e8ff"
-                        strokeWidth={1.8}
-                        className="laser-pulse-left"
-                      />
-                    )}
-                    <circle
-                      cx="50"
-                      cy={rightTargetY}
-                      r={isRightSemiWinner ? 4.5 : 2.5}
-                      fill={isChampionRightSemi ? '#fbbf24' : isRightSemiWinner ? '#c084fc' : '#475569'}
-                      stroke="#07090f"
-                      strokeWidth="1.5"
-                      className={isRightSemiWinner ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
-                    />
-                  </svg>
+                  <BridgeRouteImage
+                    direction="right-to-left"
+                    winnerSlot={rightWinnerSlot}
+                    isChampion={isChampionRightSemi}
+                    isTracked={Boolean(trackedPlayerId && rightSemiMatch?.winnerId === trackedPlayerId)}
+                    colorTheme="purple"
+                    targetSlot="p2"
+                  />
                   {isRightSemiWinner && rightSemiWinnerPlayer && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/60 text-purple-300 text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(192,132,252,0.4)] animate-pulse flex items-center gap-0.5">
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/60 text-purple-300 text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(192,132,252,0.4)] flex items-center gap-0.5">
                       <ArrowLeft className="w-2.5 h-2.5 inline" />
                       <span>右翼冠軍</span>
                     </div>
@@ -816,7 +667,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                         </div>
                       </div>
 
-                      {/* Right-to-Left SVG Tree Connector (joining pairs from right round into this round on the left) */}
+                      {/* Right-to-Left SVG Tree Connector Image (joining pairs from right round into this round on the left) */}
                       {!isInitialRightRound && prevSourceRoundMatches && (
                         <div className="flex flex-col min-w-[56px] max-w-[64px] pointer-events-none self-stretch">
                           {/* Header spacer to perfectly align line heights with match cards */}
@@ -824,135 +675,61 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                           <div className="flex flex-col justify-around flex-1 py-1">
                             {Array.from({ length: roundMatches.length }).map((_, pairIdx) => {
-                              const nextMatch = roundMatches[pairIdx];
                               const upperMatch = prevSourceRoundMatches[pairIdx * 2];
                               const lowerMatch = prevSourceRoundMatches[pairIdx * 2 + 1];
 
                               const upperWinnerId = upperMatch?.winnerId;
                               const lowerWinnerId = lowerMatch?.winnerId;
 
-                              const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
-                              const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
-                              const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
+                              const upperSlot: MatchWinnerSlot =
+                                (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId
+                                  ? upperWinnerId === upperMatch?.player1Id
+                                    ? 'p1'
+                                    : upperWinnerId === upperMatch?.player2Id
+                                    ? 'p2'
+                                    : 'p1'
+                                  : 'none';
 
-                              const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
-                              const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
-                              const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+                              const lowerSlot: MatchWinnerSlot =
+                                (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId
+                                  ? lowerWinnerId === lowerMatch?.player1Id
+                                    ? 'p1'
+                                    : lowerWinnerId === lowerMatch?.player2Id
+                                    ? 'p2'
+                                    : 'p1'
+                                  : 'none';
 
-                              // Calculate exact Y coordinates according to player position (user diagram)
-                              const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
-                              const upperTargetY = 40; // Top slot (P1) of Next Round Match on the left
+                              const isChampionUpper = Boolean(championId && upperWinnerId === championId);
+                              const isChampionLower = Boolean(championId && lowerWinnerId === championId);
 
-                              const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
-                              const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match on the left
-
-                              const isChampionUpper = championId && upperWinnerId === championId;
-                              const isChampionLower = championId && lowerWinnerId === championId;
-
-                              const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
-                              const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
-
-                              const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#c084fc' : '#334155';
-                              const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#c084fc' : '#334155';
-
-                              const upperPathD = `M 100 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 4 ${upperTargetY}`;
-                              const lowerPathD = `M 100 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 4 ${lowerTargetY}`;
+                              const isTrackedUpper = Boolean(
+                                trackedPlayerId &&
+                                  (upperWinnerId === trackedPlayerId ||
+                                    upperMatch?.player1Id === trackedPlayerId ||
+                                    upperMatch?.player2Id === trackedPlayerId)
+                              );
+                              const isTrackedLower = Boolean(
+                                trackedPlayerId &&
+                                  (lowerWinnerId === trackedPlayerId ||
+                                    lowerMatch?.player1Id === trackedPlayerId ||
+                                    lowerMatch?.player2Id === trackedPlayerId)
+                              );
 
                               return (
-                                <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                    {/* Upper Branch: from top right winner row into Next Match P1 row */}
-                                    <path
-                                      d={upperPathD}
-                                      fill="none"
-                                      stroke={upperStrokeColor}
-                                      strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
-                                      strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-                                      className={
-                                        isChampionUpper
-                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                          : isTrackedUpper || isUpperAdvancing
-                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                          : ''
-                                      }
-                                      markerEnd={
-                                        isChampionUpper
-                                          ? 'url(#dual-arrow-gold-left)'
-                                          : isTrackedUpper
-                                          ? 'url(#dual-arrow-cyan-left)'
-                                          : isUpperAdvancing
-                                          ? 'url(#dual-arrow-purple-left)'
-                                          : 'url(#dual-arrow-neutral-left)'
-                                      }
-                                    />
-                                    {/* Upper Branch Animated Laser Overlay if advancing */}
-                                    {isUpperAdvancing && (
-                                      <path
-                                        d={upperPathD}
-                                        fill="none"
-                                        stroke={isChampionUpper ? '#fef08a' : '#f3e8ff'}
-                                        strokeWidth={1.8}
-                                        className="laser-pulse-left"
-                                      />
-                                    )}
-
-                                    {/* Upper Branch Pivot Node */}
-                                    <circle
-                                      cx="50"
-                                      cy={upperTargetY}
-                                      r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
-                                      fill={isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#c084fc' : '#475569'}
-                                      stroke="#07090f"
-                                      strokeWidth="1.5"
-                                      className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
-                                    />
-
-                                    {/* Lower Branch: from bottom right winner row into Next Match P2 row */}
-                                    <path
-                                      d={lowerPathD}
-                                      fill="none"
-                                      stroke={lowerStrokeColor}
-                                      strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
-                                      strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-                                      className={
-                                        isChampionLower
-                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                          : isTrackedLower || isLowerAdvancing
-                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                          : ''
-                                      }
-                                      markerEnd={
-                                        isChampionLower
-                                          ? 'url(#dual-arrow-gold-left)'
-                                          : isTrackedLower
-                                          ? 'url(#dual-arrow-cyan-left)'
-                                          : isLowerAdvancing
-                                          ? 'url(#dual-arrow-purple-left)'
-                                          : 'url(#dual-arrow-neutral-left)'
-                                      }
-                                    />
-                                    {/* Lower Branch Animated Laser Overlay if advancing */}
-                                    {isLowerAdvancing && (
-                                      <path
-                                        d={lowerPathD}
-                                        fill="none"
-                                        stroke={isChampionLower ? '#fef08a' : '#f3e8ff'}
-                                        strokeWidth={1.8}
-                                        className="laser-pulse-left"
-                                      />
-                                    )}
-
-                                    {/* Lower Branch Pivot Node */}
-                                    <circle
-                                      cx="50"
-                                      cy={lowerTargetY}
-                                      r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
-                                      fill={isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#c084fc' : '#475569'}
-                                      stroke="#07090f"
-                                      strokeWidth="1.5"
-                                      className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
-                                    />
-                                  </svg>
+                                <div
+                                  key={`right-tree-${roundNumber}-${pairIdx}`}
+                                  className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]"
+                                >
+                                  <BracketRouteImage
+                                    direction="right-to-left"
+                                    upperWinnerSlot={upperSlot}
+                                    lowerWinnerSlot={lowerSlot}
+                                    isUpperChampion={isChampionUpper}
+                                    isLowerChampion={isChampionLower}
+                                    isUpperTracked={isTrackedUpper}
+                                    isLowerTracked={isTrackedLower}
+                                    colorTheme="purple"
+                                  />
                                 </div>
                               );
                             })}
