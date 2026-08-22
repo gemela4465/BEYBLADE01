@@ -368,10 +368,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               transformOrigin: 'top center',
               transition: 'transform 0.15s ease-out'
             }}
-            className="flex items-center justify-center gap-4 min-w-max mx-auto py-8 dual-wing-tree-container"
+            className="flex items-stretch justify-center gap-3 min-w-max mx-auto py-8 dual-wing-tree-container"
           >
             {/* ====== LEFT WING (Left-to-Right Progression) ====== */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-stretch gap-2">
               {leftMatchesByRound.map((roundMatches, roundIdx) => {
                 const roundNumber = roundIdx + 1;
                 const heading = getRoundHeading(roundNumber, maxRound);
@@ -379,15 +379,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                 return (
                   <React.Fragment key={`left-round-col-${roundNumber}`}>
-                    <div className="flex flex-col space-y-3 min-w-[154px] max-w-[160px]">
-                      <div className="text-center py-1.5 px-2 bg-[#00f2ff]/10 border border-[#00f2ff]/30 rounded-lg text-[11px] font-black text-[#00f2ff] uppercase tracking-wider shadow-[0_0_10px_rgba(0,242,255,0.15)] font-mono">
+                    <div className="flex flex-col min-w-[154px] max-w-[160px]">
+                      <div className="text-center py-1.5 px-2 mb-3 bg-[#00f2ff]/10 border border-[#00f2ff]/30 rounded-lg text-[11px] font-black text-[#00f2ff] uppercase tracking-wider shadow-[0_0_10px_rgba(0,242,255,0.15)] font-mono shrink-0 h-[28px] flex items-center justify-center">
                         左翼 {heading}
                       </div>
 
-                      <div className="flex flex-col justify-around flex-1 space-y-6">
+                      <div className="flex flex-col justify-around flex-1 py-1 space-y-4">
                         {roundMatches.map((match) => {
+                          const isMatchWinner = hasWinner(match);
                           return (
-                            <div key={match.id} className="relative flex items-center justify-center">
+                            <div key={match.id} className="relative flex items-center justify-center my-auto">
                               <MatchCard
                                 match={match}
                                 playerMap={playerMap}
@@ -406,131 +407,149 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                     {/* SVG Tree Bracket Connector (Left-to-Right) */}
                     {nextRoundMatches && (
-                      <div className="flex flex-col justify-around min-w-[48px] max-w-[54px] pointer-events-none py-6">
-                        {Array.from({ length: Math.ceil(roundMatches.length / 2) }).map((_, pairIdx) => {
-                          const upperMatch = roundMatches[pairIdx * 2];
-                          const lowerMatch = roundMatches[pairIdx * 2 + 1];
-                          const nextMatch = nextRoundMatches[pairIdx];
+                      <div className="flex flex-col min-w-[56px] max-w-[64px] pointer-events-none self-stretch">
+                        {/* Header spacer to perfectly align line heights with match cards */}
+                        <div className="h-[28px] mb-3 invisible select-none shrink-0" />
 
-                          const upperWinnerId = upperMatch?.winnerId;
-                          const lowerWinnerId = lowerMatch?.winnerId;
+                        <div className="flex flex-col justify-around flex-1 py-1">
+                          {Array.from({ length: Math.ceil(roundMatches.length / 2) }).map((_, pairIdx) => {
+                            const upperMatch = roundMatches[pairIdx * 2];
+                            const lowerMatch = roundMatches[pairIdx * 2 + 1];
+                            const nextMatch = nextRoundMatches[pairIdx];
 
-                          const isUpperWinner = hasWinner(upperMatch);
-                          const isLowerWinner = hasWinner(lowerMatch);
+                            const upperWinnerId = upperMatch?.winnerId;
+                            const lowerWinnerId = lowerMatch?.winnerId;
 
-                          const isUpperAdvancing = isUpperWinner;
-                          const isLowerAdvancing = isLowerWinner;
-                          const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
+                            const isUpperWinner = hasWinner(upperMatch);
+                            const isLowerWinner = hasWinner(lowerMatch);
 
-                          const isChampionUpper = championId && upperWinnerId === championId;
-                          const isChampionLower = championId && lowerWinnerId === championId;
+                            const isUpperAdvancing = isUpperWinner;
+                            const isLowerAdvancing = isLowerWinner;
+                            const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
 
-                          const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
-                          const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
+                            const isChampionUpper = championId && upperWinnerId === championId;
+                            const isChampionLower = championId && lowerWinnerId === championId;
 
-                          return (
-                            <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                              <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                {/* Upper Branch: from top left match (0, 25%) to fork junction (50%, 50%) */}
-                                <path
-                                  d="M 0,25% L 50%,25% L 50%,50%"
-                                  fill="none"
-                                  stroke={
-                                    isChampionUpper
-                                      ? '#fbbf24'
-                                      : isTrackedUpper
-                                      ? '#00f2ff'
-                                      : isUpperAdvancing
-                                      ? '#10b981'
-                                      : '#334155'
-                                  }
-                                  strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.6 : 1.6}
-                                  strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-                                  className={
-                                    isChampionUpper
-                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                      : isTrackedUpper || isUpperAdvancing
-                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                      : ''
-                                  }
-                                />
+                            const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
+                            const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
 
-                                {/* Lower Branch: from bottom left match (0, 75%) to fork junction (50%, 50%) */}
-                                <path
-                                  d="M 0,75% L 50%,75% L 50%,50%"
-                                  fill="none"
-                                  stroke={
-                                    isChampionLower
-                                      ? '#fbbf24'
-                                      : isTrackedLower
-                                      ? '#00f2ff'
-                                      : isLowerAdvancing
-                                      ? '#10b981'
-                                      : '#334155'
-                                  }
-                                  strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.6 : 1.6}
-                                  strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-                                  className={
-                                    isChampionLower
-                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                      : isTrackedLower || isLowerAdvancing
-                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                      : ''
-                                  }
-                                />
+                            const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#10b981' : '#334155';
+                            const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#10b981' : '#334155';
+                            const stemStrokeColor = isChampionUpper || isChampionLower ? '#fbbf24' : isTrackedUpper || isTrackedLower ? '#00f2ff' : isAnyAdvancing ? '#10b981' : '#334155';
 
-                                {/* Pivot Junction Node at (50%, 50%) */}
-                                <circle
-                                  cx="50%"
-                                  cy="50%"
-                                  r={isChampionUpper || isChampionLower ? 4.5 : isAnyAdvancing ? 3.5 : 2}
-                                  fill={
-                                    isChampionUpper || isChampionLower
-                                      ? '#fbbf24'
-                                      : isTrackedUpper || isTrackedLower
-                                      ? '#00f2ff'
-                                      : isAnyAdvancing
-                                      ? '#10b981'
-                                      : '#475569'
-                                  }
-                                />
+                            return (
+                              <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
+                                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                  {/* Upper Branch Base Line */}
+                                  <path
+                                    d="M 0,25% L 50%,25% L 50%,50%"
+                                    fill="none"
+                                    stroke={upperStrokeColor}
+                                    strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
+                                    strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionUpper
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isTrackedUpper || isUpperAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                        : ''
+                                    }
+                                  />
+                                  {/* Upper Branch Animated Laser Overlay if advancing */}
+                                  {isUpperAdvancing && (
+                                    <path
+                                      d="M 0,25% L 50%,25% L 50%,50%"
+                                      fill="none"
+                                      stroke={isChampionUpper ? '#fef08a' : '#a7f3d0'}
+                                      strokeWidth={1.8}
+                                      className="laser-pulse-right"
+                                    />
+                                  )}
 
-                                {/* Stem Line into next round match on the right */}
-                                <path
-                                  d="M 50%,50% L 100%,50%"
-                                  fill="none"
-                                  stroke={
-                                    isChampionUpper || isChampionLower
-                                      ? '#fbbf24'
-                                      : isTrackedUpper || isTrackedLower
-                                      ? '#00f2ff'
-                                      : isAnyAdvancing
-                                      ? '#10b981'
-                                      : '#334155'
-                                  }
-                                  strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.6 : 1.6}
-                                  strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
-                                  className={
-                                    isChampionUpper || isChampionLower
-                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                      : isAnyAdvancing
-                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                      : ''
-                                  }
-                                  markerEnd={
-                                    isChampionUpper || isChampionLower
-                                      ? 'url(#dual-arrow-gold-right)'
-                                      : isTrackedUpper || isTrackedLower
-                                      ? 'url(#dual-arrow-cyan-right)'
-                                      : isAnyAdvancing
-                                      ? 'url(#dual-arrow-emerald-right)'
-                                      : 'url(#dual-arrow-neutral-right)'
-                                  }
-                                />
-                              </svg>
-                            </div>
-                          );
-                        })}
+                                  {/* Lower Branch Base Line */}
+                                  <path
+                                    d="M 0,75% L 50%,75% L 50%,50%"
+                                    fill="none"
+                                    stroke={lowerStrokeColor}
+                                    strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
+                                    strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionLower
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isTrackedLower || isLowerAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                        : ''
+                                    }
+                                  />
+                                  {/* Lower Branch Animated Laser Overlay if advancing */}
+                                  {isLowerAdvancing && (
+                                    <path
+                                      d="M 0,75% L 50%,75% L 50%,50%"
+                                      fill="none"
+                                      stroke={isChampionLower ? '#fef08a' : '#a7f3d0'}
+                                      strokeWidth={1.8}
+                                      className="laser-pulse-right"
+                                    />
+                                  )}
+
+                                  {/* Pivot Junction Node at (50%, 50%) */}
+                                  <circle
+                                    cx="50%"
+                                    cy="50%"
+                                    r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
+                                    fill={
+                                      isChampionUpper || isChampionLower
+                                        ? '#fbbf24'
+                                        : isTrackedUpper || isTrackedLower
+                                        ? '#00f2ff'
+                                        : isAnyAdvancing
+                                        ? '#10b981'
+                                        : '#475569'
+                                    }
+                                    stroke="#07090f"
+                                    strokeWidth="1.5"
+                                    className={isAnyAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
+                                  />
+
+                                  {/* Stem Line into next round match on the right */}
+                                  <path
+                                    d="M 50%,50% L 96%,50%"
+                                    fill="none"
+                                    stroke={stemStrokeColor}
+                                    strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
+                                    strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionUpper || isChampionLower
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isAnyAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                        : ''
+                                    }
+                                    markerEnd={
+                                      isChampionUpper || isChampionLower
+                                        ? 'url(#dual-arrow-gold-right)'
+                                        : isTrackedUpper || isTrackedLower
+                                        ? 'url(#dual-arrow-cyan-right)'
+                                        : isAnyAdvancing
+                                        ? 'url(#dual-arrow-emerald-right)'
+                                        : 'url(#dual-arrow-neutral-right)'
+                                    }
+                                  />
+                                  {/* Stem Line Animated Laser Overlay if advancing */}
+                                  {isAnyAdvancing && (
+                                    <path
+                                      d="M 50%,50% L 96%,50%"
+                                      fill="none"
+                                      stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#a7f3d0'}
+                                      strokeWidth={1.8}
+                                      className="laser-pulse-right"
+                                    />
+                                  )}
+                                </svg>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </React.Fragment>
@@ -546,10 +565,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               const isChampionLeftSemi = championId && leftSemiMatch?.winnerId === championId;
 
               return (
-                <div className="flex flex-col items-center justify-center min-w-[52px] max-w-[64px] pointer-events-none relative self-center">
-                  <svg className="w-full h-12 overflow-visible" preserveAspectRatio="none">
+                <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
+                  <svg className="w-full h-14 overflow-visible" preserveAspectRatio="none">
                     <path
-                      d="M 0,50% L 100%,50%"
+                      d="M 0,50% L 94%,50%"
                       fill="none"
                       stroke={
                         isChampionLeftSemi
@@ -558,7 +577,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           ? '#00f2ff'
                           : '#334155'
                       }
-                      strokeWidth={isChampionLeftSemi ? 3.5 : isLeftSemiWinner ? 2.8 : 1.6}
+                      strokeWidth={isChampionLeftSemi ? 3.5 : isLeftSemiWinner ? 3 : 1.6}
                       strokeDasharray={isLeftSemiWinner ? 'none' : '3,3'}
                       className={
                         isChampionLeftSemi
@@ -575,16 +594,29 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           : 'url(#dual-arrow-neutral-right)'
                       }
                     />
+                    {isLeftSemiWinner && (
+                      <path
+                        d="M 0,50% L 94%,50%"
+                        fill="none"
+                        stroke="#e0f2fe"
+                        strokeWidth={1.8}
+                        className="laser-pulse-right"
+                      />
+                    )}
                     <circle
                       cx="50%"
                       cy="50%"
-                      r={isLeftSemiWinner ? 4 : 2}
+                      r={isLeftSemiWinner ? 4.5 : 2.5}
                       fill={isChampionLeftSemi ? '#fbbf24' : isLeftSemiWinner ? '#00f2ff' : '#475569'}
+                      stroke="#07090f"
+                      strokeWidth="1.5"
+                      className={isLeftSemiWinner ? 'drop-shadow-[0_0_6px_rgba(0,242,255,0.9)]' : ''}
                     />
                   </svg>
                   {isLeftSemiWinner && leftSemiWinnerPlayer && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#00f2ff]/20 border border-[#00f2ff]/50 text-[#00f2ff] text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(0,242,255,0.3)] animate-pulse">
-                      左翼晉級
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#00f2ff]/20 border border-[#00f2ff]/60 text-[#00f2ff] text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(0,242,255,0.4)] animate-pulse flex items-center gap-0.5">
+                      <span>左翼冠軍</span>
+                      <ArrowRight className="w-2.5 h-2.5 inline" />
                     </div>
                   )}
                 </div>
@@ -592,7 +624,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             })()}
 
             {/* ====== CENTER STAGE (Grand Final & 3rd Place Match & Trophy) ====== */}
-            <div className="flex flex-col items-center justify-center space-y-8 px-6 py-7 bg-gradient-to-b from-[#11141d] to-[#0a0c12] border-2 border-[#00f2ff]/40 rounded-3xl shadow-[0_0_50px_rgba(0,242,255,0.15)] min-w-[340px] relative overflow-hidden">
+            <div className="flex flex-col items-center justify-center space-y-7 px-6 py-7 bg-gradient-to-b from-[#11141d] to-[#0a0c12] border-2 border-[#00f2ff]/40 rounded-3xl shadow-[0_0_50px_rgba(0,242,255,0.15)] min-w-[340px] relative overflow-hidden self-center">
               <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#00f2ff] to-transparent opacity-80" />
               
               {/* Grand Final Center Heading */}
@@ -682,10 +714,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               const isChampionRightSemi = championId && rightSemiMatch?.winnerId === championId;
 
               return (
-                <div className="flex flex-col items-center justify-center min-w-[52px] max-w-[64px] pointer-events-none relative self-center">
-                  <svg className="w-full h-12 overflow-visible" preserveAspectRatio="none">
+                <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
+                  <svg className="w-full h-14 overflow-visible" preserveAspectRatio="none">
                     <path
-                      d="M 100%,50% L 0%,50%"
+                      d="M 100%,50% L 6%,50%"
                       fill="none"
                       stroke={
                         isChampionRightSemi
@@ -694,7 +726,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           ? '#c084fc'
                           : '#334155'
                       }
-                      strokeWidth={isChampionRightSemi ? 3.5 : isRightSemiWinner ? 2.8 : 1.6}
+                      strokeWidth={isChampionRightSemi ? 3.5 : isRightSemiWinner ? 3 : 1.6}
                       strokeDasharray={isRightSemiWinner ? 'none' : '3,3'}
                       className={
                         isChampionRightSemi
@@ -711,16 +743,29 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           : 'url(#dual-arrow-neutral-left)'
                       }
                     />
+                    {isRightSemiWinner && (
+                      <path
+                        d="M 100%,50% L 6%,50%"
+                        fill="none"
+                        stroke="#f3e8ff"
+                        strokeWidth={1.8}
+                        className="laser-pulse-left"
+                      />
+                    )}
                     <circle
                       cx="50%"
                       cy="50%"
-                      r={isRightSemiWinner ? 4 : 2}
+                      r={isRightSemiWinner ? 4.5 : 2.5}
                       fill={isChampionRightSemi ? '#fbbf24' : isRightSemiWinner ? '#c084fc' : '#475569'}
+                      stroke="#07090f"
+                      strokeWidth="1.5"
+                      className={isRightSemiWinner ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
                     />
                   </svg>
                   {isRightSemiWinner && rightSemiWinnerPlayer && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/50 text-purple-300 text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(192,132,252,0.3)] animate-pulse">
-                      右翼晉級
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/60 text-purple-300 text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(192,132,252,0.4)] animate-pulse flex items-center gap-0.5">
+                      <ArrowLeft className="w-2.5 h-2.5 inline" />
+                      <span>右翼冠軍</span>
                     </div>
                   )}
                 </div>
@@ -728,7 +773,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             })()}
 
             {/* ====== RIGHT WING (Right-to-Left Progression towards Center) ====== */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-stretch gap-2">
               {rightMatchesByRound
                 .slice()
                 .reverse()
@@ -740,14 +785,14 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                   return (
                     <React.Fragment key={`right-round-col-${roundNumber}`}>
-                      <div className="flex flex-col space-y-3 min-w-[154px] max-w-[160px]">
-                        <div className="text-center py-1.5 px-2 bg-[#7000ff]/10 border border-[#7000ff]/30 rounded-lg text-[11px] font-black text-purple-300 uppercase tracking-wider shadow-[0_0_10px_rgba(112,0,255,0.15)] font-mono">
+                      <div className="flex flex-col min-w-[154px] max-w-[160px]">
+                        <div className="text-center py-1.5 px-2 mb-3 bg-[#7000ff]/10 border border-[#7000ff]/30 rounded-lg text-[11px] font-black text-purple-300 uppercase tracking-wider shadow-[0_0_10px_rgba(112,0,255,0.15)] font-mono shrink-0 h-[28px] flex items-center justify-center">
                           右翼 {heading}
                         </div>
 
-                        <div className="flex flex-col justify-around flex-1 space-y-6">
+                        <div className="flex flex-col justify-around flex-1 py-1 space-y-4">
                           {roundMatches.map((match) => (
-                            <div key={match.id} className="relative flex items-center justify-center">
+                            <div key={match.id} className="relative flex items-center justify-center my-auto">
                               <MatchCard
                                 match={match}
                                 playerMap={playerMap}
@@ -765,131 +810,149 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                       {/* Right-to-Left SVG Tree Connector (joining pairs from right round into this round on the left) */}
                       {!isInitialRightRound && prevSourceRoundMatches && (
-                        <div className="flex flex-col justify-around min-w-[48px] max-w-[54px] pointer-events-none py-6">
-                          {Array.from({ length: roundMatches.length }).map((_, pairIdx) => {
-                            const nextMatch = roundMatches[pairIdx];
-                            const upperMatch = prevSourceRoundMatches[pairIdx * 2];
-                            const lowerMatch = prevSourceRoundMatches[pairIdx * 2 + 1];
+                        <div className="flex flex-col min-w-[56px] max-w-[64px] pointer-events-none self-stretch">
+                          {/* Header spacer to perfectly align line heights with match cards */}
+                          <div className="h-[28px] mb-3 invisible select-none shrink-0" />
 
-                            const upperWinnerId = upperMatch?.winnerId;
-                            const lowerWinnerId = lowerMatch?.winnerId;
+                          <div className="flex flex-col justify-around flex-1 py-1">
+                            {Array.from({ length: roundMatches.length }).map((_, pairIdx) => {
+                              const nextMatch = roundMatches[pairIdx];
+                              const upperMatch = prevSourceRoundMatches[pairIdx * 2];
+                              const lowerMatch = prevSourceRoundMatches[pairIdx * 2 + 1];
 
-                            const isUpperWinner = hasWinner(upperMatch);
-                            const isLowerWinner = hasWinner(lowerMatch);
+                              const upperWinnerId = upperMatch?.winnerId;
+                              const lowerWinnerId = lowerMatch?.winnerId;
 
-                            const isUpperAdvancing = isUpperWinner;
-                            const isLowerAdvancing = isLowerWinner;
-                            const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
+                              const isUpperWinner = hasWinner(upperMatch);
+                              const isLowerWinner = hasWinner(lowerMatch);
 
-                            const isChampionUpper = championId && upperWinnerId === championId;
-                            const isChampionLower = championId && lowerWinnerId === championId;
+                              const isUpperAdvancing = isUpperWinner;
+                              const isLowerAdvancing = isLowerWinner;
+                              const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
 
-                            const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
-                            const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
+                              const isChampionUpper = championId && upperWinnerId === championId;
+                              const isChampionLower = championId && lowerWinnerId === championId;
 
-                            return (
-                              <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                  {/* Upper Branch: from top right match (100%, 25%) to fork junction (50%, 50%) */}
-                                  <path
-                                    d="M 100%,25% L 50%,25% L 50%,50%"
-                                    fill="none"
-                                    stroke={
-                                      isChampionUpper
-                                        ? '#fbbf24'
-                                        : isTrackedUpper
-                                        ? '#00f2ff'
-                                        : isUpperAdvancing
-                                        ? '#c084fc'
-                                        : '#334155'
-                                    }
-                                    strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.6 : 1.6}
-                                    strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionUpper
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isTrackedUpper || isUpperAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                        : ''
-                                    }
-                                  />
+                              const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
+                              const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
 
-                                  {/* Lower Branch: from bottom right match (100%, 75%) to fork junction (50%, 50%) */}
-                                  <path
-                                    d="M 100%,75% L 50%,75% L 50%,50%"
-                                    fill="none"
-                                    stroke={
-                                      isChampionLower
-                                        ? '#fbbf24'
-                                        : isTrackedLower
-                                        ? '#00f2ff'
-                                        : isLowerAdvancing
-                                        ? '#c084fc'
-                                        : '#334155'
-                                    }
-                                    strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.6 : 1.6}
-                                    strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionLower
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isTrackedLower || isLowerAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                        : ''
-                                    }
-                                  />
+                              const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#c084fc' : '#334155';
+                              const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#c084fc' : '#334155';
+                              const stemStrokeColor = isChampionUpper || isChampionLower ? '#fbbf24' : isTrackedUpper || isTrackedLower ? '#00f2ff' : isAnyAdvancing ? '#c084fc' : '#334155';
 
-                                  {/* Pivot Junction Node at (50%, 50%) */}
-                                  <circle
-                                    cx="50%"
-                                    cy="50%"
-                                    r={isChampionUpper || isChampionLower ? 4.5 : isAnyAdvancing ? 3.5 : 2}
-                                    fill={
-                                      isChampionUpper || isChampionLower
-                                        ? '#fbbf24'
-                                        : isTrackedUpper || isTrackedLower
-                                        ? '#00f2ff'
-                                        : isAnyAdvancing
-                                        ? '#c084fc'
-                                        : '#475569'
-                                    }
-                                  />
+                              return (
+                                <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
+                                  <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                    {/* Upper Branch Base Line: from top right match (100%, 25%) to fork junction (50%, 50%) */}
+                                    <path
+                                      d="M 100%,25% L 50%,25% L 50%,50%"
+                                      fill="none"
+                                      stroke={upperStrokeColor}
+                                      strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
+                                      strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                                      className={
+                                        isChampionUpper
+                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                          : isTrackedUpper || isUpperAdvancing
+                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                          : ''
+                                      }
+                                    />
+                                    {/* Upper Branch Animated Laser Overlay if advancing */}
+                                    {isUpperAdvancing && (
+                                      <path
+                                        d="M 100%,25% L 50%,25% L 50%,50%"
+                                        fill="none"
+                                        stroke={isChampionUpper ? '#fef08a' : '#f3e8ff'}
+                                        strokeWidth={1.8}
+                                        className="laser-pulse-left"
+                                      />
+                                    )}
 
-                                  {/* Stem Line exiting to the LEFT into next round match on the left */}
-                                  <path
-                                    d="M 50%,50% L 0%,50%"
-                                    fill="none"
-                                    stroke={
-                                      isChampionUpper || isChampionLower
-                                        ? '#fbbf24'
-                                        : isTrackedUpper || isTrackedLower
-                                        ? '#00f2ff'
-                                        : isAnyAdvancing
-                                        ? '#c084fc'
-                                        : '#334155'
-                                    }
-                                    strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.6 : 1.6}
-                                    strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionUpper || isChampionLower
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isAnyAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                        : ''
-                                    }
-                                    markerEnd={
-                                      isChampionUpper || isChampionLower
-                                        ? 'url(#dual-arrow-gold-left)'
-                                        : isTrackedUpper || isTrackedLower
-                                        ? 'url(#dual-arrow-cyan-left)'
-                                        : isAnyAdvancing
-                                        ? 'url(#dual-arrow-purple-left)'
-                                        : 'url(#dual-arrow-neutral-left)'
-                                    }
-                                  />
-                                </svg>
-                              </div>
-                            );
-                          })}
+                                    {/* Lower Branch Base Line: from bottom right match (100%, 75%) to fork junction (50%, 50%) */}
+                                    <path
+                                      d="M 100%,75% L 50%,75% L 50%,50%"
+                                      fill="none"
+                                      stroke={lowerStrokeColor}
+                                      strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
+                                      strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                                      className={
+                                        isChampionLower
+                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                          : isTrackedLower || isLowerAdvancing
+                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                          : ''
+                                      }
+                                    />
+                                    {/* Lower Branch Animated Laser Overlay if advancing */}
+                                    {isLowerAdvancing && (
+                                      <path
+                                        d="M 100%,75% L 50%,75% L 50%,50%"
+                                        fill="none"
+                                        stroke={isChampionLower ? '#fef08a' : '#f3e8ff'}
+                                        strokeWidth={1.8}
+                                        className="laser-pulse-left"
+                                      />
+                                    )}
+
+                                    {/* Pivot Junction Node at (50%, 50%) */}
+                                    <circle
+                                      cx="50%"
+                                      cy="50%"
+                                      r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
+                                      fill={
+                                        isChampionUpper || isChampionLower
+                                          ? '#fbbf24'
+                                          : isTrackedUpper || isTrackedLower
+                                          ? '#00f2ff'
+                                          : isAnyAdvancing
+                                          ? '#c084fc'
+                                          : '#475569'
+                                      }
+                                      stroke="#07090f"
+                                      strokeWidth="1.5"
+                                      className={isAnyAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
+                                    />
+
+                                    {/* Stem Line exiting to the LEFT into next round match on the left */}
+                                    <path
+                                      d="M 50%,50% L 4%,50%"
+                                      fill="none"
+                                      stroke={stemStrokeColor}
+                                      strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
+                                      strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
+                                      className={
+                                        isChampionUpper || isChampionLower
+                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                          : isAnyAdvancing
+                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                          : ''
+                                      }
+                                      markerEnd={
+                                        isChampionUpper || isChampionLower
+                                          ? 'url(#dual-arrow-gold-left)'
+                                          : isTrackedUpper || isTrackedLower
+                                          ? 'url(#dual-arrow-cyan-left)'
+                                          : isAnyAdvancing
+                                          ? 'url(#dual-arrow-purple-left)'
+                                          : 'url(#dual-arrow-neutral-left)'
+                                      }
+                                    />
+                                    {/* Stem Line Animated Laser Overlay if advancing */}
+                                    {isAnyAdvancing && (
+                                      <path
+                                        d="M 50%,50% L 4%,50%"
+                                        fill="none"
+                                        stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#f3e8ff'}
+                                        strokeWidth={1.8}
+                                        className="laser-pulse-left"
+                                      />
+                                    )}
+                                  </svg>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </React.Fragment>
