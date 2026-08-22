@@ -35,13 +35,37 @@ export const Header: React.FC<HeaderProps> = ({
   pendingCount
 }) => {
   const readOnly = isViewOnlyMode();
-  const approvedCount = tournament?.players.filter((p) => p.status === 'approved').length || 0;
-  const completedMatches = tournament?.matches.filter((m) => m.status === 'completed' || m.status === 'bye').length || 0;
-  const totalMatches = tournament?.matches.length || 0;
-  const progressPercent = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
   const isStarted = tournament?.status === 'in_progress';
   const isCompleted = tournament?.status === 'completed';
   const isPreStart = tournament && !isStarted && !isCompleted;
+
+  // Real approved players (excluding auto-generated reserves, and cleared if completed)
+  const realApprovedPlayers = isCompleted
+    ? []
+    : (tournament?.players.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')) || []);
+  const approvedCount = realApprovedPlayers.length;
+  const activeSeedCount = realApprovedPlayers.filter((p) => p.isSeed).length;
+
+  const getSeedModeDisplay = () => {
+    if (!tournament) return '無種子';
+    if (tournament.seedCount === 0 || tournament.seedMode === 'none') {
+      return '無種子';
+    }
+    if (activeSeedCount > 0) {
+      if (tournament.seedMode === 'random') {
+        return `隨機抽籤 (${activeSeedCount}名)`;
+      }
+      return `指定種子 (${activeSeedCount}名)`;
+    }
+    if (tournament.seedCount > 0) {
+      return `${tournament.seedMode === 'random' ? '隨機' : '指定種子'} (${tournament.seedCount}名)`;
+    }
+    return '無種子';
+  };
+
+  const completedMatches = tournament?.matches.filter((m) => m.status === 'completed' || m.status === 'bye').length || 0;
+  const totalMatches = tournament?.matches.length || 0;
+  const progressPercent = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0;
 
   return (
     <header className="bg-[#0a0c12] border-b border-[#ffffff10] text-[#e0e6ed] sticky top-0 z-40 shadow-[0_4px_30px_rgba(0,242,255,0.08)] backdrop-blur-md">
@@ -222,7 +246,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <Shield className="w-3.5 h-3.5 text-purple-400" />
                 <span className="text-gray-400">種子機制:</span>
                 <span className="font-semibold text-purple-300 font-mono">
-                  {tournament.seedMode === 'manual' ? `指定種子 (${tournament.seedCount}名)` : tournament.seedMode === 'random' ? `隨機 (${tournament.seedCount}名)` : '無種子'}
+                  {getSeedModeDisplay()}
                 </span>
               </div>
             </div>

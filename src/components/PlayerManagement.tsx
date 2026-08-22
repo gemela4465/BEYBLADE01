@@ -21,6 +21,7 @@ interface PlayerManagementProps {
   onGenerateBracket: () => void;
   onSetSeedStatus: (playerId: string, isSeed: boolean, seedNumber?: number) => void;
   onRandomizeSeeds: (seedCount: number) => void;
+  onUpdateSeedConfig?: (seedMode: 'none' | 'manual' | 'random', seedCount: number) => void;
   onPopulateSamplePlayers?: (count: number) => void;
   onRefreshRoster?: () => void;
 }
@@ -38,6 +39,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onGenerateBracket,
   onSetSeedStatus,
   onRandomizeSeeds,
+  onUpdateSeedConfig,
   onPopulateSamplePlayers,
   onRefreshRoster
 }) => {
@@ -89,10 +91,17 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
   const [manualIsVip, setManualIsVip] = useState(false);
   const [seedCountToDraw, setSeedCountToDraw] = useState<number>(() =>
-    tournament?.seedCount && tournament.seedCount > 0
+    tournament?.seedCount !== undefined
       ? tournament.seedCount
-      : Math.min(4, Math.max(2, Math.floor((tournament?.targetSize || 16) / 4)))
+      : Math.min(4, Math.max(0, Math.floor((tournament?.targetSize || 16) / 4)))
   );
+
+  // Synchronize local seedCountToDraw whenever tournament prop updates
+  useEffect(() => {
+    if (tournament && tournament.seedCount !== undefined) {
+      setSeedCountToDraw(tournament.seedCount);
+    }
+  }, [tournament?.seedCount, tournament?.seedMode]);
 
   const isTournamentStarted = tournament?.status === 'in_progress';
   const isTournamentCompleted = tournament?.status === 'completed';
@@ -374,7 +383,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             管理優質選手名冊
           </button>
 
-          {/* Seed Selection & Draw Tool (抽籤前可指定種子人數) */}
+          {/* Seed Selection & Draw Tool (抽籤前可指定種子人數，允許設 0 代表無種子) */}
           <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-lg p-1">
             <div className="flex items-center gap-1 pl-1 text-slate-300 text-xs font-semibold">
               <Shield className="w-3.5 h-3.5 text-purple-400" />
@@ -382,49 +391,72 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               <span className="sm:hidden">種子:</span>
             </div>
 
-            {/* Seed Count Dropdown Selector */}
+            {/* Seed Count Dropdown Selector (支援 0 位代表無種子) */}
             <select
               id="select-seed-count"
               value={seedCountToDraw}
-              onChange={(e) => setSeedCountToDraw(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setSeedCountToDraw(val);
+                if (onUpdateSeedConfig) {
+                  onUpdateSeedConfig(val === 0 ? 'none' : 'manual', val);
+                }
+              }}
               disabled={isTournamentStarted || isTournamentCompleted}
               className="bg-slate-900 text-purple-300 font-bold border border-slate-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
             >
-              {[1, 2, 3, 4, 6, 8, 12, 16]
+              {[0, 1, 2, 3, 4, 6, 8, 12, 16]
                 .filter((n) => n <= targetSize)
                 .map((n) => (
                   <option key={n} value={n}>
-                    {n} 位種子
+                    {n === 0 ? '0 位 (無種子)' : `${n} 位種子`}
                   </option>
                 ))}
             </select>
 
-            {/* Stepper Buttons for fine-grained adjustment */}
+            {/* Stepper Buttons for fine-grained adjustment (可減至 0) */}
             <div className="flex items-center">
               <button
                 type="button"
-                onClick={() => setSeedCountToDraw((prev) => Math.max(1, prev - 1))}
-                disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw <= 1}
-                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-l border-y border-l border-slate-700 transition-colors"
-                title="減少 1 位"
+                onClick={() => {
+                  const nextVal = Math.max(0, seedCountToDraw - 1);
+                  setSeedCountToDraw(nextVal);
+                  if (onUpdateSeedConfig) {
+                    onUpdateSeedConfig(nextVal === 0 ? 'none' : 'manual', nextVal);
+                  }
+                }}
+                disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw <= 0}
+                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 text-xs rounded-l border-y border-l border-slate-700 transition-colors"
+                title={seedCountToDraw <= 0 ? '已設為 0 位 (無種子)' : '減少 1 位種子'}
               >
                 -
               </button>
               <button
                 type="button"
-                onClick={() => setSeedCountToDraw((prev) => Math.min(targetSize, prev + 1))}
+                onClick={() => {
+                  const nextVal = Math.min(targetSize, seedCountToDraw + 1);
+                  setSeedCountToDraw(nextVal);
+                  if (onUpdateSeedConfig) {
+                    onUpdateSeedConfig(nextVal === 0 ? 'none' : 'manual', nextVal);
+                  }
+                }}
                 disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw >= targetSize}
-                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-r border border-slate-700 transition-colors"
-                title="增加 1 位"
+                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 text-xs rounded-r border border-slate-700 transition-colors"
+                title="增加 1 位種子"
               >
                 +
               </button>
             </div>
 
-            {/* Draw Seeds Action Button */}
+            {/* Draw Seeds Action Button (設 0 時自動失效) */}
             <button
               id="btn-random-seed"
               onClick={() => {
+                if (seedCountToDraw === 0) {
+                  setVipFeedback('ℹ️ 指定種子設為 0 位（無種子），抽籤功能已停用');
+                  setTimeout(() => setVipFeedback(null), 3000);
+                  return;
+                }
                 if (approvedPlayers.length === 0) {
                   setVipFeedback('⚠️ 尚未有審核通過的參賽選手，請先審核通過選手後再進行抽籤');
                   setTimeout(() => setVipFeedback(null), 3500);
@@ -435,15 +467,23 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 setVipFeedback(`🎲 已隨機抽選出 ${actualDrawCount} 位種子選手（指定為第 1~${actualDrawCount} 種子）！`);
                 setTimeout(() => setVipFeedback(null), 3500);
               }}
-              disabled={isTournamentStarted || isTournamentCompleted}
-              className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 text-xs shadow-sm active:scale-95 ${
-                isTournamentStarted || isTournamentCompleted
-                  ? 'bg-slate-800 text-slate-500 border border-slate-800 cursor-not-allowed'
+              disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw === 0}
+              className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 text-xs shadow-sm ${
+                isTournamentStarted || isTournamentCompleted || seedCountToDraw === 0
+                  ? 'bg-slate-800/60 text-slate-500 border border-slate-700/60 cursor-not-allowed opacity-50 shadow-none'
                   : approvedPlayers.length === 0
-                  ? 'bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-800/50'
-                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+                  ? 'bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-800/50 active:scale-95'
+                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20 active:scale-95'
               }`}
-              title={`隨機抽選 ${seedCountToDraw} 位種子選手`}
+              title={
+                seedCountToDraw === 0
+                  ? '指定種子設為 0 (無種子)，抽籤種子按鈕已自動失效'
+                  : isTournamentStarted
+                  ? '賽事已正式開賽，種子籤位已鎖定'
+                  : isTournamentCompleted
+                  ? '賽事已完賽存檔'
+                  : `隨機抽選 ${seedCountToDraw} 位種子選手`
+              }
             >
               <Shuffle className="w-3.5 h-3.5 text-purple-200" />
               <span>抽籤種子</span>

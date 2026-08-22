@@ -546,14 +546,41 @@ export default function App() {
     }
   };
 
-  // Seed toggling
-  const handleSetSeedStatus = async (playerId: string, isSeed: boolean, seedNumber?: number) => {
+  // Seed configuration handler (e.g. from seed dropdown / steppers, 0=none)
+  const handleUpdateSeedConfig = (seedMode: 'none' | 'manual' | 'random', seedCount: number) => {
     if (!tournament) return;
+    const updatedPlayers = seedCount === 0 || seedMode === 'none'
+      ? tournament.players.map((p) => ({ ...p, isSeed: false, seedNumber: undefined }))
+      : tournament.players;
+
     const updatedTour: Tournament = {
       ...tournament,
-      players: tournament.players.map((p) =>
-        p.id === playerId ? { ...p, isSeed, seedNumber: isSeed ? seedNumber : undefined } : p
-      )
+      seedMode,
+      seedCount,
+      players: updatedPlayers
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
+  // Seed toggling for individual player
+  const handleSetSeedStatus = async (playerId: string, isSeed: boolean, seedNumber?: number) => {
+    if (!tournament) return;
+    const updatedPlayers = tournament.players.map((p) =>
+      p.id === playerId ? { ...p, isSeed, seedNumber: isSeed ? (seedNumber ?? 1) : undefined } : p
+    );
+    const approvedReal = updatedPlayers.filter((p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_'));
+    const activeSeedCount = approvedReal.filter((p) => p.isSeed).length;
+    const newSeedMode: 'none' | 'manual' | 'random' = activeSeedCount > 0
+      ? (tournament.seedMode === 'random' ? 'random' : 'manual')
+      : (tournament.seedCount === 0 ? 'none' : tournament.seedMode);
+
+    const updatedTour: Tournament = {
+      ...tournament,
+      seedMode: newSeedMode,
+      seedCount: Math.max(activeSeedCount, tournament.seedCount || 0),
+      players: updatedPlayers
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
@@ -569,7 +596,7 @@ export default function App() {
 
     const updatedMap = new Map<string, { isSeed: boolean; seedNumber?: number }>();
     shuffled.forEach((p, idx) => {
-      if (idx < seedCount) {
+      if (seedCount > 0 && idx < seedCount) {
         updatedMap.set(p.id, { isSeed: true, seedNumber: idx + 1 });
       } else {
         updatedMap.set(p.id, { isSeed: false, seedNumber: undefined });
@@ -578,7 +605,7 @@ export default function App() {
 
     const updatedTour: Tournament = {
       ...tournament,
-      seedMode: 'random',
+      seedMode: seedCount > 0 ? 'random' : 'none',
       seedCount,
       players: tournament.players.map((p) => {
         const update = updatedMap.get(p.id);
@@ -941,6 +968,7 @@ export default function App() {
                 onGenerateBracket={handleGenerateBracket}
                 onSetSeedStatus={handleSetSeedStatus}
                 onRandomizeSeeds={handleRandomizeSeeds}
+                onUpdateSeedConfig={handleUpdateSeedConfig}
                 onPopulateSamplePlayers={handlePopulateSamplePlayers}
                 onRefreshRoster={async () => {
                   if (tournament?.id) {
