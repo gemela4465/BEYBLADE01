@@ -305,6 +305,62 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (
         <div id="dual-wing-bracket-board" className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
+          {/* Shared SVG Markers for Directional Advancement Arrows */}
+          <svg className="absolute w-0 h-0 pointer-events-none" aria-hidden="true">
+            <defs>
+              {/* Right-pointing arrows (Left Wing -> Center) */}
+              <marker id="dual-arrow-emerald-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#10b981" />
+              </marker>
+              <marker id="dual-arrow-cyan-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#00f2ff" />
+              </marker>
+              <marker id="dual-arrow-gold-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#fbbf24" />
+              </marker>
+              <marker id="dual-arrow-neutral-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#475569" />
+              </marker>
+
+              {/* Left-pointing arrows (Right Wing -> Center) */}
+              <marker id="dual-arrow-purple-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#c084fc" />
+              </marker>
+              <marker id="dual-arrow-cyan-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#00f2ff" />
+              </marker>
+              <marker id="dual-arrow-gold-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#fbbf24" />
+              </marker>
+              <marker id="dual-arrow-neutral-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#475569" />
+              </marker>
+            </defs>
+          </svg>
+
+          {/* Advancement Connection Banner Indicator */}
+          <div className="flex items-center justify-between px-3 py-1.5 mb-4 bg-[#0a0c12]/80 border border-[#ffffff0a] rounded-lg text-xs text-gray-400 font-mono">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-gray-300 font-bold">雙翼晉級連線指示：</span>
+              <span className="text-emerald-400 font-semibold">各場次完賽後，獲勝選手透過亮色光芒實線與箭頭指示晉級至下一輪</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-4 text-[10px]">
+              <span className="flex items-center gap-1.5 text-[#00f2ff]">
+                <span className="w-3 h-0.5 bg-[#00f2ff] inline-block" /> 左翼晉級動線
+              </span>
+              <span className="flex items-center gap-1.5 text-purple-300">
+                <span className="w-3 h-0.5 bg-purple-400 inline-block" /> 右翼晉級動線
+              </span>
+              <span className="flex items-center gap-1.5 text-amber-300">
+                <span className="w-3 h-0.5 bg-amber-400 inline-block" /> 冠軍軌跡
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-500">
+                <span className="w-3 h-0.5 bg-slate-600 inline-block border-t border-dashed" /> 待定路徑
+              </span>
+            </div>
+          </div>
+
           <div
             ref={bracketContainerRef}
             style={{
@@ -330,7 +386,6 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                       <div className="flex flex-col justify-around flex-1 space-y-6">
                         {roundMatches.map((match) => {
-                          const isMatchTracked = trackedPlayerId && (match.player1Id === trackedPlayerId || match.player2Id === trackedPlayerId || match.winnerId === trackedPlayerId);
                           return (
                             <div key={match.id} className="relative flex items-center justify-center">
                               <MatchCard
@@ -351,7 +406,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                     {/* SVG Tree Bracket Connector (Left-to-Right) */}
                     {nextRoundMatches && (
-                      <div className="flex flex-col justify-around min-w-[44px] max-w-[50px] pointer-events-none py-6">
+                      <div className="flex flex-col justify-around min-w-[48px] max-w-[54px] pointer-events-none py-6">
                         {Array.from({ length: Math.ceil(roundMatches.length / 2) }).map((_, pairIdx) => {
                           const upperMatch = roundMatches[pairIdx * 2];
                           const lowerMatch = roundMatches[pairIdx * 2 + 1];
@@ -363,8 +418,9 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           const isUpperWinner = hasWinner(upperMatch);
                           const isLowerWinner = hasWinner(lowerMatch);
 
-                          const isUpperAdvancing = isUpperWinner && nextMatch && (nextMatch.player1Id === upperWinnerId || nextMatch.player2Id === upperWinnerId);
-                          const isLowerAdvancing = isLowerWinner && nextMatch && (nextMatch.player1Id === lowerWinnerId || nextMatch.player2Id === lowerWinnerId);
+                          const isUpperAdvancing = isUpperWinner;
+                          const isLowerAdvancing = isLowerWinner;
+                          const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
 
                           const isChampionUpper = championId && upperWinnerId === championId;
                           const isChampionLower = championId && lowerWinnerId === championId;
@@ -375,7 +431,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                           return (
                             <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
                               <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                {/* Upper Branch */}
+                                {/* Upper Branch: from top left match (0, 25%) to fork junction (50%, 50%) */}
                                 <path
                                   d="M 0,25% L 50%,25% L 50%,50%"
                                   fill="none"
@@ -390,10 +446,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                   }
                                   strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.6 : 1.6}
                                   strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
-                                  className={isChampionUpper ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTrackedUpper || isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                  className={
+                                    isChampionUpper
+                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                      : isTrackedUpper || isUpperAdvancing
+                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                      : ''
+                                  }
                                 />
 
-                                {/* Lower Branch */}
+                                {/* Lower Branch: from bottom left match (0, 75%) to fork junction (50%, 50%) */}
                                 <path
                                   d="M 0,75% L 50%,75% L 50%,50%"
                                   fill="none"
@@ -408,40 +470,62 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                   }
                                   strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.6 : 1.6}
                                   strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
-                                  className={isChampionLower ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTrackedLower || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                  className={
+                                    isChampionLower
+                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                      : isTrackedLower || isLowerAdvancing
+                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                      : ''
+                                  }
                                 />
 
-                                {/* Pivot Node */}
+                                {/* Pivot Junction Node at (50%, 50%) */}
                                 <circle
                                   cx="50%"
                                   cy="50%"
-                                  r={isChampionUpper || isChampionLower ? 4 : isUpperAdvancing || isLowerAdvancing ? 3.5 : 2}
+                                  r={isChampionUpper || isChampionLower ? 4.5 : isAnyAdvancing ? 3.5 : 2}
                                   fill={
                                     isChampionUpper || isChampionLower
                                       ? '#fbbf24'
                                       : isTrackedUpper || isTrackedLower
                                       ? '#00f2ff'
-                                      : isUpperAdvancing || isLowerAdvancing
+                                      : isAnyAdvancing
                                       ? '#10b981'
                                       : '#475569'
                                   }
                                 />
 
-                                {/* Stem Line into next round */}
+                                {/* Stem Line into next round match on the right */}
                                 <path
-                                  d="M 50%,50% L 96%,50%"
+                                  d="M 50%,50% L 100%,50%"
                                   fill="none"
                                   stroke={
                                     isChampionUpper || isChampionLower
                                       ? '#fbbf24'
                                       : isTrackedUpper || isTrackedLower
                                       ? '#00f2ff'
-                                      : isUpperAdvancing || isLowerAdvancing
+                                      : isAnyAdvancing
                                       ? '#10b981'
                                       : '#334155'
                                   }
-                                  strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.6 : 1.6}
-                                  className={isChampionUpper || isChampionLower ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isUpperAdvancing || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                  strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.6 : 1.6}
+                                  strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
+                                  className={
+                                    isChampionUpper || isChampionLower
+                                      ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                      : isAnyAdvancing
+                                      ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
+                                      : ''
+                                  }
+                                  markerEnd={
+                                    isChampionUpper || isChampionLower
+                                      ? 'url(#dual-arrow-gold-right)'
+                                      : isTrackedUpper || isTrackedLower
+                                      ? 'url(#dual-arrow-cyan-right)'
+                                      : isAnyAdvancing
+                                      ? 'url(#dual-arrow-emerald-right)'
+                                      : 'url(#dual-arrow-neutral-right)'
+                                  }
                                 />
                               </svg>
                             </div>
@@ -455,9 +539,57 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             </div>
 
             {/* Left Semi-Final -> Center Grand Final Bridge Connector */}
-            <div className="flex items-center min-w-[28px] max-w-[34px] pointer-events-none">
-              <div className="w-full h-[2px] bg-gradient-to-r from-[#00f2ff]/60 to-[#00f2ff]" />
-            </div>
+            {(() => {
+              const leftSemiMatch = leftMatchesByRound[wingRoundsCount - 1]?.[0];
+              const isLeftSemiWinner = hasWinner(leftSemiMatch);
+              const leftSemiWinnerPlayer = leftSemiMatch?.winnerId ? playerMap.get(leftSemiMatch.winnerId) : null;
+              const isChampionLeftSemi = championId && leftSemiMatch?.winnerId === championId;
+
+              return (
+                <div className="flex flex-col items-center justify-center min-w-[52px] max-w-[64px] pointer-events-none relative self-center">
+                  <svg className="w-full h-12 overflow-visible" preserveAspectRatio="none">
+                    <path
+                      d="M 0,50% L 100%,50%"
+                      fill="none"
+                      stroke={
+                        isChampionLeftSemi
+                          ? '#fbbf24'
+                          : isLeftSemiWinner
+                          ? '#00f2ff'
+                          : '#334155'
+                      }
+                      strokeWidth={isChampionLeftSemi ? 3.5 : isLeftSemiWinner ? 2.8 : 1.6}
+                      strokeDasharray={isLeftSemiWinner ? 'none' : '3,3'}
+                      className={
+                        isChampionLeftSemi
+                          ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                          : isLeftSemiWinner
+                          ? 'drop-shadow-[0_0_8px_rgba(0,242,255,0.85)]'
+                          : ''
+                      }
+                      markerEnd={
+                        isChampionLeftSemi
+                          ? 'url(#dual-arrow-gold-right)'
+                          : isLeftSemiWinner
+                          ? 'url(#dual-arrow-cyan-right)'
+                          : 'url(#dual-arrow-neutral-right)'
+                      }
+                    />
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r={isLeftSemiWinner ? 4 : 2}
+                      fill={isChampionLeftSemi ? '#fbbf24' : isLeftSemiWinner ? '#00f2ff' : '#475569'}
+                    />
+                  </svg>
+                  {isLeftSemiWinner && leftSemiWinnerPlayer && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-[#00f2ff]/20 border border-[#00f2ff]/50 text-[#00f2ff] text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(0,242,255,0.3)] animate-pulse">
+                      左翼晉級
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ====== CENTER STAGE (Grand Final & 3rd Place Match & Trophy) ====== */}
             <div className="flex flex-col items-center justify-center space-y-8 px-6 py-7 bg-gradient-to-b from-[#11141d] to-[#0a0c12] border-2 border-[#00f2ff]/40 rounded-3xl shadow-[0_0_50px_rgba(0,242,255,0.15)] min-w-[340px] relative overflow-hidden">
@@ -488,6 +620,14 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     isReadOnly={effectiveReadOnly}
                     highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                   />
+                </div>
+              )}
+
+              {/* Victory Connection Line down to Champion Podium */}
+              {tournament.rankings?.champion && (
+                <div className="flex flex-col items-center -my-3 pointer-events-none">
+                  <div className="w-0.5 h-6 bg-gradient-to-b from-amber-400 to-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.8)] animate-pulse" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.9)] animate-bounce" />
                 </div>
               )}
 
@@ -535,9 +675,57 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             </div>
 
             {/* Right Semi-Final -> Center Grand Final Bridge Connector */}
-            <div className="flex items-center min-w-[28px] max-w-[34px] pointer-events-none">
-              <div className="w-full h-[2px] bg-gradient-to-r from-purple-500 to-[#7000ff]/60" />
-            </div>
+            {(() => {
+              const rightSemiMatch = rightMatchesByRound[wingRoundsCount - 1]?.[0];
+              const isRightSemiWinner = hasWinner(rightSemiMatch);
+              const rightSemiWinnerPlayer = rightSemiMatch?.winnerId ? playerMap.get(rightSemiMatch.winnerId) : null;
+              const isChampionRightSemi = championId && rightSemiMatch?.winnerId === championId;
+
+              return (
+                <div className="flex flex-col items-center justify-center min-w-[52px] max-w-[64px] pointer-events-none relative self-center">
+                  <svg className="w-full h-12 overflow-visible" preserveAspectRatio="none">
+                    <path
+                      d="M 100%,50% L 0%,50%"
+                      fill="none"
+                      stroke={
+                        isChampionRightSemi
+                          ? '#fbbf24'
+                          : isRightSemiWinner
+                          ? '#c084fc'
+                          : '#334155'
+                      }
+                      strokeWidth={isChampionRightSemi ? 3.5 : isRightSemiWinner ? 2.8 : 1.6}
+                      strokeDasharray={isRightSemiWinner ? 'none' : '3,3'}
+                      className={
+                        isChampionRightSemi
+                          ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                          : isRightSemiWinner
+                          ? 'drop-shadow-[0_0_8px_rgba(192,132,252,0.85)]'
+                          : ''
+                      }
+                      markerEnd={
+                        isChampionRightSemi
+                          ? 'url(#dual-arrow-gold-left)'
+                          : isRightSemiWinner
+                          ? 'url(#dual-arrow-purple-left)'
+                          : 'url(#dual-arrow-neutral-left)'
+                      }
+                    />
+                    <circle
+                      cx="50%"
+                      cy="50%"
+                      r={isRightSemiWinner ? 4 : 2}
+                      fill={isChampionRightSemi ? '#fbbf24' : isRightSemiWinner ? '#c084fc' : '#475569'}
+                    />
+                  </svg>
+                  {isRightSemiWinner && rightSemiWinnerPlayer && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-500/50 text-purple-300 text-[9px] font-mono font-bold whitespace-nowrap shadow-[0_0_10px_rgba(192,132,252,0.3)] animate-pulse">
+                      右翼晉級
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ====== RIGHT WING (Right-to-Left Progression towards Center) ====== */}
             <div className="flex items-center gap-2">
@@ -548,7 +736,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                   const roundNumber = wingRoundsCount - reverseIdx;
                   const heading = getRoundHeading(roundNumber, maxRound);
                   const isInitialRightRound = reverseIdx === wingRoundsCount - 1; // Round 1 on far right
-                  const nextDeeperRoundMatches = !isInitialRightRound ? rightMatchesByRound[wingRoundsCount - reverseIdx - 2] : null;
+                  const prevSourceRoundMatches = !isInitialRightRound ? rightMatchesByRound[roundNumber - 2] : null;
 
                   return (
                     <React.Fragment key={`right-round-col-${roundNumber}`}>
@@ -575,35 +763,128 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                         </div>
                       </div>
 
-                      {/* Right-to-Left SVG Tree Connector (joining pairs from right into left) */}
-                      {!isInitialRightRound && (
-                        <div className="flex flex-col justify-around min-w-[44px] max-w-[50px] pointer-events-none py-6">
-                          {Array.from({ length: Math.ceil(roundMatches.length) }).map((_, pairIdx) => {
-                            // On right wing, round on the right merges to round on the left
-                            const currMatch = roundMatches[pairIdx];
-                            const isWinner = hasWinner(currMatch);
-                            const winnerId = currMatch?.winnerId;
-                            const isChampion = championId && winnerId === championId;
-                            const isTracked = trackedPlayerId && (winnerId === trackedPlayerId || currMatch?.player1Id === trackedPlayerId || currMatch?.player2Id === trackedPlayerId);
+                      {/* Right-to-Left SVG Tree Connector (joining pairs from right round into this round on the left) */}
+                      {!isInitialRightRound && prevSourceRoundMatches && (
+                        <div className="flex flex-col justify-around min-w-[48px] max-w-[54px] pointer-events-none py-6">
+                          {Array.from({ length: roundMatches.length }).map((_, pairIdx) => {
+                            const nextMatch = roundMatches[pairIdx];
+                            const upperMatch = prevSourceRoundMatches[pairIdx * 2];
+                            const lowerMatch = prevSourceRoundMatches[pairIdx * 2 + 1];
+
+                            const upperWinnerId = upperMatch?.winnerId;
+                            const lowerWinnerId = lowerMatch?.winnerId;
+
+                            const isUpperWinner = hasWinner(upperMatch);
+                            const isLowerWinner = hasWinner(lowerMatch);
+
+                            const isUpperAdvancing = isUpperWinner;
+                            const isLowerAdvancing = isLowerWinner;
+                            const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
+
+                            const isChampionUpper = championId && upperWinnerId === championId;
+                            const isChampionLower = championId && lowerWinnerId === championId;
+
+                            const isTrackedUpper = trackedPlayerId && (upperWinnerId === trackedPlayerId || upperMatch?.player1Id === trackedPlayerId || upperMatch?.player2Id === trackedPlayerId);
+                            const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
 
                             return (
                               <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
                                 <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                  {/* Upper Branch: from top right match (100%, 25%) to fork junction (50%, 50%) */}
                                   <path
-                                    d="M 100%,50% L 0%,50%"
+                                    d="M 100%,25% L 50%,25% L 50%,50%"
                                     fill="none"
                                     stroke={
-                                      isChampion
+                                      isChampionUpper
                                         ? '#fbbf24'
-                                        : isTracked
+                                        : isTrackedUpper
                                         ? '#00f2ff'
-                                        : isWinner
-                                        ? '#10b981'
+                                        : isUpperAdvancing
+                                        ? '#c084fc'
                                         : '#334155'
                                     }
-                                    strokeWidth={isChampion ? 3.5 : isTracked || isWinner ? 2.6 : 1.6}
-                                    strokeDasharray={isWinner ? 'none' : '3,3'}
-                                    className={isChampion ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]' : isTracked || isWinner ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.8)]' : ''}
+                                    strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.6 : 1.6}
+                                    strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionUpper
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isTrackedUpper || isUpperAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                        : ''
+                                    }
+                                  />
+
+                                  {/* Lower Branch: from bottom right match (100%, 75%) to fork junction (50%, 50%) */}
+                                  <path
+                                    d="M 100%,75% L 50%,75% L 50%,50%"
+                                    fill="none"
+                                    stroke={
+                                      isChampionLower
+                                        ? '#fbbf24'
+                                        : isTrackedLower
+                                        ? '#00f2ff'
+                                        : isLowerAdvancing
+                                        ? '#c084fc'
+                                        : '#334155'
+                                    }
+                                    strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.6 : 1.6}
+                                    strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionLower
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isTrackedLower || isLowerAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                        : ''
+                                    }
+                                  />
+
+                                  {/* Pivot Junction Node at (50%, 50%) */}
+                                  <circle
+                                    cx="50%"
+                                    cy="50%"
+                                    r={isChampionUpper || isChampionLower ? 4.5 : isAnyAdvancing ? 3.5 : 2}
+                                    fill={
+                                      isChampionUpper || isChampionLower
+                                        ? '#fbbf24'
+                                        : isTrackedUpper || isTrackedLower
+                                        ? '#00f2ff'
+                                        : isAnyAdvancing
+                                        ? '#c084fc'
+                                        : '#475569'
+                                    }
+                                  />
+
+                                  {/* Stem Line exiting to the LEFT into next round match on the left */}
+                                  <path
+                                    d="M 50%,50% L 0%,50%"
+                                    fill="none"
+                                    stroke={
+                                      isChampionUpper || isChampionLower
+                                        ? '#fbbf24'
+                                        : isTrackedUpper || isTrackedLower
+                                        ? '#00f2ff'
+                                        : isAnyAdvancing
+                                        ? '#c084fc'
+                                        : '#334155'
+                                    }
+                                    strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.6 : 1.6}
+                                    strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
+                                    className={
+                                      isChampionUpper || isChampionLower
+                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
+                                        : isAnyAdvancing
+                                        ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
+                                        : ''
+                                    }
+                                    markerEnd={
+                                      isChampionUpper || isChampionLower
+                                        ? 'url(#dual-arrow-gold-left)'
+                                        : isTrackedUpper || isTrackedLower
+                                        ? 'url(#dual-arrow-cyan-left)'
+                                        : isAnyAdvancing
+                                        ? 'url(#dual-arrow-purple-left)'
+                                        : 'url(#dual-arrow-neutral-left)'
+                                    }
                                   />
                                 </svg>
                               </div>
