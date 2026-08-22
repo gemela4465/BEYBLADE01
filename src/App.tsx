@@ -194,8 +194,18 @@ export default function App() {
     let newTournament: Tournament;
 
     if (config.populateSamplePlayers) {
-      // Build sample players matching the target size
-      const initialPlayers: Player[] = Array.from({ length: config.targetSize }, (_, idx) => {
+      // Requirement 5: 預載優質選手資料，全部載入。若選手數超過原設定規模，自動調整為最適合的賽制規模 (4, 8, 16, 32, 64, 128)
+      const qualityCount = SAMPLE_PLAYERS.length;
+      const sizeOptions: TournamentSize[] = [4, 8, 16, 32, 64, 128];
+      let adjustedTargetSize: TournamentSize = config.targetSize;
+      
+      if (adjustedTargetSize < qualityCount) {
+        adjustedTargetSize = sizeOptions.find((s) => s >= qualityCount) || 16;
+      }
+
+      // Build all quality players
+      const countToGenerate = Math.max(adjustedTargetSize, qualityCount);
+      const initialPlayers: Player[] = Array.from({ length: countToGenerate }, (_, idx) => {
         const sample = SAMPLE_PLAYERS[idx % SAMPLE_PLAYERS.length];
         const isSeed = config.seedMode !== 'none' && idx < config.seedCount;
         const b = POPULAR_BEYBLADES[idx % POPULAR_BEYBLADES.length];
@@ -208,15 +218,16 @@ export default function App() {
           blade: b.combo,
           clubOrTeam: sample.clubOrTeam || '戰鬥陀螺交流群',
           status: 'approved' as const,
-          registeredAt: Date.now() - (config.targetSize - idx) * 60000,
+          isVip: true,
+          registeredAt: Date.now() - (countToGenerate - idx) * 60000,
           isSeed,
           seedNumber: isSeed ? idx + 1 : undefined
         };
-      });
+      }).slice(0, adjustedTargetSize);
 
       newTournament = generateDualWingBracket(
         config.name,
-        config.targetSize,
+        adjustedTargetSize,
         initialPlayers,
         config.seedMode,
         config.seedCount,
