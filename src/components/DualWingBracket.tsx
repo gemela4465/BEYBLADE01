@@ -420,12 +420,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                             const upperWinnerId = upperMatch?.winnerId;
                             const lowerWinnerId = lowerMatch?.winnerId;
 
-                            const isUpperWinner = hasWinner(upperMatch);
-                            const isLowerWinner = hasWinner(lowerMatch);
+                            const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
+                            const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
+                            const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
 
-                            const isUpperAdvancing = isUpperWinner;
-                            const isLowerAdvancing = isLowerWinner;
-                            const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
+                            const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
+                            const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
+                            const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+
+                            // Calculate exact Y coordinates according to player position (user diagram)
+                            const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
+                            const upperTargetY = 40; // Top slot (P1) of Next Round Match
+
+                            const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
+                            const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match
 
                             const isChampionUpper = championId && upperWinnerId === championId;
                             const isChampionLower = championId && lowerWinnerId === championId;
@@ -435,14 +443,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                             const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#10b981' : '#334155';
                             const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#10b981' : '#334155';
-                            const stemStrokeColor = isChampionUpper || isChampionLower ? '#fbbf24' : isTrackedUpper || isTrackedLower ? '#00f2ff' : isAnyAdvancing ? '#10b981' : '#334155';
+
+                            const upperPathD = `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 96 ${upperTargetY}`;
+                            const lowerPathD = `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 96 ${lowerTargetY}`;
 
                             return (
                               <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
                                 <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                  {/* Upper Branch Base Line */}
+                                  {/* Upper Match Branch (From Winner Player Slot -> Next Round P1 Slot) */}
                                   <path
-                                    d="M 0 25 L 50 25 L 50 50"
+                                    d={upperPathD}
                                     fill="none"
                                     stroke={upperStrokeColor}
                                     strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
@@ -454,11 +464,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                         ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
                                         : ''
                                     }
+                                    markerEnd={
+                                      isChampionUpper
+                                        ? 'url(#dual-arrow-gold-right)'
+                                        : isTrackedUpper
+                                        ? 'url(#dual-arrow-cyan-right)'
+                                        : isUpperAdvancing
+                                        ? 'url(#dual-arrow-emerald-right)'
+                                        : 'url(#dual-arrow-neutral-right)'
+                                    }
                                   />
                                   {/* Upper Branch Animated Laser Overlay if advancing */}
                                   {isUpperAdvancing && (
                                     <path
-                                      d="M 0 25 L 50 25 L 50 50"
+                                      d={upperPathD}
                                       fill="none"
                                       stroke={isChampionUpper ? '#fef08a' : '#a7f3d0'}
                                       strokeWidth={1.8}
@@ -466,9 +485,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     />
                                   )}
 
-                                  {/* Lower Branch Base Line */}
+                                  {/* Upper Branch Pivot Node */}
+                                  <circle
+                                    cx="50"
+                                    cy={upperTargetY}
+                                    r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
+                                    fill={isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#10b981' : '#475569'}
+                                    stroke="#07090f"
+                                    strokeWidth="1.5"
+                                    className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
+                                  />
+
+                                  {/* Lower Match Branch (From Winner Player Slot -> Next Round P2 Slot) */}
                                   <path
-                                    d="M 0 75 L 50 75 L 50 50"
+                                    d={lowerPathD}
                                     fill="none"
                                     stroke={lowerStrokeColor}
                                     strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
@@ -480,11 +510,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                         ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
                                         : ''
                                     }
+                                    markerEnd={
+                                      isChampionLower
+                                        ? 'url(#dual-arrow-gold-right)'
+                                        : isTrackedLower
+                                        ? 'url(#dual-arrow-cyan-right)'
+                                        : isLowerAdvancing
+                                        ? 'url(#dual-arrow-emerald-right)'
+                                        : 'url(#dual-arrow-neutral-right)'
+                                    }
                                   />
                                   {/* Lower Branch Animated Laser Overlay if advancing */}
                                   {isLowerAdvancing && (
                                     <path
-                                      d="M 0 75 L 50 75 L 50 50"
+                                      d={lowerPathD}
                                       fill="none"
                                       stroke={isChampionLower ? '#fef08a' : '#a7f3d0'}
                                       strokeWidth={1.8}
@@ -492,59 +531,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     />
                                   )}
 
-                                  {/* Pivot Junction Node at (50, 50) */}
+                                  {/* Lower Branch Pivot Node */}
                                   <circle
                                     cx="50"
-                                    cy="50"
-                                    r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
-                                    fill={
-                                      isChampionUpper || isChampionLower
-                                        ? '#fbbf24'
-                                        : isTrackedUpper || isTrackedLower
-                                        ? '#00f2ff'
-                                        : isAnyAdvancing
-                                        ? '#10b981'
-                                        : '#475569'
-                                    }
+                                    cy={lowerTargetY}
+                                    r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
+                                    fill={isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#10b981' : '#475569'}
                                     stroke="#07090f"
                                     strokeWidth="1.5"
-                                    className={isAnyAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
+                                    className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
                                   />
-
-                                  {/* Stem Line into next round match on the right */}
-                                  <path
-                                    d="M 50 50 L 96 50"
-                                    fill="none"
-                                    stroke={stemStrokeColor}
-                                    strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
-                                    strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
-                                    className={
-                                      isChampionUpper || isChampionLower
-                                        ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                        : isAnyAdvancing
-                                        ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.85)]'
-                                        : ''
-                                    }
-                                    markerEnd={
-                                      isChampionUpper || isChampionLower
-                                        ? 'url(#dual-arrow-gold-right)'
-                                        : isTrackedUpper || isTrackedLower
-                                        ? 'url(#dual-arrow-cyan-right)'
-                                        : isAnyAdvancing
-                                        ? 'url(#dual-arrow-emerald-right)'
-                                        : 'url(#dual-arrow-neutral-right)'
-                                    }
-                                  />
-                                  {/* Stem Line Animated Laser Overlay if advancing */}
-                                  {isAnyAdvancing && (
-                                    <path
-                                      d="M 50 50 L 96 50"
-                                      fill="none"
-                                      stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#a7f3d0'}
-                                      strokeWidth={1.8}
-                                      className="laser-pulse-right"
-                                    />
-                                  )}
                                 </svg>
                               </div>
                             );
@@ -564,11 +560,17 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               const leftSemiWinnerPlayer = leftSemiMatch?.winnerId ? playerMap.get(leftSemiMatch.winnerId) : null;
               const isChampionLeftSemi = championId && leftSemiMatch?.winnerId === championId;
 
+              const isLeftP1 = (leftSemiMatch?.status === 'completed' || leftSemiMatch?.status === 'bye') && leftSemiMatch?.winnerId && leftSemiMatch?.winnerId === leftSemiMatch?.player1Id;
+              const isLeftP2 = (leftSemiMatch?.status === 'completed' || leftSemiMatch?.status === 'bye') && leftSemiMatch?.winnerId && leftSemiMatch?.winnerId === leftSemiMatch?.player2Id;
+              const leftStartY = isLeftP1 ? 36 : isLeftP2 ? 64 : 50;
+              const leftTargetY = 36; // Grand Final Player 1 (top slot)
+              const leftBridgeD = `M 0 ${leftStartY} L 50 ${leftStartY} L 50 ${leftTargetY} L 94 ${leftTargetY}`;
+
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-14 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <svg className="w-full h-16 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path
-                      d="M 0 50 L 94 50"
+                      d={leftBridgeD}
                       fill="none"
                       stroke={
                         isChampionLeftSemi
@@ -596,7 +598,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     />
                     {isLeftSemiWinner && (
                       <path
-                        d="M 0 50 L 94 50"
+                        d={leftBridgeD}
                         fill="none"
                         stroke="#e0f2fe"
                         strokeWidth={1.8}
@@ -605,7 +607,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     )}
                     <circle
                       cx="50"
-                      cy="50"
+                      cy={leftTargetY}
                       r={isLeftSemiWinner ? 4.5 : 2.5}
                       fill={isChampionLeftSemi ? '#fbbf24' : isLeftSemiWinner ? '#00f2ff' : '#475569'}
                       stroke="#07090f"
@@ -713,11 +715,17 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               const rightSemiWinnerPlayer = rightSemiMatch?.winnerId ? playerMap.get(rightSemiMatch.winnerId) : null;
               const isChampionRightSemi = championId && rightSemiMatch?.winnerId === championId;
 
+              const isRightP1 = (rightSemiMatch?.status === 'completed' || rightSemiMatch?.status === 'bye') && rightSemiMatch?.winnerId && rightSemiMatch?.winnerId === rightSemiMatch?.player1Id;
+              const isRightP2 = (rightSemiMatch?.status === 'completed' || rightSemiMatch?.status === 'bye') && rightSemiMatch?.winnerId && rightSemiMatch?.winnerId === rightSemiMatch?.player2Id;
+              const rightStartY = isRightP1 ? 36 : isRightP2 ? 64 : 50;
+              const rightTargetY = 64; // Grand Final Player 2 (bottom slot)
+              const rightBridgeD = `M 100 ${rightStartY} L 50 ${rightStartY} L 50 ${rightTargetY} L 6 ${rightTargetY}`;
+
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-14 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <svg className="w-full h-16 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path
-                      d="M 100 50 L 6 50"
+                      d={rightBridgeD}
                       fill="none"
                       stroke={
                         isChampionRightSemi
@@ -745,7 +753,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     />
                     {isRightSemiWinner && (
                       <path
-                        d="M 100 50 L 6 50"
+                        d={rightBridgeD}
                         fill="none"
                         stroke="#f3e8ff"
                         strokeWidth={1.8}
@@ -754,7 +762,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     )}
                     <circle
                       cx="50"
-                      cy="50"
+                      cy={rightTargetY}
                       r={isRightSemiWinner ? 4.5 : 2.5}
                       fill={isChampionRightSemi ? '#fbbf24' : isRightSemiWinner ? '#c084fc' : '#475569'}
                       stroke="#07090f"
@@ -823,12 +831,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                               const upperWinnerId = upperMatch?.winnerId;
                               const lowerWinnerId = lowerMatch?.winnerId;
 
-                              const isUpperWinner = hasWinner(upperMatch);
-                              const isLowerWinner = hasWinner(lowerMatch);
+                              const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
+                              const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
+                              const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
 
-                              const isUpperAdvancing = isUpperWinner;
-                              const isLowerAdvancing = isLowerWinner;
-                              const isAnyAdvancing = isUpperAdvancing || isLowerAdvancing;
+                              const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
+                              const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
+                              const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+
+                              // Calculate exact Y coordinates according to player position (user diagram)
+                              const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
+                              const upperTargetY = 40; // Top slot (P1) of Next Round Match on the left
+
+                              const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
+                              const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match on the left
 
                               const isChampionUpper = championId && upperWinnerId === championId;
                               const isChampionLower = championId && lowerWinnerId === championId;
@@ -838,14 +854,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                               const upperStrokeColor = isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#c084fc' : '#334155';
                               const lowerStrokeColor = isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#c084fc' : '#334155';
-                              const stemStrokeColor = isChampionUpper || isChampionLower ? '#fbbf24' : isTrackedUpper || isTrackedLower ? '#00f2ff' : isAnyAdvancing ? '#c084fc' : '#334155';
+
+                              const upperPathD = `M 100 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 4 ${upperTargetY}`;
+                              const lowerPathD = `M 100 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 4 ${lowerTargetY}`;
 
                               return (
                                 <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
                                   <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                    {/* Upper Branch Base Line: from top right match (100, 25) to fork junction (50, 50) */}
+                                    {/* Upper Branch: from top right winner row into Next Match P1 row */}
                                     <path
-                                      d="M 100 25 L 50 25 L 50 50"
+                                      d={upperPathD}
                                       fill="none"
                                       stroke={upperStrokeColor}
                                       strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
@@ -857,11 +875,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                           ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
                                           : ''
                                       }
+                                      markerEnd={
+                                        isChampionUpper
+                                          ? 'url(#dual-arrow-gold-left)'
+                                          : isTrackedUpper
+                                          ? 'url(#dual-arrow-cyan-left)'
+                                          : isUpperAdvancing
+                                          ? 'url(#dual-arrow-purple-left)'
+                                          : 'url(#dual-arrow-neutral-left)'
+                                      }
                                     />
                                     {/* Upper Branch Animated Laser Overlay if advancing */}
                                     {isUpperAdvancing && (
                                       <path
-                                        d="M 100 25 L 50 25 L 50 50"
+                                        d={upperPathD}
                                         fill="none"
                                         stroke={isChampionUpper ? '#fef08a' : '#f3e8ff'}
                                         strokeWidth={1.8}
@@ -869,9 +896,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                       />
                                     )}
 
-                                    {/* Lower Branch Base Line: from bottom right match (100, 75) to fork junction (50, 50) */}
+                                    {/* Upper Branch Pivot Node */}
+                                    <circle
+                                      cx="50"
+                                      cy={upperTargetY}
+                                      r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
+                                      fill={isChampionUpper ? '#fbbf24' : isTrackedUpper ? '#00f2ff' : isUpperAdvancing ? '#c084fc' : '#475569'}
+                                      stroke="#07090f"
+                                      strokeWidth="1.5"
+                                      className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
+                                    />
+
+                                    {/* Lower Branch: from bottom right winner row into Next Match P2 row */}
                                     <path
-                                      d="M 100 75 L 50 75 L 50 50"
+                                      d={lowerPathD}
                                       fill="none"
                                       stroke={lowerStrokeColor}
                                       strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
@@ -883,11 +921,20 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                           ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
                                           : ''
                                       }
+                                      markerEnd={
+                                        isChampionLower
+                                          ? 'url(#dual-arrow-gold-left)'
+                                          : isTrackedLower
+                                          ? 'url(#dual-arrow-cyan-left)'
+                                          : isLowerAdvancing
+                                          ? 'url(#dual-arrow-purple-left)'
+                                          : 'url(#dual-arrow-neutral-left)'
+                                      }
                                     />
                                     {/* Lower Branch Animated Laser Overlay if advancing */}
                                     {isLowerAdvancing && (
                                       <path
-                                        d="M 100 75 L 50 75 L 50 50"
+                                        d={lowerPathD}
                                         fill="none"
                                         stroke={isChampionLower ? '#fef08a' : '#f3e8ff'}
                                         strokeWidth={1.8}
@@ -895,59 +942,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                       />
                                     )}
 
-                                    {/* Pivot Junction Node at (50, 50) */}
+                                    {/* Lower Branch Pivot Node */}
                                     <circle
                                       cx="50"
-                                      cy="50"
-                                      r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
-                                      fill={
-                                        isChampionUpper || isChampionLower
-                                          ? '#fbbf24'
-                                          : isTrackedUpper || isTrackedLower
-                                          ? '#00f2ff'
-                                          : isAnyAdvancing
-                                          ? '#c084fc'
-                                          : '#475569'
-                                      }
+                                      cy={lowerTargetY}
+                                      r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
+                                      fill={isChampionLower ? '#fbbf24' : isTrackedLower ? '#00f2ff' : isLowerAdvancing ? '#c084fc' : '#475569'}
                                       stroke="#07090f"
                                       strokeWidth="1.5"
-                                      className={isAnyAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
+                                      className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.9)]' : ''}
                                     />
-
-                                    {/* Stem Line exiting to the LEFT into next round match on the left */}
-                                    <path
-                                      d="M 50 50 L 4 50"
-                                      fill="none"
-                                      stroke={stemStrokeColor}
-                                      strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
-                                      strokeDasharray={isAnyAdvancing ? 'none' : '3,3'}
-                                      className={
-                                        isChampionUpper || isChampionLower
-                                          ? 'drop-shadow-[0_0_8px_rgba(245,158,11,0.9)]'
-                                          : isAnyAdvancing
-                                          ? 'drop-shadow-[0_0_6px_rgba(192,132,252,0.85)]'
-                                          : ''
-                                      }
-                                      markerEnd={
-                                        isChampionUpper || isChampionLower
-                                          ? 'url(#dual-arrow-gold-left)'
-                                          : isTrackedUpper || isTrackedLower
-                                          ? 'url(#dual-arrow-cyan-left)'
-                                          : isAnyAdvancing
-                                          ? 'url(#dual-arrow-purple-left)'
-                                          : 'url(#dual-arrow-neutral-left)'
-                                      }
-                                    />
-                                    {/* Stem Line Animated Laser Overlay if advancing */}
-                                    {isAnyAdvancing && (
-                                      <path
-                                        d="M 50 50 L 4 50"
-                                        fill="none"
-                                        stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#f3e8ff'}
-                                        strokeWidth={1.8}
-                                        className="laser-pulse-left"
-                                      />
-                                    )}
                                   </svg>
                                 </div>
                               );

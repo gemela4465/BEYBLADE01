@@ -264,11 +264,19 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                       const upperWinnerId = upperMatch?.winnerId;
                       const lowerWinnerId = lowerMatch?.winnerId;
 
-                      const isUpperWinner = hasWinner(upperMatch);
-                      const isLowerWinner = hasWinner(lowerMatch);
+                      const isUpperP1Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player1Id;
+                      const isUpperP2Winner = (upperMatch?.status === 'completed' || upperMatch?.status === 'bye') && upperWinnerId && upperWinnerId === upperMatch?.player2Id;
+                      const isUpperAdvancing = Boolean(isUpperP1Winner || isUpperP2Winner || hasWinner(upperMatch));
 
-                      const isUpperAdvancing = isUpperWinner && nextMatch && (nextMatch.player1Id === upperWinnerId || nextMatch.player2Id === upperWinnerId);
-                      const isLowerAdvancing = isLowerWinner && nextMatch && (nextMatch.player1Id === lowerWinnerId || nextMatch.player2Id === lowerWinnerId);
+                      const isLowerP1Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player1Id;
+                      const isLowerP2Winner = (lowerMatch?.status === 'completed' || lowerMatch?.status === 'bye') && lowerWinnerId && lowerWinnerId === lowerMatch?.player2Id;
+                      const isLowerAdvancing = Boolean(isLowerP1Winner || isLowerP2Winner || hasWinner(lowerMatch));
+
+                      const upperStartY = isUpperP1Winner ? 18 : isUpperP2Winner ? 32 : 25;
+                      const upperTargetY = 40; // Top slot (P1) of Next Round Match
+
+                      const lowerStartY = isLowerP1Winner ? 68 : isLowerP2Winner ? 82 : 75;
+                      const lowerTargetY = 60; // Bottom slot (P2) of Next Round Match
 
                       const isChampionUpper = championId && upperWinnerId === championId;
                       const isChampionLower = championId && lowerWinnerId === championId;
@@ -277,6 +285,8 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                       const isTrackedLower = trackedPlayerId && (lowerWinnerId === trackedPlayerId || lowerMatch?.player1Id === trackedPlayerId || lowerMatch?.player2Id === trackedPlayerId);
 
                       const gradId = `single-grad-path-${roundCol.round}-${pairIdx}`;
+                      const upperPathD = `M 0 ${upperStartY} L 50 ${upperStartY} L 50 ${upperTargetY} L 96 ${upperTargetY}`;
+                      const lowerPathD = `M 0 ${lowerStartY} L 50 ${lowerStartY} L 50 ${lowerTargetY} L 96 ${lowerTargetY}`;
 
                       return (
                         <div
@@ -344,9 +354,9 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               </linearGradient>
                             </defs>
 
-                            {/* Top Branch (Upper Match -> Joint) */}
+                            {/* Top Branch (Upper Match Winner -> Next Match P1) */}
                             <path
-                              d="M 0 25 L 50 25 L 50 50"
+                              d={upperPathD}
                               fill="none"
                               stroke={
                                 isChampionUpper
@@ -366,11 +376,39 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                                   ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
                                   : ''
                               }
+                              markerEnd={
+                                isChampionUpper
+                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
+                                  : isTrackedUpper
+                                  ? `url(#arrow-tracked-${roundCol.round}-${pairIdx})`
+                                  : isUpperAdvancing
+                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
+                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
+                              }
                             />
 
-                            {/* Bottom Branch (Lower Match -> Joint) */}
+                            {/* Upper Branch Pivot Node */}
+                            <circle
+                              cx="50"
+                              cy={upperTargetY}
+                              r={isChampionUpper ? 4.5 : isUpperAdvancing ? 3.5 : 2}
+                              fill={
+                                isChampionUpper
+                                  ? '#fbbf24'
+                                  : isTrackedUpper
+                                  ? '#00f2ff'
+                                  : isUpperAdvancing
+                                  ? '#10b981'
+                                  : '#64748b'
+                              }
+                              stroke="#0a0c12"
+                              strokeWidth="1.5"
+                              className={isUpperAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
+                            />
+
+                            {/* Bottom Branch (Lower Match Winner -> Next Match P2) */}
                             <path
-                              d="M 0 75 L 50 75 L 50 50"
+                              d={lowerPathD}
                               fill="none"
                               stroke={
                                 isChampionLower
@@ -390,51 +428,34 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                                   ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
                                   : ''
                               }
+                              markerEnd={
+                                isChampionLower
+                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
+                                  : isTrackedLower
+                                  ? `url(#arrow-tracked-${roundCol.round}-${pairIdx})`
+                                  : isLowerAdvancing
+                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
+                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
+                              }
                             />
 
-                            {/* Junction Center Pivot Node */}
+                            {/* Lower Branch Pivot Node */}
                             <circle
                               cx="50"
-                              cy="50"
-                              r={isChampionUpper || isChampionLower ? 4.5 : isUpperAdvancing || isLowerAdvancing ? 4 : 2.5}
+                              cy={lowerTargetY}
+                              r={isChampionLower ? 4.5 : isLowerAdvancing ? 3.5 : 2}
                               fill={
-                                isChampionUpper || isChampionLower
+                                isChampionLower
                                   ? '#fbbf24'
-                                  : isUpperAdvancing || isLowerAdvancing
+                                  : isTrackedLower
+                                  ? '#00f2ff'
+                                  : isLowerAdvancing
                                   ? '#10b981'
                                   : '#64748b'
                               }
                               stroke="#0a0c12"
                               strokeWidth="1.5"
-                              className={isUpperAdvancing || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
-                            />
-
-                            {/* Stem line leading into Next Match with Arrow Indicator (Joint -> 98%) */}
-                            <path
-                              d="M 50 50 L 96 50"
-                              fill="none"
-                              stroke={
-                                isChampionUpper || isChampionLower
-                                  ? '#fbbf24'
-                                  : isUpperAdvancing || isLowerAdvancing
-                                  ? '#10b981'
-                                  : '#64748b'
-                              }
-                              strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.8 : 1.8}
-                              markerEnd={
-                                isChampionUpper || isChampionLower
-                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
-                                  : isUpperAdvancing || isLowerAdvancing
-                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
-                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
-                              }
-                              className={
-                                isChampionUpper || isChampionLower
-                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
-                                  : isUpperAdvancing || isLowerAdvancing
-                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                                  : ''
-                              }
+                              className={isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
                             />
                           </svg>
                         </div>
