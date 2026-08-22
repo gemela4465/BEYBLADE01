@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Share2, Send, X, ExternalLink, Image as ImageIcon, Copy, Check, Sparkles, Radio, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { 
+  Share2, Send, X, ExternalLink, Image as ImageIcon, Copy, Check, Sparkles, 
+  Radio, CheckCircle, AlertCircle, RefreshCw, GitBranch, Swords
+} from 'lucide-react';
 import { Tournament } from '../types';
 import { buildReadOnlyBracketUrl } from '../utils/sessionHelper';
 import { broadcastBracketApi, uploadBracketImageApi } from '../utils/api';
@@ -18,6 +21,8 @@ export const BroadcastBracketModal: React.FC<BroadcastBracketModalProps> = ({
   tournament,
   bracketContainerRef
 }) => {
+  // Requirement: 賽程發布 可以選擇 雙翼或單側
+  const [bracketStyle, setBracketStyle] = useState<'dual' | 'single'>('dual');
   const [includeImage, setIncludeImage] = useState<boolean>(true);
   const [customMessage, setCustomMessage] = useState<string>('');
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
@@ -34,10 +39,11 @@ export const BroadcastBracketModal: React.FC<BroadcastBracketModalProps> = ({
 
   if (!isOpen || !tournament) return null;
 
-  const readOnlyUrl = buildReadOnlyBracketUrl(tournament);
+  const baseReadOnlyUrl = buildReadOnlyBracketUrl(tournament);
+  const readOnlyUrl = bracketStyle === 'single' ? `${baseReadOnlyUrl}&view=single` : baseReadOnlyUrl;
   const approvedCount = tournament.players.filter((p) => p.status === 'approved').length;
 
-  const defaultMessage = `⚔️【${tournament.name} 雙翼賽程表發布】
+  const dualDefaultMessage = `⚔️【${tournament.name} 雙翼賽程表發布】
 ⚡ 賽程樹狀圖已正式生成，雙翼對決即將全面開打！
 
 📊 賽制資訊：
@@ -50,12 +56,30 @@ ${readOnlyUrl}
 
 💬 LINE 快速指令：傳送「賽程」或「查榜」即可隨時查看最新比分！`;
 
+  const singleDefaultMessage = `⚔️【${tournament.name} 單側賽程樹狀圖發布】
+⚡ 單側樹狀圖（含戰勝晉級路徑）已正式發布，由左至右精彩開打！
+
+📊 賽制資訊：
+• 參賽規模：${approvedCount} / ${tournament.targetSize} 人
+• 爭霸分制：率先奪得 ${tournament.matchTargetScore} 分晉級
+• 賽程路徑：第 1 輪對決 ➔ 逐步匯流戰勝路徑 ➔ 決賽之巔
+
+🌐 線上單側即時賽程表（免登入唯讀查看，即時同步更新）：
+${readOnlyUrl}
+
+💬 LINE 快速指令：傳送「賽程」或「查榜」即可隨時查看最新比分！`;
+
+  const defaultMessage = bracketStyle === 'dual' ? dualDefaultMessage : singleDefaultMessage;
+
   // Capture current bracket element screenshot using html-to-image
   const handleCaptureBracket = async (): Promise<string | null> => {
     setIsCapturing(true);
     try {
-      // Find element to capture
-      const targetElement = bracketContainerRef?.current || document.getElementById('dual-wing-bracket-board') || document.querySelector('.dual-wing-tree-container');
+      // Find element to capture based on style
+      const targetElement = bracketStyle === 'single'
+        ? (document.getElementById('single-wing-bracket-board') || document.querySelector('.single-wing-tree-container') || bracketContainerRef?.current)
+        : (document.getElementById('dual-wing-bracket-board') || document.querySelector('.dual-wing-tree-container') || bracketContainerRef?.current);
+
       if (!targetElement) {
         console.warn('Bracket DOM element not found for snapshot, continuing with text link');
         return null;
@@ -98,7 +122,7 @@ ${readOnlyUrl}
         base64 = await handleCaptureBracket();
       }
       if (base64) {
-        const uploadRes = await uploadBracketImageApi(base64, `bracket_${tournament.id}.png`);
+        const uploadRes = await uploadBracketImageApi(base64, `bracket_${tournament.id}_${bracketStyle}.png`);
         if (uploadRes.success && uploadRes.imageUrl) {
           uploadedImageUrl = uploadRes.imageUrl;
         }
@@ -142,19 +166,85 @@ ${readOnlyUrl}
               </span>
             </h3>
             <p className="text-xs text-gray-400 font-mono">
-              一鍵發送至所有 LINE 群組與好友，包含即時賽程樹狀圖照片與唯讀查閱連結
+              選擇發布形式（雙翼對稱或單側樹狀圖），一鍵推播至所有 LINE 群組與好友
             </p>
           </div>
         </div>
 
         {/* Scrollable Content */}
         <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+          {/* Requirement: 賽程發布 可以選擇 雙翼或單側 */}
+          <div className="p-3.5 bg-[#11141d] border border-[#00f2ff]/30 rounded-2xl space-y-2">
+            <div className="text-xs font-mono font-bold text-gray-300 flex items-center justify-between">
+              <span>🌿 選擇發布賽程表版型：</span>
+              <span className="text-[11px] text-[#00f2ff]">
+                目前選擇：{bracketStyle === 'dual' ? '雙翼對稱樹狀圖' : '單側樹狀圖 (含戰勝晉級路徑)'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setBracketStyle('dual');
+                  setSnapshotPreview(null);
+                  if (!customMessage) setCustomMessage(dualDefaultMessage);
+                }}
+                className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
+                  bracketStyle === 'dual'
+                    ? 'bg-[#00f2ff]/15 border-[#00f2ff] text-white shadow-[0_0_15px_rgba(0,242,255,0.2)] ring-1 ring-[#00f2ff]'
+                    : 'bg-[#05070a] border-[#ffffff15] text-gray-400 hover:text-gray-200 hover:border-[#ffffff30]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <Swords className="w-3.5 h-3.5 text-[#00f2ff]" />
+                    <span>雙翼對稱樹狀圖</span>
+                  </div>
+                  {bracketStyle === 'dual' && (
+                    <span className="w-2 h-2 rounded-full bg-[#00f2ff] shadow-[0_0_6px_#00f2ff]" />
+                  )}
+                </div>
+                <div className="text-[10px] font-mono text-gray-400">
+                  左翼 + 中央冠軍戰 + 右翼，適合經典大會排位
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setBracketStyle('single');
+                  setSnapshotPreview(null);
+                  if (!customMessage) setCustomMessage(singleDefaultMessage);
+                }}
+                className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
+                  bracketStyle === 'single'
+                    ? 'bg-emerald-500/15 border-emerald-400 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)] ring-1 ring-emerald-400'
+                    : 'bg-[#05070a] border-[#ffffff15] text-gray-400 hover:text-gray-200 hover:border-[#ffffff30]'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <GitBranch className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>單側樹狀圖</span>
+                  </div>
+                  {bracketStyle === 'single' && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+                  )}
+                </div>
+                <div className="text-[10px] font-mono text-gray-400">
+                  由左至右對決匯流，清晰標註戰勝晉級路徑
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Read-Only Link Bar */}
           <div className="p-3 bg-[#11141d] border border-[#ffffff10] rounded-xl flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-mono text-gray-400 flex items-center gap-1 mb-0.5">
                 <ExternalLink className="w-3.5 h-3.5 text-[#00f2ff]" />
-                本場次唯讀即時賽程網址（選手可查看、不能編輯）：
+                本場次唯讀即時賽程網址（選手可查閱、不能編輯）：
               </div>
               <div className="text-xs font-mono text-[#00f2ff] truncate">
                 {readOnlyUrl}
@@ -180,7 +270,7 @@ ${readOnlyUrl}
                   className="w-4 h-4 rounded border-[#ffffff30] text-[#00f2ff] bg-black focus:ring-0 focus:ring-offset-0 cursor-pointer"
                 />
                 <ImageIcon className="w-4 h-4 text-amber-400" />
-                附帶賽程表即時截圖照片（LINE 圖片訊息）
+                附帶 {bracketStyle === 'dual' ? '雙翼' : '單側'} 賽程表即時截圖照片（LINE 圖片訊息）
               </label>
 
               {includeImage && (
@@ -204,7 +294,7 @@ ${readOnlyUrl}
                   referrerPolicy="no-referrer"
                 />
                 <div className="absolute bottom-1 right-2 text-[10px] font-mono text-gray-400 bg-black/80 px-1.5 py-0.5 rounded">
-                  📸 賽程表快照預覽
+                  📸 {bracketStyle === 'dual' ? '雙翼對稱' : '單側樹狀圖'} 快照預覽
                 </div>
               </div>
             )}
@@ -281,7 +371,7 @@ ${readOnlyUrl}
               ) : (
                 <Send className="w-4 h-4" />
               )}
-              {isBroadcasting ? '發送推播中...' : '立即發布賽程至 LINE 群'}
+              {isBroadcasting ? '發送推播中...' : `立即發布${bracketStyle === 'dual' ? '雙翼' : '單側'}賽程至 LINE 群`}
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Trophy, Swords, ZoomIn, ZoomOut, RotateCcw, Award, 
-  Sparkles, CheckCircle2, ChevronRight, Shield, GitBranch, ArrowRight
+  Sparkles, CheckCircle2, ChevronRight, Shield, GitBranch, ArrowRight, Zap
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
@@ -13,11 +13,6 @@ interface SingleWingBracketProps {
   highlightedPlayerName?: string;
 }
 
-interface TreeMatchNode {
-  match: Match;
-  prevMatches: TreeMatchNode[];
-}
-
 export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
   tournament,
   onSelectMatch,
@@ -25,31 +20,30 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
   highlightedPlayerName
 }) => {
   const [zoom, setZoom] = useState(1);
+  const [showVictoryPathOnly, setShowVictoryPathOnly] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const playerMap = new Map<string, Player>();
   tournament.players.forEach((p) => playerMap.set(p.id, p));
 
-  const matches = tournament.matches;
+  const matches = tournament.matches || [];
   const maxRound = Math.max(...matches.map((m) => m.round), 1);
 
-  // Group matches by round for single-wing layout (left-to-right progression)
-  // To ensure the tree pairs align properly:
-  // For Round 1 to wing finals: Order left wing matches first (in order), then right wing matches
+  // Build ordered rounds for single-wing layout (left-to-right progression)
   const roundsData: { round: number; heading: string; matches: Match[] }[] = [];
 
   const getRoundHeading = (r: number, totalRounds: number) => {
     const diff = totalRounds - r;
-    if (diff === 0) return '🏆 總決賽 & 季軍戰';
-    if (diff === 1) return '準決賽 (Semi-Finals)';
-    if (diff === 2) return '8強賽 (Quarter-Finals)';
+    if (diff === 0) return '🏆 總決賽';
+    if (diff === 1) return '準決賽 (4強)';
+    if (diff === 2) return '8強賽';
     if (diff === 3) return '16強賽';
     if (diff === 4) return '32強賽';
     if (diff === 5) return '64強賽';
     return `第 ${r} 輪`;
   };
 
-  // Build ordered rounds
+  // Group matches round by round
   for (let r = 1; r < maxRound; r++) {
     const leftMatchesInRound = matches
       .filter((m) => m.bracketWing === 'left' && m.round === r)
@@ -74,7 +68,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
   roundsData.push({
     round: maxRound,
-    heading: '🏆 決賽之巔 (Finals)',
+    heading: '🏆 總決賽之巔',
     matches: finalsMatches
   });
 
@@ -85,50 +79,59 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
   // Helper to check if a match has a confirmed winner
   const hasWinner = (m?: Match) => !!m?.winnerId && (m.status === 'completed' || m.status === 'bye');
 
+  // Find champion winning route player IDs
+  const championId = tournament.rankings?.champion?.id || grandFinal?.winnerId;
+
   return (
-    <div className="w-full flex flex-col space-y-4">
+    <div id="single-wing-bracket-board" className="w-full flex flex-col space-y-4">
       {/* Zoom & Info Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 bg-[#0a0c12]/80 border border-[#ffffff10] rounded-xl text-xs flex-wrap gap-2">
         <div className="flex items-center gap-2 text-gray-300 font-mono">
           <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-ping" />
           <span className="font-bold text-white flex items-center gap-1.5">
             <GitBranch className="w-4 h-4 text-[#00f2ff]" />
-            單側樹狀圖 (由左至右)
+            單側樹狀圖 (由左至右對戰晉級路徑)
           </span>
           <span className="text-gray-500">|</span>
-          <span className="text-gray-400 hidden sm:inline">第 1 輪對決路徑依序匯流至第 2 輪與總決賽</span>
+          <span className="text-emerald-400 font-bold hidden sm:inline flex items-center gap-1">
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            自動標記戰勝晉級電路路徑
+          </span>
         </div>
 
-        <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300">
-          <button
-            onClick={handleZoomOut}
-            className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
-            title="縮小"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="w-12 text-center font-mono font-bold text-[11px] text-[#00f2ff]">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={handleZoomIn}
-            className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
-            title="放大"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleZoomReset}
-            className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors ml-1"
-            title="重設大小"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300">
+            <button
+              onClick={handleZoomOut}
+              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
+              title="縮小"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="w-12 text-center font-mono font-bold text-[11px] text-[#00f2ff]">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
+              title="放大"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleZoomReset}
+              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors ml-1"
+              title="重設大小"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Single-Wing Tree Board with Battle Paths (對戰路徑) */}
-      <div className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[720px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
+      {/* Single-Wing Tree Board with Dynamic Battle Paths (戰勝路徑) */}
+      <div className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[680px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
         <div
           ref={containerRef}
           style={{
@@ -136,7 +139,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
             transformOrigin: 'top left',
             transition: 'transform 0.15s ease-out'
           }}
-          className="flex items-stretch min-w-max py-8 px-4"
+          className="flex items-stretch min-w-max py-4 px-2 single-wing-tree-container"
         >
           {roundsData.map((roundCol, roundIdx) => {
             const isFinalRound = roundIdx === roundsData.length - 1;
@@ -145,11 +148,11 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
             return (
               <React.Fragment key={`single-round-col-${roundCol.round}`}>
-                {/* 1. Round Column */}
-                <div className="flex flex-col space-y-4 min-w-[270px] max-w-[280px]">
+                {/* 1. Round Column: Compact width tailored for 152px MatchCards */}
+                <div className="flex flex-col space-y-3 min-w-[160px] max-w-[168px]">
                   {/* Round Header */}
                   <div
-                    className={`text-center py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider font-mono shadow-md border ${
+                    className={`text-center py-1.5 px-2 rounded-lg text-xs font-black uppercase tracking-wider font-mono shadow-md border ${
                       isFinalRound
                         ? 'bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-red-500/20 border-amber-500/50 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
                         : isSemiRound
@@ -157,56 +160,57 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                         : 'bg-[#00f2ff]/10 border-[#00f2ff]/30 text-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.1)]'
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1">
                       {isFinalRound ? (
-                        <Trophy className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                        <Trophy className="w-3 h-3 text-amber-400 animate-bounce" />
                       ) : (
                         <span className="w-1.5 h-1.5 rounded-full bg-[#00f2ff]" />
                       )}
-                      <span>{roundCol.heading}</span>
+                      <span className="truncate">{roundCol.heading}</span>
                     </div>
-                    <div className="text-[10px] text-gray-400 font-normal mt-0.5">
-                      {isFinalRound ? '冠亞季殿決賽' : `${roundCol.matches.length} 場對決`}
+                    <div className="text-[9px] text-gray-400 font-normal mt-0.5">
+                      {isFinalRound ? '決賽之巔' : `${roundCol.matches.length} 場對決`}
                     </div>
                   </div>
 
-                  {/* Match Cards Container: Distributed evenly along the vertical tree axis */}
-                  <div className="flex flex-col justify-around flex-1 py-2 space-y-6">
-                    {roundCol.matches.map((match, mIdx) => {
+                  {/* Match Cards Container */}
+                  <div className="flex flex-col justify-around flex-1 py-1 space-y-4">
+                    {roundCol.matches.map((match) => {
                       const isGrandFinalMatch = match.bracketWing === 'final';
                       const isThirdPlaceMatch = match.bracketWing === 'third_place';
                       const isMatchCompleted = hasWinner(match);
+                      const isChampionMatch = championId && (match.winnerId === championId || match.player1Id === championId || match.player2Id === championId);
 
                       return (
                         <div
                           key={match.id}
                           className="relative flex flex-col justify-center items-center group w-full my-auto"
                         >
-                          {/* Left Wing / Right Wing Zone Tag */}
+                          {/* Zone Indicator */}
                           {!isFinalRound && (
-                            <div className="w-full flex items-center justify-between text-[10px] font-mono text-gray-400 mb-1 px-1">
+                            <div className="w-full flex items-center justify-between text-[9px] font-mono text-gray-400 mb-0.5 px-0.5">
                               <span className="flex items-center gap-1 font-bold">
                                 <span
-                                  className={`w-2 h-2 rounded-full ${
+                                  className={`w-1.5 h-1.5 rounded-full ${
                                     match.bracketWing === 'left' ? 'bg-[#00f2ff]' : 'bg-purple-400'
                                   }`}
                                 />
                                 <span className={match.bracketWing === 'left' ? 'text-[#00f2ff]' : 'text-purple-300'}>
-                                  {match.bracketWing === 'left' ? '左翼賽區' : '右翼賽區'}
+                                  {match.bracketWing === 'left' ? '左翼' : '右翼'}
                                 </span>
                               </span>
-                              <span className="text-gray-500">#{match.matchNumber}</span>
+                              <span className="text-gray-500 font-semibold">#{match.matchNumber}</span>
                             </div>
                           )}
 
                           {isThirdPlaceMatch && (
-                            <div className="text-center text-[11px] font-bold text-amber-400 flex items-center justify-center gap-1 font-mono mb-1.5">
-                              <Award className="w-3.5 h-3.5" /> 季殿軍爭奪戰 (3rd Place Match)
+                            <div className="text-center text-[10px] font-bold text-amber-400 flex items-center justify-center gap-1 font-mono mb-1">
+                              <Award className="w-3 h-3" /> 季軍爭奪戰
                             </div>
                           )}
 
                           {/* Match Card */}
-                          <div className="w-full relative">
+                          <div className="relative">
                             <MatchCard
                               match={match}
                               playerMap={playerMap}
@@ -215,23 +219,27 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               isReadOnly={isReadOnly}
                               highlightedPlayerName={highlightedPlayerName}
                             />
+
+                            {/* Victory Path Node Badge */}
+                            {isMatchCompleted && match.winnerId && (
+                              <div className="absolute -right-2 top-1/2 -translate-y-1/2 bg-emerald-500 text-slate-950 rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-black shadow-[0_0_8px_rgba(16,185,129,0.9)] z-20 border border-white/40 animate-pulse" title={`勝出晉級：${playerMap.get(match.winnerId)?.name}`}>
+                                ✓
+                              </div>
+                            )}
                           </div>
 
-                          {/* Winner Trophy Podium Banner for Grand Final */}
+                          {/* Winner Podium for Final */}
                           {isGrandFinalMatch && tournament.rankings?.champion && (
-                            <div className="w-full bg-gradient-to-r from-amber-950/60 via-amber-900/40 to-amber-950/60 border-2 border-amber-500/70 rounded-2xl p-4 text-center space-y-2 mt-4 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-fade-in">
-                              <div className="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-400 mx-auto border border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.5)]">
-                                <Trophy className="w-6 h-6 animate-pulse text-amber-300" />
+                            <div className="w-full bg-gradient-to-r from-amber-950/70 via-amber-900/50 to-amber-950/70 border border-amber-500/70 rounded-xl p-2.5 text-center space-y-1 mt-3 shadow-[0_0_25px_rgba(245,158,11,0.3)] animate-fadeIn">
+                              <div className="w-7 h-7 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-400 mx-auto border border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.5)]">
+                                <Trophy className="w-4 h-4 animate-bounce text-amber-300" />
                               </div>
                               <div>
-                                <div className="text-[11px] font-black uppercase text-amber-400 tracking-widest font-mono">
-                                  ★ 本場大會總冠軍 ★
+                                <div className="text-[9px] font-black uppercase text-amber-400 tracking-wider font-mono">
+                                  ★ 大會總冠軍 ★
                                 </div>
-                                <div className="text-lg font-black text-white mt-0.5 tracking-wide">
+                                <div className="text-xs font-black text-white truncate px-1">
                                   {tournament.rankings.champion.name}
-                                </div>
-                                <div className="text-xs text-amber-300 font-mono font-bold mt-0.5">
-                                  {tournament.rankings.champion.beybladeName || '戰鬥陀螺 X'}
                                 </div>
                               </div>
                             </div>
@@ -242,78 +250,128 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Connecting Tree Bracket Battle Path Column (對戰路徑) */}
+                {/* 2. Connecting Tree Bracket 戰勝路徑 (Victory Battle Paths) */}
                 {!isFinalRound && nextRoundCol && (
-                  <div className="flex flex-col justify-around min-w-[64px] max-w-[70px] pointer-events-none py-12 px-1">
-                    {/* For standard binary tree branch pairing */}
+                  <div className="flex flex-col justify-around min-w-[50px] max-w-[56px] pointer-events-none py-6 px-0.5">
                     {Array.from({ length: Math.ceil(roundCol.matches.length / 2) }).map((_, pairIdx) => {
                       const upperMatch = roundCol.matches[pairIdx * 2];
                       const lowerMatch = roundCol.matches[pairIdx * 2 + 1];
                       const nextMatch = nextRoundCol.matches[pairIdx];
 
-                      const upperWinner = hasWinner(upperMatch);
-                      const lowerWinner = hasWinner(lowerMatch);
-                      const isUpperAdvancing = upperWinner && nextMatch && (nextMatch.player1Id === upperMatch?.winnerId || nextMatch.player2Id === upperMatch?.winnerId);
-                      const isLowerAdvancing = lowerWinner && nextMatch && (nextMatch.player1Id === lowerMatch?.winnerId || nextMatch.player2Id === lowerMatch?.winnerId);
+                      const upperWinnerId = upperMatch?.winnerId;
+                      const lowerWinnerId = lowerMatch?.winnerId;
+
+                      const isUpperWinner = hasWinner(upperMatch);
+                      const isLowerWinner = hasWinner(lowerMatch);
+
+                      const isUpperAdvancing = isUpperWinner && nextMatch && (nextMatch.player1Id === upperWinnerId || nextMatch.player2Id === upperWinnerId);
+                      const isLowerAdvancing = isLowerWinner && nextMatch && (nextMatch.player1Id === lowerWinnerId || nextMatch.player2Id === lowerWinnerId);
+
+                      const isChampionUpper = championId && upperWinnerId === championId;
+                      const isChampionLower = championId && lowerWinnerId === championId;
+
+                      const gradId = `single-grad-path-${roundCol.round}-${pairIdx}`;
 
                       return (
                         <div
-                          key={`bracket-wire-pair-${roundCol.round}-${pairIdx}`}
-                          className="flex flex-col justify-center items-stretch flex-1 relative my-2 min-h-[140px]"
+                          key={`single-bracket-wire-${roundCol.round}-${pairIdx}`}
+                          className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[110px]"
                         >
                           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
                             <defs>
-                              <linearGradient id={`grad-active-${roundCol.round}-${pairIdx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
                                 <stop offset="0%" stopColor="#00f2ff" stopOpacity="0.9" />
                                 <stop offset="100%" stopColor="#10b981" stopOpacity="1" />
                               </linearGradient>
+                              <linearGradient id={`gold-grad-${roundCol.round}-${pairIdx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
+                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="1" />
+                              </linearGradient>
                             </defs>
 
-                            {/* Top branch line coming from Upper Match */}
+                            {/* Top Branch (Upper Match -> Joint) */}
                             <path
                               d="M 0,25% L 50%,25% L 50%,50%"
                               fill="none"
-                              stroke={isUpperAdvancing ? `url(#grad-active-${roundCol.round}-${pairIdx})` : '#ffffff20'}
-                              strokeWidth={isUpperAdvancing ? 3 : 1.5}
-                              strokeDasharray={isUpperAdvancing ? 'none' : '4,3'}
-                              className={isUpperAdvancing ? 'drop-shadow-[0_0_8px_rgba(0,242,255,0.8)]' : ''}
+                              stroke={
+                                isChampionUpper
+                                  ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
+                                  : isUpperAdvancing
+                                  ? `url(#${gradId})`
+                                  : '#ffffff18'
+                              }
+                              strokeWidth={isChampionUpper ? 3.5 : isUpperAdvancing ? 2.8 : 1.2}
+                              strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                              className={
+                                isChampionUpper
+                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                                  : isUpperAdvancing
+                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                                  : ''
+                              }
                             />
 
-                            {/* Bottom branch line coming from Lower Match */}
+                            {/* Bottom Branch (Lower Match -> Joint) */}
                             <path
                               d="M 0,75% L 50%,75% L 50%,50%"
                               fill="none"
-                              stroke={isLowerAdvancing ? `url(#grad-active-${roundCol.round}-${pairIdx})` : '#ffffff20'}
-                              strokeWidth={isLowerAdvancing ? 3 : 1.5}
-                              strokeDasharray={isLowerAdvancing ? 'none' : '4,3'}
-                              className={isLowerAdvancing ? 'drop-shadow-[0_0_8px_rgba(0,242,255,0.8)]' : ''}
+                              stroke={
+                                isChampionLower
+                                  ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
+                                  : isLowerAdvancing
+                                  ? `url(#${gradId})`
+                                  : '#ffffff18'
+                              }
+                              strokeWidth={isChampionLower ? 3.5 : isLowerAdvancing ? 2.8 : 1.2}
+                              strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                              className={
+                                isChampionLower
+                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                                  : isLowerAdvancing
+                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                                  : ''
+                              }
                             />
 
-                            {/* Stem line leading into Next Match */}
+                            {/* Stem line leading into Next Match (Joint -> 100%) */}
                             <path
                               d="M 50%,50% L 100%,50%"
                               fill="none"
-                              stroke={isUpperAdvancing || isLowerAdvancing ? '#10b981' : '#ffffff25'}
-                              strokeWidth={isUpperAdvancing || isLowerAdvancing ? 3 : 1.5}
-                              className={isUpperAdvancing || isLowerAdvancing ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' : ''}
+                              stroke={
+                                isChampionUpper || isChampionLower
+                                  ? '#fbbf24'
+                                  : isUpperAdvancing || isLowerAdvancing
+                                  ? '#10b981'
+                                  : '#ffffff20'
+                              }
+                              strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.8 : 1.2}
+                              className={
+                                isChampionUpper || isChampionLower
+                                  ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
+                                  : isUpperAdvancing || isLowerAdvancing
+                                  ? 'drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                                  : ''
+                              }
                             />
 
-                            {/* Glowing node at junction */}
+                            {/* Victory Particle Nodes at Junction */}
                             {(isUpperAdvancing || isLowerAdvancing) && (
-                              <circle
-                                cx="50%"
-                                cy="50%"
-                                r="3.5"
-                                fill="#00f2ff"
-                                className="animate-ping"
-                              />
+                              <>
+                                <circle
+                                  cx="50%"
+                                  cy="50%"
+                                  r="4"
+                                  fill="#10b981"
+                                  className="animate-ping"
+                                />
+                                <circle
+                                  cx="50%"
+                                  cy="50%"
+                                  r="3"
+                                  fill={isChampionUpper || isChampionLower ? '#fbbf24' : '#10b981'}
+                                />
+                              </>
                             )}
-                            <circle
-                              cx="50%"
-                              cy="50%"
-                              r="2.5"
-                              fill={isUpperAdvancing || isLowerAdvancing ? '#10b981' : '#ffffff40'}
-                            />
                           </svg>
                         </div>
                       );

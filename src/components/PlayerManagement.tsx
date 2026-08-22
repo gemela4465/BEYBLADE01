@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, CheckCircle2, XCircle, Shield, Sparkles, Plus, Trash2, 
   Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, UserPlus,
-  Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink
+  Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink, Lock, CheckCheck
 } from 'lucide-react';
 import { Player, Tournament, BeybladeType, VipPlayer } from '../types';
 import { POPULAR_BEYBLADES, SAMPLE_PLAYERS } from '../data/beybladeData';
@@ -89,8 +89,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
   const [manualIsVip, setManualIsVip] = useState(false);
 
+  const isTournamentStarted = tournament?.status === 'in_progress';
+  const isTournamentCompleted = tournament?.status === 'completed';
+
   // Strictly filter out any reserve players: only allow LINE participants and manually added participants
-  const rawPlayers = tournament?.players || [];
+  // Requirement: 賽事完賽後 選手審核 的待審核報名列表 與 已登記參賽名單 全部清空
+  const rawPlayers = isTournamentCompleted ? [] : (tournament?.players || []);
   const players = rawPlayers.filter((p) => !p.isReserve && !p.id.startsWith('player_reserve_'));
   const pendingPlayers = players.filter((p) => p.status === 'pending');
   const approvedPlayers = players.filter((p) => p.status === 'approved');
@@ -253,29 +257,69 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           </p>
         </div>
 
-        {/* Big Action: Generate Bracket */}
+        {/* Big Action: Generate Bracket (Requirement: 賽事開賽後 選手審核 的賽程產生 要鎖住) */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <button
             id="btn-generate-bracket"
             onClick={onGenerateBracket}
-            disabled={approvedPlayers.length < 2}
+            disabled={approvedPlayers.length < 2 || isTournamentStarted || isTournamentCompleted}
             className={`px-6 py-3.5 rounded-xl font-black text-sm shadow-xl flex items-center justify-center gap-2.5 transition-all ${
-              approvedPlayers.length >= 2
+              isTournamentStarted
+                ? 'bg-slate-800 text-amber-300/80 border border-amber-500/40 cursor-not-allowed shadow-none'
+                : isTournamentCompleted
+                ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed shadow-none'
+                : approvedPlayers.length >= 2
                 ? 'bg-gradient-to-r from-orange-500 via-red-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white shadow-orange-500/25 active:scale-95 animate-pulse'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
             }`}
+            title={
+              isTournamentStarted
+                ? '賽事已正式開賽，賽程籤位已鎖定不可重新產生，以維護賽事公正性'
+                : isTournamentCompleted
+                ? '賽事已完賽存檔，賽程已鎖定'
+                : '審核通過選手後即可生成雙翼對稱賽程表'
+            }
           >
-            <Swords className="w-5 h-5" />
-            <span>
-              {approvedPlayers.length >= targetSize
-                ? '名額已滿！生成雙翼賽程表 ➔'
-                : approvedPlayers.length >= 2
-                ? `未滿員生成 (${approvedPlayers.length}/${targetSize}人，自動安排預備選手1~${targetSize - approvedPlayers.length}席) ➔`
-                : `審核通過至少 2 人即可生成賽程 (${approvedPlayers.length}/${targetSize}) ➔`}
-            </span>
+            {isTournamentStarted ? (
+              <>
+                <Lock className="w-5 h-5 text-amber-400" />
+                <span>🔒 賽事進行中（賽程籤位已鎖定）</span>
+              </>
+            ) : isTournamentCompleted ? (
+              <>
+                <CheckCheck className="w-5 h-5 text-slate-400" />
+                <span>🏁 賽事已完賽存檔（賽程已鎖定）</span>
+              </>
+            ) : (
+              <>
+                <Swords className="w-5 h-5" />
+                <span>
+                  {approvedPlayers.length >= targetSize
+                    ? '名額已滿！生成雙翼賽程表 ➔'
+                    : approvedPlayers.length >= 2
+                    ? `未滿員生成 (${approvedPlayers.length}/${targetSize}人，自動安排預備選手1~${targetSize - approvedPlayers.length}席) ➔`
+                    : `審核通過至少 2 人即可生成賽程 (${approvedPlayers.length}/${targetSize}) ➔`}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>
+
+      {/* Tournament Completed Banner if completed (Requirement: 賽事完賽後 選手審核清空) */}
+      {isTournamentCompleted && (
+        <div className="p-4 bg-gradient-to-r from-amber-950/30 via-slate-900 to-amber-950/30 border-2 border-amber-500/40 rounded-2xl flex items-center justify-between gap-3 text-amber-200 text-xs font-mono shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+              <CheckCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-black text-amber-300 text-sm">本場賽事已圓滿完賽並存檔備查</div>
+              <div className="text-slate-400 mt-0.5">待審核報名列表與已登記參賽名單已全數清空歸零，等候主辦方新增下一場新賽事。</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* VIP Feedback Alert if any */}
       {vipFeedback && (
@@ -297,8 +341,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <button
             id="btn-quick-import-vip"
             onClick={handleQuickImportVip}
-            disabled={isImportingVip}
-            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+            disabled={isImportingVip || isTournamentStarted || isTournamentCompleted}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+              isTournamentStarted || isTournamentCompleted
+                ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+                : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40'
+            }`}
             title="將已儲存的優質選手快速帶入待審核清單"
           >
             <Star className={`w-3.5 h-3.5 text-amber-400 fill-amber-400 ${isImportingVip ? 'animate-spin' : ''}`} />
@@ -321,7 +369,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <button
             id="btn-quick-fill-size"
             onClick={() => onPopulateSamplePlayers(targetSize)}
-            className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+            disabled={isTournamentStarted || isTournamentCompleted}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              isTournamentStarted || isTournamentCompleted
+                ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+                : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30'
+            }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
             一鍵填滿 {targetSize} 位選手
@@ -330,7 +383,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <button
             id="btn-random-seed"
             onClick={() => onRandomizeSeeds(Math.min(4, Math.max(2, targetSize / 4)))}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg font-medium transition-colors flex items-center gap-1.5"
+            disabled={isTournamentStarted || isTournamentCompleted}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+              isTournamentStarted || isTournamentCompleted
+                ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+            }`}
           >
             <Shuffle className="w-3.5 h-3.5 text-purple-400" />
             抽籤 {Math.min(4, Math.max(2, targetSize / 4))} 種子
@@ -339,8 +397,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
         <button
           id="btn-open-manual-add"
+          disabled={isTournamentCompleted}
           onClick={() => setShowAddModal(true)}
-          className="px-3.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            isTournamentCompleted
+              ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
+              : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30'
+          }`}
         >
           <Plus className="w-3.5 h-3.5" />
           手動新增參賽選手

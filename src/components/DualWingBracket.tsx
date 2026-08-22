@@ -32,7 +32,16 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   highlightedPlayerName
 }) => {
   const [zoom, setZoom] = useState(1);
-  const [viewMode, setViewMode] = useState<'bracket' | 'single-wing' | 'rounds' | 'list'>('bracket');
+  const [viewMode, setViewMode] = useState<'bracket' | 'single-wing' | 'rounds' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const v = urlParams.get('view');
+      if (v === 'single' || v === 'single-wing') return 'single-wing';
+      if (v === 'rounds') return 'rounds';
+      if (v === 'list') return 'list';
+    }
+    return 'bracket';
+  });
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
   const [showStartConfirm, setShowStartConfirm] = useState<boolean>(false);
