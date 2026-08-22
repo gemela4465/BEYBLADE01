@@ -1226,85 +1226,212 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
       {/* Edit Player Modal */}
       {editingPlayer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-slate-100">
-            <h3 className="text-lg font-bold text-white mb-4">編輯選手資料</h3>
-            <form onSubmit={handleUpdatePlayerSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">選手名稱</label>
-                <input
-                  type="text"
-                  value={editingPlayer.name}
-                  onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">陀螺名稱</label>
-                <input
-                  type="text"
-                  value={editingPlayer.beybladeName}
-                  onChange={(e) => setEditingPlayer({ ...editingPlayer, beybladeName: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">屬性</label>
-                  <select
-                    value={editingPlayer.beybladeType}
-                    onChange={(e) => setEditingPlayer({ ...editingPlayer, beybladeType: e.target.value as BeybladeType })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                  >
-                    <option value="attack">⚔️ 攻擊</option>
-                    <option value="defense">🛡️ 防禦</option>
-                    <option value="stamina">🔄 持久</option>
-                    <option value="balance">⚖️ 平衡</option>
-                  </select>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100 max-h-[90vh] overflow-y-auto space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                  <Edit3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">戰隊/俱樂部</label>
+                  <h3 className="text-base font-bold text-white">編輯選手詳細資料與設定</h3>
+                  <p className="text-xs text-slate-400">修改選手名稱、陀螺配備、LINE帳號與種子狀態</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPlayer(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdatePlayerSubmit} className="space-y-3.5 font-mono">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">選手名稱 *</label>
                   <input
                     type="text"
-                    value={editingPlayer.clubOrTeam || ''}
-                    onChange={(e) => setEditingPlayer({ ...editingPlayer, clubOrTeam: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
+                    value={editingPlayer.name}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="例：蒼井霸斗"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">LINE 帳號 / ID</label>
+                  <input
+                    type="text"
+                    value={editingPlayer.lineId || ''}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, lineId: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="例：line_id123"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-amber-400" />
-                    標記為優質選手
-                  </div>
-                  <div className="text-[11px] text-slate-400">保留在常駐優質選手名冊中</div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">使用陀螺名稱 *</label>
+                  <input
+                    type="text"
+                    value={editingPlayer.beybladeName}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, beybladeName: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="例：地獄魔犬 (Hell Chain)"
+                  />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">軸心/配置 Combo</label>
+                  <input
+                    type="text"
+                    value={editingPlayer.blade || ''}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, blade: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="例：9-60GF 或 5-60B"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">陀螺屬性</label>
+                  <select
+                    value={editingPlayer.beybladeType}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, beybladeType: e.target.value as BeybladeType })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="attack">⚔️ 攻擊型 (Attack)</option>
+                    <option value="defense">🛡️ 防禦型 (Defense)</option>
+                    <option value="stamina">🔄 持久型 (Stamina)</option>
+                    <option value="balance">⚖️ 平衡型 (Balance)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">所屬戰隊 / 俱樂部</label>
+                  <input
+                    type="text"
+                    value={editingPlayer.clubOrTeam || ''}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, clubOrTeam: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="例：戰鬥陀螺菁英隊"
+                  />
+                </div>
+              </div>
+
+              {/* Status Selector */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">審核狀態</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPlayer({ ...editingPlayer, status: 'approved' })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      editingPlayer.status === 'approved'
+                        ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    已審核通過 (正式名單)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingPlayer({ ...editingPlayer, status: 'pending' })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      editingPlayer.status === 'pending'
+                        ? 'bg-amber-600/30 text-amber-300 border-amber-500'
+                        : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5 text-amber-400" />
+                    待審核 (LINE 佇列)
+                  </button>
+                </div>
+              </div>
+
+              {/* Seed & VIP Options */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-1">
+                      <Shield className="w-3.5 h-3.5 text-purple-400" />
+                      指定為種子選手
+                    </div>
+                    <div className="text-[11px] text-slate-400">安排在種子保護籤位</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editingPlayer.isSeed)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setEditingPlayer({
+                          ...editingPlayer,
+                          isSeed: checked,
+                          seedNumber: checked ? (editingPlayer.seedNumber || 1) : undefined
+                        });
+                      }}
+                      className="w-4 h-4 accent-purple-500 rounded"
+                    />
+                    {editingPlayer.isSeed && (
+                      <input
+                        type="number"
+                        min={1}
+                        max={targetSize}
+                        value={editingPlayer.seedNumber || 1}
+                        onChange={(e) => setEditingPlayer({ ...editingPlayer, seedNumber: parseInt(e.target.value) || 1 })}
+                        className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white"
+                        placeholder="序號"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-400" />
+                      設為優質選手
+                    </div>
+                    <div className="text-[11px] text-slate-400">同步儲存至常駐名冊</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingPlayer.isVip)}
+                    onChange={(e) => setEditingPlayer({ ...editingPlayer, isVip: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">選手備註 (選填)</label>
                 <input
-                  type="checkbox"
-                  checked={Boolean(editingPlayer.isVip)}
-                  onChange={(e) => setEditingPlayer({ ...editingPlayer, isVip: e.target.checked })}
-                  className="w-4 h-4 accent-amber-500 rounded"
+                  type="text"
+                  value={editingPlayer.notes || ''}
+                  onChange={(e) => setEditingPlayer({ ...editingPlayer, notes: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-xs focus:border-blue-500 focus:outline-none"
+                  placeholder="選手特別備註事項..."
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setEditingPlayer(null)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/30 flex items-center gap-1.5"
                 >
+                  <Check className="w-3.5 h-3.5" />
                   儲存變更
                 </button>
               </div>

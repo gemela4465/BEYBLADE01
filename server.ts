@@ -898,14 +898,19 @@ async function startServer() {
     return res.status(404).json({ error: "Tournament not found" });
   });
 
-  // Approve / Reject / Update player status with automatic LINE Push Notification to user & group
-  app.patch("/api/tournaments/:id/players/:playerId", async (req, res) => {
+  // Approve / Reject / Update player status and details with automatic LINE Push Notification
+  const handleUpdatePlayerEndpoint = async (req: express.Request, res: express.Response) => {
     const { id, playerId } = req.params;
-    const { status, isSeed, seedRank, sendLineNotification = true } = req.body;
+    const updates = req.body || {};
+    const { status, isSeed, seedRank, seedNumber, isVip, name, beybladeName, beybladeType, blade, customCombo, clubOrTeam, teamName, lineId, notes, sendLineNotification = true } = updates;
 
     const tournament = tournamentsDb[id];
     if (!tournament) {
       return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (!Array.isArray(tournament.players)) {
+      tournament.players = [];
     }
 
     const player = tournament.players.find((p) => p.id === playerId);
@@ -914,10 +919,54 @@ async function startServer() {
     }
 
     const previousStatus = player.status;
+    if (name && typeof name === "string") player.name = name.trim();
+    if (lineId !== undefined) player.lineId = typeof lineId === "string" ? lineId.trim() : undefined;
+    if (beybladeName && typeof beybladeName === "string") player.beybladeName = beybladeName.trim();
+    if (beybladeType) player.beybladeType = beybladeType;
+    if (blade !== undefined) {
+      player.blade = typeof blade === "string" ? blade.trim() : undefined;
+      player.customCombo = player.blade;
+    }
+    if (customCombo !== undefined) {
+      player.customCombo = typeof customCombo === "string" ? customCombo.trim() : undefined;
+      if (!player.blade) player.blade = player.customCombo;
+    }
+    if (clubOrTeam !== undefined) {
+      player.clubOrTeam = typeof clubOrTeam === "string" ? clubOrTeam.trim() : undefined;
+      player.teamName = player.clubOrTeam;
+    }
+    if (teamName !== undefined && !player.clubOrTeam) {
+      player.teamName = typeof teamName === "string" ? teamName.trim() : undefined;
+      player.clubOrTeam = player.teamName;
+    }
     if (status) player.status = status;
-    if (typeof isSeed === "boolean") player.isSeed = isSeed;
+    if (typeof isSeed === "boolean") {
+      player.isSeed = isSeed;
+      if (!isSeed) player.seedNumber = undefined;
+    }
+    if (typeof seedNumber === "number") player.seedNumber = seedNumber;
     if (typeof seedRank === "number") player.seedRank = seedRank;
+    if (typeof isVip === "boolean") player.isVip = isVip;
+    if (notes !== undefined) player.notes = typeof notes === "string" ? notes.trim() : undefined;
     player.pendingCancelConfirm = false;
+
+    // If VIP flag is set to true, sync to VIP database
+    if (player.isVip) {
+      const vipId = `vip_${player.id.replace('player_', '').replace('p_line_', '').replace('p_vip_', '')}`;
+      vipPlayersDb[vipId] = {
+        id: vipId,
+        name: player.name,
+        lineId: player.lineId,
+        beybladeName: player.beybladeName || "戰鬥陀螺 X",
+        beybladeType: player.beybladeType || "attack",
+        blade: player.blade || player.customCombo || "9-60GF",
+        clubOrTeam: player.clubOrTeam || "優質選手",
+        addedAt: Date.now(),
+        isSeed: !!player.isSeed,
+        notes: player.notes
+      };
+      saveVipDb();
+    }
 
     // Send LINE Push notification if newly approved
     let notificationSent = false;
@@ -942,8 +991,12 @@ async function startServer() {
     }
 
     saveDb();
+    console.log(`[Player Updated] Player ${player.name} (ID: ${playerId}) updated in tournament ${id}`);
     res.json({ success: true, player, tournament, notificationSent, groupNotificationSent });
-  });
+  };
+
+  app.patch("/api/tournaments/:id/players/:playerId", handleUpdatePlayerEndpoint);
+  app.put("/api/tournaments/:id/players/:playerId", handleUpdatePlayerEndpoint);
 
   // Approve ALL pending players in batch and send LINE notifications to users and groups
   app.post("/api/tournaments/:id/players/approve-all", async (req, res) => {

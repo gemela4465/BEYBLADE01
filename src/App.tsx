@@ -17,6 +17,7 @@ import {
   fetchTournamentApi,
   saveTournamentApi,
   registerPlayerApi,
+  updatePlayerApi,
   updatePlayerStatusApi,
   setActiveTournamentApi,
   approveAllPlayersApi,
@@ -36,7 +37,6 @@ import { PlayerManagement } from './components/PlayerManagement';
 import { LineInviteView } from './components/LineInviteView';
 import { MatchRefereeModal } from './components/MatchRefereeModal';
 import { PodiumRankings } from './components/PodiumRankings';
-import { ScoreboardDisplay } from './components/ScoreboardDisplay';
 import { CreateTournamentModal } from './components/CreateTournamentModal';
 import { ExportShareModal } from './components/ExportShareModal';
 import { ResetTournamentModal } from './components/ResetTournamentModal';
@@ -51,7 +51,7 @@ export default function App() {
   const [isLineOnlyMode, setIsLineOnlyMode] = useState<boolean>(initial.isRegisterMode);
   const [isViewOnlyModeState, setIsViewOnlyModeState] = useState<boolean>(initial.isViewOnlyMode);
 
-  const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'scoreboard' | 'podium'>('bracket');
+  const [activeTab, setActiveTab] = useState<'bracket' | 'players' | 'podium'>('bracket');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -395,6 +395,7 @@ export default function App() {
       status: 'approved',
       sendLineNotification: true
     });
+    await saveTournamentApi(updatedTour);
   };
 
   // Organizer rejects a player
@@ -407,10 +408,8 @@ export default function App() {
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
-    await updatePlayerStatusApi(tournament.id, playerId, {
-      status: 'rejected',
-      sendLineNotification: false
-    });
+    await deletePlayerApi(tournament.id, playerId);
+    await saveTournamentApi(updatedTour);
   };
 
   // Approve all pending players (Requirement 5 batch approval)
@@ -506,20 +505,49 @@ export default function App() {
     }
   };
 
-  // Update player
-  const handleUpdatePlayer = (updatedPlayer: Player) => {
+  // Update player with full field persistence and ranking sync
+  const handleUpdatePlayer = async (updatedPlayer: Player) => {
     if (!tournament) return;
+    const updatedPlayers = tournament.players.map((p) => (p.id === updatedPlayer.id ? { ...p, ...updatedPlayer } : p));
+    
+    // Update player in rankings if already ranked
+    let updatedRankings = tournament.rankings;
+    if (updatedRankings) {
+      updatedRankings = {
+        champion: updatedRankings.champion?.id === updatedPlayer.id ? { ...updatedRankings.champion, ...updatedPlayer } : updatedRankings.champion,
+        runnerUp: updatedRankings.runnerUp?.id === updatedPlayer.id ? { ...updatedRankings.runnerUp, ...updatedPlayer } : updatedRankings.runnerUp,
+        thirdPlace: updatedRankings.thirdPlace?.id === updatedPlayer.id ? { ...updatedRankings.thirdPlace, ...updatedPlayer } : updatedRankings.thirdPlace,
+        fourthPlace: updatedRankings.fourthPlace?.id === updatedPlayer.id ? { ...updatedRankings.fourthPlace, ...updatedPlayer } : updatedRankings.fourthPlace,
+      };
+    }
+
     const updatedTour: Tournament = {
       ...tournament,
-      players: tournament.players.map((p) => (p.id === updatedPlayer.id ? updatedPlayer : p))
+      players: updatedPlayers,
+      rankings: updatedRankings
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
-    saveTournamentApi(updatedTour);
+    await updatePlayerApi(tournament.id, updatedPlayer.id, updatedPlayer);
+    await saveTournamentApi(updatedTour);
+
+    if (updatedPlayer.isVip) {
+      await saveVipPlayerApi({
+        id: `vip_${updatedPlayer.id.replace('player_', '').replace('p_line_', '').replace('p_vip_', '')}`,
+        name: updatedPlayer.name,
+        lineId: updatedPlayer.lineId,
+        beybladeName: updatedPlayer.beybladeName,
+        beybladeType: updatedPlayer.beybladeType,
+        blade: updatedPlayer.blade,
+        clubOrTeam: updatedPlayer.clubOrTeam,
+        isSeed: updatedPlayer.isSeed,
+        notes: updatedPlayer.notes
+      });
+    }
   };
 
   // Seed toggling
-  const handleSetSeedStatus = (playerId: string, isSeed: boolean, seedNumber?: number) => {
+  const handleSetSeedStatus = async (playerId: string, isSeed: boolean, seedNumber?: number) => {
     if (!tournament) return;
     const updatedTour: Tournament = {
       ...tournament,
@@ -529,7 +557,8 @@ export default function App() {
     };
     setTournament(updatedTour);
     saveTournamentToStore(updatedTour);
-    saveTournamentApi(updatedTour);
+    await updatePlayerStatusApi(tournament.id, playerId, { isSeed, seedNumber: isSeed ? seedNumber : undefined });
+    await saveTournamentApi(updatedTour);
   };
 
   // Randomize seeds among approved players
@@ -888,6 +917,16 @@ export default function App() {
               />
             )}
 
+            {activeTab === 'podium' && (
+              <PodiumRankings
+                tournament={tournament}
+                onSelectMatchById={(matchId) => {
+                  const m = tournament.matches.find((item) => item.id === matchId);
+                  if (m) setSelectedMatch(m);
+                }}
+              />
+            )}
+
             {activeTab === 'players' && (
               <PlayerManagement
                 tournament={tournament}
@@ -911,24 +950,6 @@ export default function App() {
                       saveTournamentToStore(res);
                     }
                   }
-                }}
-              />
-            )}
-
-            {activeTab === 'scoreboard' && (
-              <ScoreboardDisplay
-                tournament={tournament}
-                onSelectMatch={(m) => setSelectedMatch(m)}
-                onQuickScore={(matchId, p1, p2) => handleSaveMatchResult(matchId, p1, p2, [])}
-              />
-            )}
-
-            {activeTab === 'podium' && (
-              <PodiumRankings
-                tournament={tournament}
-                onSelectMatchById={(matchId) => {
-                  const m = tournament.matches.find((item) => item.id === matchId);
-                  if (m) setSelectedMatch(m);
                 }}
               />
             )}

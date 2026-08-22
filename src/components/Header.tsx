@@ -1,12 +1,12 @@
 import React from 'react';
-import { Trophy, Users, Shield, Award, Swords, Link2, Monitor, RefreshCw, Plus, Download, Radio, Bot, Archive, Clock, Calendar, Eye } from 'lucide-react';
+import { Trophy, Users, Shield, Award, Swords, RefreshCw, Plus, Download, Radio, Archive, Clock, Eye } from 'lucide-react';
 import { Tournament } from '../types';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface HeaderProps {
   tournament: Tournament | null;
-  activeTab: 'bracket' | 'players' | 'scoreboard' | 'podium';
-  onTabChange: (tab: 'bracket' | 'players' | 'scoreboard' | 'podium') => void;
+  activeTab: 'bracket' | 'players' | 'podium';
+  onTabChange: (tab: 'bracket' | 'players' | 'podium') => void;
   onOpenCreateModal: () => void;
   onOpenExportModal: () => void;
   onOpenHistoryModal: () => void;
@@ -258,6 +258,22 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
+            id="tab-podium"
+            onClick={() => onTabChange('podium')}
+            className={`px-4 py-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap uppercase tracking-wider ${
+              activeTab === 'podium'
+                ? 'text-amber-400 border-amber-400 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+                : 'text-gray-400 border-transparent hover:text-white hover:bg-[#ffffff05]'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            冠亞季殿軍榜
+            {tournament?.status === 'completed' && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            )}
+          </button>
+
+          <button
             id="tab-players"
             onClick={() => onTabChange('players')}
             className={`px-4 py-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap uppercase tracking-wider ${
@@ -272,35 +288,6 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold rounded bg-rose-500 text-white animate-pulse">
                 {pendingCount}
               </span>
-            )}
-          </button>
-
-          <button
-            id="tab-scoreboard"
-            onClick={() => onTabChange('scoreboard')}
-            className={`px-4 py-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap uppercase tracking-wider ${
-              activeTab === 'scoreboard'
-                ? 'text-purple-400 border-purple-400 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.15)]'
-                : 'text-gray-400 border-transparent hover:text-white hover:bg-[#ffffff05]'
-            }`}
-          >
-            <Monitor className="w-4 h-4" />
-            擂台大螢幕 (Scoreboard)
-          </button>
-
-          <button
-            id="tab-podium"
-            onClick={() => onTabChange('podium')}
-            className={`px-4 py-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap uppercase tracking-wider ${
-              activeTab === 'podium'
-                ? 'text-amber-400 border-amber-400 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
-                : 'text-gray-400 border-transparent hover:text-white hover:bg-[#ffffff05]'
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            冠亞季殿軍榜
-            {tournament?.status === 'completed' && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
             )}
           </button>
         </div>

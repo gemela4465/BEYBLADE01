@@ -172,10 +172,29 @@ export async function registerPlayerApi(
   }
 }
 
+export async function updatePlayerApi(
+  tournamentId: string,
+  playerId: string,
+  updates: Partial<Player>
+): Promise<{ success: boolean; player?: Player; tournament?: Tournament; notificationSent?: boolean }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) return { success: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error updating player:', err);
+    return { success: false };
+  }
+}
+
 export async function updatePlayerStatusApi(
   tournamentId: string,
   playerId: string,
-  updates: { status?: 'pending' | 'approved' | 'rejected'; isSeed?: boolean; seedRank?: number; sendLineNotification?: boolean }
+  updates: { status?: 'pending' | 'approved' | 'rejected'; isSeed?: boolean; seedRank?: number; seedNumber?: number; isVip?: boolean; sendLineNotification?: boolean }
 ): Promise<{ success: boolean; notificationSent?: boolean }> {
   try {
     const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/players/${encodeURIComponent(playerId)}`, {

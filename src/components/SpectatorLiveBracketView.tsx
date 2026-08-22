@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Swords, Shield, Award, Search, Radio, Share2, Copy, Check, 
-  RefreshCw, Layers, Monitor, ExternalLink, Flame, Sparkles, Clock, Eye, AlertCircle, ArrowUpRight
+  RefreshCw, Layers, ExternalLink, Flame, Sparkles, Clock, Eye, AlertCircle, ArrowUpRight
 } from 'lucide-react';
 import { Tournament, Match, Player } from '../types';
 import { DualWingBracket } from './DualWingBracket';
-import { ScoreboardDisplay } from './ScoreboardDisplay';
 import { PodiumRankings } from './PodiumRankings';
 import { SpectatorMatchDetailModal } from './SpectatorMatchDetailModal';
 import { fetchTournamentApi } from '../utils/api';
@@ -21,7 +20,7 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
   onSwitchToAdmin
 }) => {
   const [tournament, setTournament] = useState<Tournament>(initialTournament);
-  const [activeTab, setActiveTab] = useState<'bracket' | 'scoreboard' | 'podium' | 'matches'>('bracket');
+  const [activeTab, setActiveTab] = useState<'bracket' | 'podium' | 'matches'>('bracket');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -222,18 +221,6 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
           </button>
 
           <button
-            onClick={() => setActiveTab('scoreboard')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold font-mono uppercase tracking-wider flex items-center gap-2 transition-all shrink-0 ${
-              activeTab === 'scoreboard'
-                ? 'bg-[#00f2ff] text-black shadow-[0_0_15px_rgba(0,242,255,0.3)]'
-                : 'text-gray-400 hover:text-white hover:bg-[#ffffff08]'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>擂台大螢幕即時戰況</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('podium')}
             className={`px-4 py-2 rounded-lg text-xs font-bold font-mono uppercase tracking-wider flex items-center gap-2 transition-all shrink-0 ${
               activeTab === 'podium'
@@ -289,18 +276,7 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
           </div>
         )}
 
-        {/* Tab 2: Scoreboard Display (Spectator Jumbotron without edit controls) */}
-        {activeTab === 'scoreboard' && (
-          <div className="px-4">
-            <ScoreboardDisplay
-              tournament={tournament}
-              onSelectMatch={(m) => setSelectedMatch(m)}
-              onQuickScore={() => {}}
-            />
-          </div>
-        )}
-
-        {/* Tab 3: Podium Rankings (Hero Standings) */}
+        {/* Tab 2: Podium Rankings (Hero Standings) */}
         {activeTab === 'podium' && (
           <div className="px-4">
             <PodiumRankings
