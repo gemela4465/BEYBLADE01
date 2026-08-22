@@ -306,45 +306,12 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (
         <div id="dual-wing-bracket-board" className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
-          {/* Shared SVG Markers for Directional Advancement Arrows */}
-          <svg className="absolute w-0 h-0 pointer-events-none" aria-hidden="true">
-            <defs>
-              {/* Right-pointing arrows (Left Wing -> Center) */}
-              <marker id="dual-arrow-emerald-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#10b981" />
-              </marker>
-              <marker id="dual-arrow-cyan-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#00f2ff" />
-              </marker>
-              <marker id="dual-arrow-gold-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#fbbf24" />
-              </marker>
-              <marker id="dual-arrow-neutral-right" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#475569" />
-              </marker>
-
-              {/* Left-pointing arrows (Right Wing -> Center) */}
-              <marker id="dual-arrow-purple-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#c084fc" />
-              </marker>
-              <marker id="dual-arrow-cyan-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#00f2ff" />
-              </marker>
-              <marker id="dual-arrow-gold-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#fbbf24" />
-              </marker>
-              <marker id="dual-arrow-neutral-left" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M 10 1.5 L 1 5 L 10 8.5 z" fill="#475569" />
-              </marker>
-            </defs>
-          </svg>
-
           {/* Advancement Connection Banner Indicator */}
           <div className="flex items-center justify-between px-3 py-1.5 mb-4 bg-[#0a0c12]/80 border border-[#ffffff0a] rounded-lg text-xs text-gray-400 font-mono">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <span className="text-gray-300 font-bold">雙翼晉級連線指示：</span>
-              <span className="text-emerald-400 font-semibold">各場次完賽後，獲勝選手透過亮色光芒實線與箭頭指示晉級至下一輪</span>
+              <span className="text-emerald-400 font-semibold">各場次完賽後，獲勝選手以實線精準對齊指示晉級至下一輪（每輪粗細一致）</span>
             </div>
             <div className="hidden sm:flex items-center gap-4 text-[10px]">
               <span className="flex items-center gap-1.5 text-[#00f2ff]">

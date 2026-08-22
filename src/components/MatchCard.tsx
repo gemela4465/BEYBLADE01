@@ -182,24 +182,6 @@ export const MatchCard: React.FC<MatchCardProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Visual Advancement Output Port Indicator - Static & Aligned */}
-      {isCompleted && (
-        <>
-          {match.bracketWing === 'left' && (
-            <div
-              className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400 border border-emerald-200 shadow-[0_0_6px_rgba(16,185,129,0.8)] z-20 pointer-events-none"
-              title="勝者已晉級"
-            />
-          )}
-          {match.bracketWing === 'right' && (
-            <div
-              className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-purple-400 border border-purple-200 shadow-[0_0_6px_rgba(192,132,252,0.8)] z-20 pointer-events-none"
-              title="勝者已晉級"
-            />
-          )}
-        </>
-      )}
     </div>
   );
 };
