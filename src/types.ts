@@ -84,6 +84,14 @@ export interface Match {
   tableOrStadium?: string;
 }
 
+export interface TournamentPrizes {
+  champion?: string; // 冠軍獎項註記
+  runnerUp?: string; // 亞軍獎項註記
+  thirdPlace?: string; // 季軍獎項註記
+  fourthPlace?: string; // 殿軍獎項註記
+  extraAwards?: string; // 額外獎項註記 (當空白時不發布)
+}
+
 export type TournamentSize = 4 | 8 | 16 | 32 | 64 | 128;
 
 export type TournamentStatus = 'registration' | 'ready' | 'in_progress' | 'completed' | 'cancelled';
@@ -117,6 +125,8 @@ export interface Tournament {
     thirdPlace?: Player;
     fourthPlace?: Player;
   };
+
+  prizes?: TournamentPrizes; // 獎項註記 (冠亞季殿與額外獎項)
 
   isArchived?: boolean;
   archivedAt?: number;

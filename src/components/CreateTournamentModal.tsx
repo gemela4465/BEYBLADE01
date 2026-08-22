@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Shield, Sparkles, X, Swords, Calendar, Clock, Bell, ChevronUp, ChevronDown } from 'lucide-react';
-import { TournamentSize } from '../types';
-import { SAMPLE_PLAYERS } from '../data/beybladeData';
+import { Trophy, Users, Shield, Sparkles, X, Swords, Calendar, Clock, Bell, ChevronUp, ChevronDown, Gift, Award, Medal } from 'lucide-react';
+import { TournamentSize, TournamentPrizes, VipPlayer } from '../types';
+import { fetchVipPlayersApi } from '../utils/api';
 
 interface CreateTournamentModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ interface CreateTournamentModalProps {
     seedCount: number;
     populateSamplePlayers: boolean;
     broadcastToLine?: boolean;
+    prizes?: TournamentPrizes;
   }) => void;
   currentSize?: TournamentSize;
   initialValues?: {
@@ -27,6 +28,7 @@ interface CreateTournamentModalProps {
     customTitle?: string;
     startTime?: string;
     registrationDeadline?: string;
+    prizes?: TournamentPrizes;
   };
 }
 
@@ -112,13 +114,30 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   const [targetSize, setTargetSize] = useState<TournamentSize>(currentSize);
   const [targetScore, setTargetScore] = useState(4);
   
-  // Requirement 4: 種子選手數量 (Seeds) 預設 無
+  // 種子選手數量 (Seeds) 預設 無
   const [seedMode, setSeedMode] = useState<'none' | 'manual' | 'random'>('none');
   const [seedCount, setSeedCount] = useState(0);
   
-  // Requirement 5: 預載優質選手資料
+  // 預載優質選手資料 (來源為優質選手名冊，如無選手則不新增)
   const [populateSamplePlayers, setPopulateSamplePlayers] = useState(false);
+  const [vipRegistryList, setVipRegistryList] = useState<VipPlayer[]>([]);
   const [broadcastToLine, setBroadcastToLine] = useState(true);
+
+  // 獎項註記 (冠亞季殿各別註記，以及額外獎項註記，空白時不發布)
+  const [championPrize, setChampionPrize] = useState(initialValues?.prizes?.champion || '');
+  const [runnerUpPrize, setRunnerUpPrize] = useState(initialValues?.prizes?.runnerUp || '');
+  const [thirdPlacePrize, setThirdPlacePrize] = useState(initialValues?.prizes?.thirdPlace || '');
+  const [fourthPlacePrize, setFourthPlacePrize] = useState(initialValues?.prizes?.fourthPlace || '');
+  const [extraAwardsPrize, setExtraAwardsPrize] = useState(initialValues?.prizes?.extraAwards || '');
+
+  // Fetch VIP players from registry on open
+  useEffect(() => {
+    if (isOpen) {
+      fetchVipPlayersApi().then((vips) => {
+        setVipRegistryList(vips || []);
+      });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -134,6 +153,13 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
       }
       if (initialValues?.registrationDeadline) {
         setDeadlineTime(extractTimeOnly(initialValues.registrationDeadline, defaultTimes.deadlineTime));
+      }
+      if (initialValues?.prizes) {
+        setChampionPrize(initialValues.prizes.champion || '');
+        setRunnerUpPrize(initialValues.prizes.runnerUp || '');
+        setThirdPlacePrize(initialValues.prizes.thirdPlace || '');
+        setFourthPlacePrize(initialValues.prizes.fourthPlace || '');
+        setExtraAwardsPrize(initialValues.prizes.extraAwards || '');
       }
     }
   }, [isOpen, initialValues]);
@@ -176,14 +202,12 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
     setDeadlineTime(newDeadline);
   };
 
-  // Handle Quality Players Preload toggle
+  // Handle VIP Preload toggle (if no VIPs in registry, no players added)
   const handleQualityPlayersToggle = (checked: boolean) => {
     setPopulateSamplePlayers(checked);
-    if (checked) {
-      // Quality players count from data (e.g. 16)
-      const qualityCount = SAMPLE_PLAYERS.length;
+    if (checked && vipRegistryList.length > 0) {
+      const qualityCount = vipRegistryList.length;
       if (targetSize < qualityCount) {
-        // Automatically adjust scale to most suitable bracket size (e.g. 16)
         const suitable = sizeOptions.find((s) => s >= qualityCount) || 16;
         setTargetSize(suitable);
       }
@@ -197,6 +221,15 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
     const fullStartTime = `${formattedDateSlash} ${startTimeTime}`;
     const fullDeadlineTime = `${formattedDateSlash} ${deadlineTime}`;
 
+    // Prize notes: when blank, values are empty strings/undefined and not published
+    const prizes: TournamentPrizes = {
+      champion: championPrize.trim() || undefined,
+      runnerUp: runnerUpPrize.trim() || undefined,
+      thirdPlace: thirdPlacePrize.trim() || undefined,
+      fourthPlace: fourthPlacePrize.trim() || undefined,
+      extraAwards: extraAwardsPrize.trim() || undefined,
+    };
+
     onCreate({
       name: fullTournamentName,
       datePrefix: datePrefix.trim(),
@@ -209,14 +242,15 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
       seedMode,
       seedCount: seedMode === 'none' ? 0 : Math.min(seedCount, targetSize / 2),
       populateSamplePlayers,
-      broadcastToLine
+      broadcastToLine,
+      prizes
     });
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
-      <div className="bg-[#0a0c12] border border-[#00f2ff]/30 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-[0_0_60px_rgba(0,0,0,0.9)] text-[#e0e6ed] relative my-8">
+      <div className="bg-[#0a0c12] border border-[#00f2ff]/30 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-[0_0_60px_rgba(0,0,0,0.9)] text-[#e0e6ed] relative my-8 max-h-[92vh] overflow-y-auto">
         {/* Ambient Top Glow */}
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#06C755] via-[#00f2ff] to-[#7000ff] opacity-90" />
 
@@ -228,14 +262,14 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header (Requirement: 新開賽事設定) */}
+        {/* Modal Header */}
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl bg-[#00f2ff]/15 border border-[#00f2ff]/30 flex items-center justify-center text-[#00f2ff] shadow-[0_0_15px_rgba(0,242,255,0.2)]">
             <Swords className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-xl font-black text-white tracking-wide">🏆 新開賽事設定</h2>
-            <p className="text-xs text-gray-400 font-mono">前綴日期 + 場次 + 自訂名稱 • 設定開賽與報名截止時間</p>
+            <p className="text-xs text-gray-400 font-mono">前綴日期 + 場次 + 自訂名稱 • 設定開賽與報名截止時間 • 獎項註記</p>
           </div>
         </div>
 
@@ -257,9 +291,9 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Tournament Name Structured Breakdown: Compact Date & Session, Enlarged Tournament Name */}
+          {/* Tournament Name Structured Breakdown */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 font-mono items-end">
-            {/* Date Prefix: Compact with Date Picker popup (Requirement: 點擊後跳出日期窗選擇) */}
+            {/* Date Prefix */}
             <div className="sm:col-span-3 space-y-1">
               <label className="block text-[11px] font-semibold text-gray-300 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-[#00f2ff]" />
@@ -278,7 +312,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               <span className="text-[10px] text-cyan-400 block font-mono">前綴：{datePrefix}</span>
             </div>
 
-            {/* Session Number: Compact with Stepper (Requirement: 點擊後跳出第?場可上下選擇，選0則不顯示場次) */}
+            {/* Session Number */}
             <div className="sm:col-span-3 space-y-1">
               <div className="flex items-center justify-between">
                 <label className="block text-[11px] font-semibold text-gray-300">
@@ -324,7 +358,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </span>
             </div>
 
-            {/* Custom Tournament Title: Enlarged Prominently (Requirement: 賽事名稱 放大) */}
+            {/* Custom Tournament Title */}
             <div className="sm:col-span-6 space-y-1">
               <label className="block text-xs font-bold text-cyan-300 flex items-center justify-between">
                 <span>賽事名稱 (主標題)</span>
@@ -345,9 +379,9 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Start Time & Registration Deadline (Requirement 1 & 2: 開賽時間只挑選時間，修改後截止時間自動提前30分，報名截止時間可挑選時間) */}
+          {/* Start Time & Registration Deadline */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
-            {/* Start Time (Time Picker only, date is fixed) */}
+            {/* Start Time */}
             <div className="p-3.5 bg-[#05070a] rounded-xl border border-[#00f2ff]/30 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-white flex items-center gap-1.5">
@@ -372,7 +406,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </div>
             </div>
 
-            {/* Registration Deadline (Time Picker only, defaults to 30 mins before) */}
+            {/* Registration Deadline */}
             <div className="p-3.5 bg-[#05070a] rounded-xl border border-amber-500/30 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-white flex items-center gap-1.5">
@@ -398,7 +432,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Bracket Size (Requirement 3: 預定幾人賽制規模) */}
+          {/* Bracket Size */}
           <div>
             <label className="block text-xs font-mono font-semibold text-gray-300 uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>3. 預定幾人賽制規模</span>
@@ -426,7 +460,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Target Score & Seeds (Requirement 4: 種子選手數量預設 無) */}
+          {/* Target Score & Seeds */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
             <div>
               <label className="block font-semibold text-gray-300 mb-1.5 flex items-center justify-between">
@@ -451,7 +485,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </div>
             </div>
 
-            {/* Seed Count (Requirement 4: 種子選手數量 (Seeds) 預設 無) */}
+            {/* Seed Count */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="font-semibold text-gray-300">
@@ -484,6 +518,104 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
+          {/* 獎項註記 (冠亞季殿各別註記，以及額外獎項註記，空白時則不發布) */}
+          <div className="p-4 bg-[#05070a] rounded-2xl border border-amber-500/30 space-y-3 font-mono">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-amber-300 flex items-center gap-2">
+                <Gift className="w-4 h-4 text-amber-400" />
+                <span>賽事獎項註記 (選填 • 當空白時不發布)</span>
+              </label>
+              <span className="text-[10px] text-gray-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                可單獨填寫或留空
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              {/* Champion Prize */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
+                  <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                  <span>🥇 冠軍獎項註記</span>
+                </label>
+                <input
+                  id="input-prize-champion"
+                  type="text"
+                  value={championPrize}
+                  onChange={(e) => setChampionPrize(e.target.value)}
+                  placeholder="例如：限定陀螺金盃 + 冠軍戰刃"
+                  className="w-full px-3 py-1.5 bg-[#0a0c12] border border-amber-500/30 rounded-lg text-amber-200 placeholder-gray-600 focus:outline-none focus:border-amber-400 text-xs"
+                />
+              </div>
+
+              {/* Runner-up Prize */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-300 font-semibold flex items-center gap-1.5">
+                  <Medal className="w-3.5 h-3.5 text-slate-300" />
+                  <span>🥈 亞軍獎項註記</span>
+                </label>
+                <input
+                  id="input-prize-runner-up"
+                  type="text"
+                  value={runnerUpPrize}
+                  onChange={(e) => setRunnerUpPrize(e.target.value)}
+                  placeholder="例如：亞軍銀牌 + 改造套件"
+                  className="w-full px-3 py-1.5 bg-[#0a0c12] border border-slate-500/30 rounded-lg text-slate-200 placeholder-gray-600 focus:outline-none focus:border-slate-400 text-xs"
+                />
+              </div>
+
+              {/* 3rd Place Prize */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-amber-600 font-semibold flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-amber-600" />
+                  <span>🥉 季軍獎項註記</span>
+                </label>
+                <input
+                  id="input-prize-third-place"
+                  type="text"
+                  value={thirdPlacePrize}
+                  onChange={(e) => setThirdPlacePrize(e.target.value)}
+                  placeholder="例如：季軍銅牌 + 陀螺收納盒"
+                  className="w-full px-3 py-1.5 bg-[#0a0c12] border border-amber-700/30 rounded-lg text-amber-300 placeholder-gray-600 focus:outline-none focus:border-amber-600 text-xs"
+                />
+              </div>
+
+              {/* 4th Place Prize */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-blue-300 font-semibold flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-blue-400" />
+                  <span>🏅 殿軍獎項註記</span>
+                </label>
+                <input
+                  id="input-prize-fourth-place"
+                  type="text"
+                  value={fourthPlacePrize}
+                  onChange={(e) => setFourthPlacePrize(e.target.value)}
+                  placeholder="例如：殿軍獎狀 + 發射器握把"
+                  className="w-full px-3 py-1.5 bg-[#0a0c12] border border-blue-500/30 rounded-lg text-blue-200 placeholder-gray-600 focus:outline-none focus:border-blue-400 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Extra Awards Note */}
+            <div className="space-y-1 pt-1">
+              <label className="text-[11px] text-purple-300 font-semibold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>🎁 額外獎項註記 (特別獎項)</span>
+              </label>
+              <input
+                id="input-prize-extra-awards"
+                type="text"
+                value={extraAwardsPrize}
+                onChange={(e) => setExtraAwardsPrize(e.target.value)}
+                placeholder="例如：最佳爆裂獎、一擊必殺獎、全勤精神獎"
+                className="w-full px-3 py-1.5 bg-[#0a0c12] border border-purple-500/30 rounded-lg text-purple-200 placeholder-gray-600 focus:outline-none focus:border-purple-400 text-xs"
+              />
+            </div>
+            <div className="text-[10px] text-gray-500">
+              💡 註：任一獎項若留空，系統將自動隱藏該獎項，不發布至 LINE 與唯讀看板。
+            </div>
+          </div>
+
           {/* Broadcast to LINE Checkbox */}
           <div className="p-3 bg-[#05070a] rounded-xl border border-[#06C755]/40 flex items-center justify-between font-mono">
             <div className="flex items-center gap-2.5">
@@ -497,7 +629,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
                     即時廣播
                   </span>
                 </div>
-                <div className="text-[11px] text-gray-400">建立後自動透過 LINE 發送本場開賽與截止時間</div>
+                <div className="text-[11px] text-gray-400">建立後自動透過 LINE 發送本場開賽、截止時間與獎項</div>
               </div>
             </div>
             <input
@@ -509,7 +641,7 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             />
           </div>
 
-          {/* Quality Players Preload (Requirement 5: 預載優質選手資料，全部載入並自動調整規模) */}
+          {/* Quality Players Preload (優質選手名冊預設為空白，由用戶自己增加，如無選手則不新增) */}
           <div className="p-3.5 bg-[#05070a] rounded-xl border border-[#00f2ff]/30 flex items-center justify-between font-mono">
             <div className="flex items-center gap-2.5 pr-2">
               <div className="w-8 h-8 rounded-lg bg-[#00f2ff]/15 text-[#00f2ff] flex items-center justify-center font-bold shrink-0">
@@ -517,13 +649,21 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
               </div>
               <div>
                 <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>5. 預載優質選手資料 (含 LINE 帳號 & 陀螺配裝)</span>
-                  <span className="text-[10px] text-cyan-300 bg-cyan-950/80 px-1.5 py-0.2 rounded border border-cyan-800">
-                    全載入
+                  <span>5. 預載優質選手資料 (優質選手名冊)</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
+                    vipRegistryList.length > 0
+                      ? 'text-cyan-300 bg-cyan-950/80 border-cyan-800'
+                      : 'text-gray-400 bg-gray-900 border-gray-700'
+                  }`}>
+                    {vipRegistryList.length > 0 ? `名冊共 ${vipRegistryList.length} 人` : '名冊目前為空'}
                   </span>
                 </div>
                 <div className="text-[10px] text-gray-400 leading-snug mt-0.5">
-                  不管幾人賽事全部載入，超過預定幾人賽事規模 自動調整 預定幾人賽制規模 最適合人數 ({SAMPLE_PLAYERS.length} 位優質選手)
+                  {vipRegistryList.length > 0 ? (
+                    `將名冊中的 ${vipRegistryList.length} 位優質選手直接載入至本場賽事；超過人數將自動調整賽制規模。`
+                  ) : (
+                    `⚠️ 優質選手名冊預設為空白，由主辦方日後自行增加；若名冊無選手則不新增任何選手。`
+                  )}
                 </div>
               </div>
             </div>

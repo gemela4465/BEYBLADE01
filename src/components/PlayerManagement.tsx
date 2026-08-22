@@ -103,6 +103,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
   const handleCreateManual = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTournamentCompleted) return;
     if (!manualName.trim()) return;
 
     onAddPlayer(
@@ -142,6 +143,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
   const handleUpdatePlayerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTournamentCompleted) return;
     if (!editingPlayer) return;
     onUpdatePlayer(editingPlayer);
     setEditingPlayer(null);
@@ -149,6 +151,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
   // Toggle VIP directly on a player
   const handleToggleVipClick = async (player: Player) => {
+    if (isTournamentCompleted) return;
     if (onToggleVip) {
       onToggleVip(player);
     } else {
@@ -171,7 +174,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
 
   // Quick import all VIP players to pending queue
   const handleQuickImportVip = async () => {
-    if (!tournament) return;
+    if (!tournament || isTournamentCompleted) return;
     setIsImportingVip(true);
     try {
       if (onImportVip) {
@@ -435,9 +438,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <button
                   id="btn-manual-sync-players"
                   onClick={handleManualRefresh}
-                  disabled={isRefreshing}
-                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all text-xs flex items-center gap-1"
-                  title="立即與伺服器重新同步名單"
+                  disabled={isRefreshing || isTournamentCompleted}
+                  className={`p-1.5 rounded-lg border transition-all text-xs flex items-center gap-1 ${
+                    isTournamentCompleted
+                      ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                  title={isTournamentCompleted ? '賽事已完賽存檔' : '立即與伺服器重新同步名單'}
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#00f2ff]' : ''}`} />
                   <span className="hidden sm:inline text-[11px]">同步名單</span>
@@ -446,8 +453,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 {pendingPlayers.length > 0 && (
                   <button
                     id="btn-approve-all"
+                    disabled={isTournamentCompleted}
                     onClick={onApproveAllPending}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition-all flex items-center gap-1"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-all flex items-center gap-1 ${
+                      isTournamentCompleted
+                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     一鍵全審核並推播
@@ -462,8 +474,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <p className="text-sm font-semibold text-slate-400">目前沒有待審核的 LINE 報名選手</p>
                 <p className="text-xs">分享 LINE 邀請連結或群組指令 <code className="text-emerald-400">+1</code> 立即報名！</p>
                 <button
+                  disabled={isTournamentCompleted}
                   onClick={handleQuickImportVip}
-                  className="mt-3 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
+                  className={`mt-3 px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
+                    isTournamentCompleted
+                      ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
+                      : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}
                 >
                   <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                   點此快速匯入優質選手
@@ -517,31 +534,44 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         {/* Toggle VIP button */}
                         <button
                           id={`btn-toggle-vip-${player.id}`}
+                          disabled={isTournamentCompleted}
                           onClick={() => handleToggleVipClick(player)}
                           className={`p-1.5 rounded-lg border text-xs transition-colors flex items-center ${
-                            player.isVip
+                            isTournamentCompleted
+                              ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                              : player.isVip
                               ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                               : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300 hover:border-amber-500/30'
                           }`}
-                          title={player.isVip ? '取消優質選手標記' : '設為優質選手並儲存名冊'}
+                          title={isTournamentCompleted ? '賽事已結束' : player.isVip ? '取消優質選手標記' : '設為優質選手並儲存名冊'}
                         >
                           <Star className={`w-3.5 h-3.5 ${player.isVip ? 'text-amber-400 fill-amber-400' : ''}`} />
                         </button>
 
                         <button
                           id={`btn-approve-${player.id}`}
+                          disabled={isTournamentCompleted}
                           onClick={() => onApprovePlayer(player.id)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow flex items-center gap-1 transition-colors"
-                          title="通過審核並向選手發送 LINE 通知"
+                          className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow flex items-center gap-1 transition-colors ${
+                            isTournamentCompleted
+                              ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          }`}
+                          title={isTournamentCompleted ? '賽事已結束' : '通過審核並向選手發送 LINE 通知'}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           審核通過
                         </button>
                         <button
                           id={`btn-reject-${player.id}`}
+                          disabled={isTournamentCompleted}
                           onClick={() => onRejectPlayer(player.id)}
-                          className="p-1 bg-slate-700 hover:bg-red-600/40 text-slate-400 hover:text-red-300 rounded-lg transition-colors"
-                          title="退回申請"
+                          className={`p-1 rounded-lg transition-colors ${
+                            isTournamentCompleted
+                              ? 'bg-slate-900 text-slate-600 cursor-not-allowed'
+                              : 'bg-slate-700 hover:bg-red-600/40 text-slate-400 hover:text-red-300'
+                          }`}
+                          title={isTournamentCompleted ? '賽事已結束' : '退回申請'}
                         >
                           <XCircle className="w-4 h-4" />
                         </button>
@@ -673,13 +703,16 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       {/* VIP Toggle button */}
                       <button
                         id={`btn-vip-approved-${player.id}`}
+                        disabled={isTournamentCompleted}
                         onClick={() => handleToggleVipClick(player)}
                         className={`px-2 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1 ${
-                          player.isVip
+                          isTournamentCompleted
+                            ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                            : player.isVip
                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm'
                             : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-amber-300 hover:border-amber-500/30'
                         }`}
-                        title={player.isVip ? '取消優質選手' : '設為優質選手'}
+                        title={isTournamentCompleted ? '賽事已結束' : player.isVip ? '取消優質選手' : '設為優質選手'}
                       >
                         <Star className={`w-3.5 h-3.5 ${player.isVip ? 'text-amber-400 fill-amber-400' : ''}`} />
                         <span className="hidden sm:inline">{player.isVip ? '優質' : '設優質'}</span>
@@ -703,6 +736,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                         title={
                           tournament?.status === 'in_progress'
                             ? '賽事進行中，已排定種子不可修改'
+                            : tournament?.status === 'completed'
+                            ? '賽事已完賽存檔'
                             : '切換是否為種子選手'
                         }
                       >
@@ -713,9 +748,14 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                       {/* Edit button */}
                       <button
                         id={`btn-edit-player-${player.id}`}
+                        disabled={isTournamentCompleted}
                         onClick={() => setEditingPlayer(player)}
-                        className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700 transition-colors"
-                        title="編輯資料"
+                        className={`p-1.5 rounded-lg border transition-colors ${
+                          isTournamentCompleted
+                            ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700'
+                        }`}
+                        title={isTournamentCompleted ? '賽事已結束' : '編輯資料'}
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>

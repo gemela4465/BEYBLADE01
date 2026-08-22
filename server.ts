@@ -65,6 +65,14 @@ interface Match {
   roundsHistory: any[];
 }
 
+interface TournamentPrizes {
+  champion?: string;
+  runnerUp?: string;
+  thirdPlace?: string;
+  fourthPlace?: string;
+  extraAwards?: string;
+}
+
 interface Tournament {
   id: string;
   name: string;
@@ -86,6 +94,7 @@ interface Tournament {
     thirdPlace: Player | null;
     fourthPlace: Player | null;
   };
+  prizes?: TournamentPrizes;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
@@ -132,52 +141,8 @@ let connectedLineGroups: Record<string, {
 let currentActiveTournamentId: string | null = null;
 let vipPlayersDb: Record<string, VipPlayer> = {};
 
-const DEFAULT_VIP_PLAYERS: VipPlayer[] = [
-  {
-    id: "vip_1",
-    name: "蒼井霸斗",
-    lineId: "U_valtryek_01",
-    beybladeName: "勝利武神 1-60F",
-    beybladeType: "attack",
-    blade: "1-60F",
-    clubOrTeam: "BC Sol 戰隊",
-    addedAt: Date.now() - 86400000 * 3,
-    isSeed: true
-  },
-  {
-    id: "vip_2",
-    name: "紅愁",
-    lineId: "U_spriggan_02",
-    beybladeName: "烈焰巨神 0B.Br",
-    beybladeType: "balance",
-    blade: "0B.Br",
-    clubOrTeam: "Raging Bulls",
-    addedAt: Date.now() - 86400000 * 2,
-    isSeed: true
-  },
-  {
-    id: "vip_3",
-    name: "白鷺城類",
-    lineId: "U_longinus_03",
-    beybladeName: "狂暴龍王 3-60F",
-    beybladeType: "attack",
-    blade: "3-60F",
-    clubOrTeam: "Rideout 戰隊",
-    addedAt: Date.now() - 86400000 * 2,
-    isSeed: true
-  },
-  {
-    id: "vip_4",
-    name: "費利",
-    lineId: "U_farnir_04",
-    beybladeName: "虛無魔龍 8.Nt",
-    beybladeType: "stamina",
-    blade: "8.Nt",
-    clubOrTeam: "BC Sol 戰隊",
-    addedAt: Date.now() - 86400000,
-    isSeed: true
-  }
-];
+// 優質選手名冊預設為空白，由用戶自己增加
+const DEFAULT_VIP_PLAYERS: VipPlayer[] = [];
 
 function loadVipDb() {
   try {
@@ -185,9 +150,7 @@ function loadVipDb() {
       const data = fs.readFileSync(VIP_FILE, "utf-8");
       vipPlayersDb = JSON.parse(data);
     } else {
-      DEFAULT_VIP_PLAYERS.forEach(vip => {
-        vipPlayersDb[vip.id] = vip;
-      });
+      vipPlayersDb = {};
       saveVipDb();
     }
   } catch (err) {
@@ -441,6 +404,7 @@ async function startServer() {
       players: Array.isArray(incoming.players) ? incoming.players : [],
       matches: Array.isArray(incoming.matches) ? incoming.matches : [],
       rankings: incoming.rankings,
+      prizes: incoming.prizes,
       createdAt: incoming.createdAt || Date.now(),
       startedAt: incoming.startedAt,
       completedAt: incoming.completedAt,
@@ -1029,6 +993,20 @@ async function startServer() {
     });
   });
 
+  // Helper: Format prize notes for announcement (When empty, do not publish)
+  function formatPrizeNotice(tournament: Tournament): string {
+    if (!tournament.prizes) return '';
+    const p = tournament.prizes;
+    const items: string[] = [];
+    if (p.champion?.trim()) items.push(`• 🥇 冠軍：${p.champion.trim()}`);
+    if (p.runnerUp?.trim()) items.push(`• 🥈 亞軍：${p.runnerUp.trim()}`);
+    if (p.thirdPlace?.trim()) items.push(`• 🥉 季軍：${p.thirdPlace.trim()}`);
+    if (p.fourthPlace?.trim()) items.push(`• 🏅 殿軍：${p.fourthPlace.trim()}`);
+    if (p.extraAwards?.trim()) items.push(`• 🎁 特別獎：${p.extraAwards.trim()}`);
+    if (items.length === 0) return '';
+    return `\n\n🎁【大會獎項註記】\n${items.join('\n')}`;
+  }
+
   // Broadcast tournament open announcement to LINE (Requirement 1 & Resend capability)
   app.post("/api/tournaments/:id/broadcast-open", async (req, res) => {
     const { id } = req.params;
@@ -1043,8 +1021,9 @@ async function startServer() {
 
     const approvedCount = (tournament.players || []).filter((p) => p.status === 'approved').length;
     const remainingSlots = Math.max(0, tournament.targetSize - approvedCount);
+    const prizeSection = formatPrizeNotice(tournament);
 
-    const announcementText = customAnnouncement || `📢【新賽程開賽公告通知】\n🏆 賽事場次：${tournament.name}\n⚡ 賽制規模：${tournament.targetSize} 人雙翼極限爭霸（${tournament.matchTargetScore} 分制）\n⏰ 開賽時間：${tournament.startTime || '依大會公布'}\n⏳ 報名截止時間：${tournament.registrationDeadline || '額滿為止'}\n🔥 剩餘名額：${remainingSlots} 位\n\n📝 LINE 群組快速報名指令：\n• 本人報名：傳送「+1 選手簡稱 陀螺名稱」\n• 替人代報：傳送「++1 選手簡稱 陀螺名稱」\n• 取消報名：傳送「-1 選手簡稱」\n• 查詢榜單：傳送「查榜」\n\n歡迎各位陀螺手即刻卡位報名！`;
+    const announcementText = customAnnouncement || `📢【新賽程開賽公告通知】\n🏆 賽事場次：${tournament.name}\n⚡ 賽制規模：${tournament.targetSize} 人雙翼極限爭霸（${tournament.matchTargetScore} 分制）\n⏰ 開賽時間：${tournament.startTime || '依大會公布'}\n⏳ 報名截止時間：${tournament.registrationDeadline || '額滿為止'}\n🔥 剩餘名額：${remainingSlots} 位${prizeSection}\n\n📝 LINE 群組快速報名指令：\n• 本人報名：傳送「+1 選手簡稱 陀螺名稱」\n• 替人代報：傳送「++1 選手簡稱 陀螺名稱」\n• 取消報名：傳送「-1 選手簡稱」\n• 查詢榜單：傳送「查榜」\n\n歡迎各位陀螺手即刻卡位報名！`;
 
     const broadcastResult = await broadcastToAllGroupsAndFollowers(announcementText);
     res.json({

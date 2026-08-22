@@ -249,6 +249,48 @@ export const PodiumRankings: React.FC<PodiumRankingsProps> = ({
           </div>
         )}
       </div>
+
+      {/* Prize Awards Box if configured */}
+      {tournament.prizes && (tournament.prizes.champion || tournament.prizes.runnerUp || tournament.prizes.thirdPlace || tournament.prizes.fourthPlace || tournament.prizes.extraNotes) && (
+        <div className="bg-[#0d111c]/90 border border-amber-500/30 rounded-2xl p-5 shadow-xl space-y-3 font-mono">
+          <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+            <Trophy className="w-4 h-4" />
+            <span>大會獎項註記與頒發項目</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            {tournament.prizes.champion && (
+              <div className="p-3 bg-amber-950/30 border border-amber-500/40 rounded-xl space-y-1">
+                <div className="text-amber-400 font-black">👑 冠軍獎項：</div>
+                <div className="text-white">{tournament.prizes.champion}</div>
+              </div>
+            )}
+            {tournament.prizes.runnerUp && (
+              <div className="p-3 bg-slate-900 border border-slate-700 rounded-xl space-y-1">
+                <div className="text-slate-300 font-black">🥈 亞軍獎項：</div>
+                <div className="text-white">{tournament.prizes.runnerUp}</div>
+              </div>
+            )}
+            {tournament.prizes.thirdPlace && (
+              <div className="p-3 bg-amber-950/20 border border-amber-700/30 rounded-xl space-y-1">
+                <div className="text-amber-500 font-black">🥉 季軍獎項：</div>
+                <div className="text-white">{tournament.prizes.thirdPlace}</div>
+              </div>
+            )}
+            {tournament.prizes.fourthPlace && (
+              <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1">
+                <div className="text-slate-400 font-black">🏅 殿軍獎項：</div>
+                <div className="text-white">{tournament.prizes.fourthPlace}</div>
+              </div>
+            )}
+          </div>
+          {tournament.prizes.extraNotes && (
+            <div className="p-3 bg-purple-950/20 border border-purple-800/40 rounded-xl text-xs space-y-1">
+              <div className="text-purple-300 font-bold">🎁 特別加碼 / 額外獎勵：</div>
+              <div className="text-purple-200">{tournament.prizes.extraNotes}</div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

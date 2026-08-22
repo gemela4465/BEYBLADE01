@@ -94,8 +94,8 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
           </span>
           <span className="text-gray-500">|</span>
           <span className="text-emerald-400 font-bold hidden sm:inline flex items-center gap-1">
-            <Zap className="w-3.5 h-3.5 text-emerald-400" />
-            自動標記戰勝晉級電路路徑
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+            線條指示 (含箭頭與勝者晉級動線)
           </span>
         </div>
 
@@ -279,6 +279,43 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                         >
                           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
                             <defs>
+                              {/* Arrow Head Markers for Line Indicators */}
+                              <marker
+                                id={`arrow-neutral-${roundCol.round}-${pairIdx}`}
+                                viewBox="0 0 10 10"
+                                refX="8"
+                                refY="5"
+                                markerWidth="6"
+                                markerHeight="6"
+                                orient="auto-start-reverse"
+                              >
+                                <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" />
+                              </marker>
+
+                              <marker
+                                id={`arrow-advancing-${roundCol.round}-${pairIdx}`}
+                                viewBox="0 0 10 10"
+                                refX="8"
+                                refY="5"
+                                markerWidth="7"
+                                markerHeight="7"
+                                orient="auto-start-reverse"
+                              >
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" />
+                              </marker>
+
+                              <marker
+                                id={`arrow-gold-${roundCol.round}-${pairIdx}`}
+                                viewBox="0 0 10 10"
+                                refX="8"
+                                refY="5"
+                                markerWidth="8"
+                                markerHeight="8"
+                                orient="auto-start-reverse"
+                              >
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24" />
+                              </marker>
+
                               <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
                                 <stop offset="0%" stopColor="#00f2ff" stopOpacity="0.9" />
                                 <stop offset="100%" stopColor="#10b981" stopOpacity="1" />
@@ -298,10 +335,10 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                                   ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
                                   : isUpperAdvancing
                                   ? `url(#${gradId})`
-                                  : '#ffffff18'
+                                  : '#475569'
                               }
-                              strokeWidth={isChampionUpper ? 3.5 : isUpperAdvancing ? 2.8 : 1.2}
-                              strokeDasharray={isUpperAdvancing ? 'none' : '3,3'}
+                              strokeWidth={isChampionUpper ? 3.5 : isUpperAdvancing ? 2.8 : 1.8}
+                              strokeDasharray={isUpperAdvancing ? 'none' : '4,3'}
                               className={
                                 isChampionUpper
                                   ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
@@ -320,10 +357,10 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                                   ? `url(#gold-grad-${roundCol.round}-${pairIdx})`
                                   : isLowerAdvancing
                                   ? `url(#${gradId})`
-                                  : '#ffffff18'
+                                  : '#475569'
                               }
-                              strokeWidth={isChampionLower ? 3.5 : isLowerAdvancing ? 2.8 : 1.2}
-                              strokeDasharray={isLowerAdvancing ? 'none' : '3,3'}
+                              strokeWidth={isChampionLower ? 3.5 : isLowerAdvancing ? 2.8 : 1.8}
+                              strokeDasharray={isLowerAdvancing ? 'none' : '4,3'}
                               className={
                                 isChampionLower
                                   ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
@@ -333,18 +370,42 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               }
                             />
 
-                            {/* Stem line leading into Next Match (Joint -> 100%) */}
+                            {/* Junction Center Pivot Node */}
+                            <circle
+                              cx="50%"
+                              cy="50%"
+                              r={isChampionUpper || isChampionLower ? 4.5 : isUpperAdvancing || isLowerAdvancing ? 4 : 2.5}
+                              fill={
+                                isChampionUpper || isChampionLower
+                                  ? '#fbbf24'
+                                  : isUpperAdvancing || isLowerAdvancing
+                                  ? '#10b981'
+                                  : '#64748b'
+                              }
+                              stroke="#0a0c12"
+                              strokeWidth="1.5"
+                              className={isUpperAdvancing || isLowerAdvancing ? 'drop-shadow-[0_0_6px_rgba(16,185,129,0.9)]' : ''}
+                            />
+
+                            {/* Stem line leading into Next Match with Arrow Indicator (Joint -> 98%) */}
                             <path
-                              d="M 50%,50% L 100%,50%"
+                              d="M 50%,50% L 96%,50%"
                               fill="none"
                               stroke={
                                 isChampionUpper || isChampionLower
                                   ? '#fbbf24'
                                   : isUpperAdvancing || isLowerAdvancing
                                   ? '#10b981'
-                                  : '#ffffff20'
+                                  : '#64748b'
                               }
-                              strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.8 : 1.2}
+                              strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isUpperAdvancing || isLowerAdvancing ? 2.8 : 1.8}
+                              markerEnd={
+                                isChampionUpper || isChampionLower
+                                  ? `url(#arrow-gold-${roundCol.round}-${pairIdx})`
+                                  : isUpperAdvancing || isLowerAdvancing
+                                  ? `url(#arrow-advancing-${roundCol.round}-${pairIdx})`
+                                  : `url(#arrow-neutral-${roundCol.round}-${pairIdx})`
+                              }
                               className={
                                 isChampionUpper || isChampionLower
                                   ? 'drop-shadow-[0_0_10px_rgba(245,158,11,0.9)]'
@@ -353,25 +414,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                                   : ''
                               }
                             />
-
-                            {/* Victory Particle Nodes at Junction */}
-                            {(isUpperAdvancing || isLowerAdvancing) && (
-                              <>
-                                <circle
-                                  cx="50%"
-                                  cy="50%"
-                                  r="4"
-                                  fill="#10b981"
-                                  className="animate-ping"
-                                />
-                                <circle
-                                  cx="50%"
-                                  cy="50%"
-                                  r="3"
-                                  fill={isChampionUpper || isChampionLower ? '#fbbf24' : '#10b981'}
-                                />
-                              </>
-                            )}
                           </svg>
                         </div>
                       );
