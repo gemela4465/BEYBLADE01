@@ -439,10 +439,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                             return (
                               <div key={`left-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                                   {/* Upper Branch Base Line */}
                                   <path
-                                    d="M 0,25% L 50%,25% L 50%,50%"
+                                    d="M 0 25 L 50 25 L 50 50"
                                     fill="none"
                                     stroke={upperStrokeColor}
                                     strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
@@ -458,7 +458,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                   {/* Upper Branch Animated Laser Overlay if advancing */}
                                   {isUpperAdvancing && (
                                     <path
-                                      d="M 0,25% L 50%,25% L 50%,50%"
+                                      d="M 0 25 L 50 25 L 50 50"
                                       fill="none"
                                       stroke={isChampionUpper ? '#fef08a' : '#a7f3d0'}
                                       strokeWidth={1.8}
@@ -468,7 +468,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                                   {/* Lower Branch Base Line */}
                                   <path
-                                    d="M 0,75% L 50%,75% L 50%,50%"
+                                    d="M 0 75 L 50 75 L 50 50"
                                     fill="none"
                                     stroke={lowerStrokeColor}
                                     strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
@@ -484,7 +484,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                   {/* Lower Branch Animated Laser Overlay if advancing */}
                                   {isLowerAdvancing && (
                                     <path
-                                      d="M 0,75% L 50%,75% L 50%,50%"
+                                      d="M 0 75 L 50 75 L 50 50"
                                       fill="none"
                                       stroke={isChampionLower ? '#fef08a' : '#a7f3d0'}
                                       strokeWidth={1.8}
@@ -492,10 +492,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     />
                                   )}
 
-                                  {/* Pivot Junction Node at (50%, 50%) */}
+                                  {/* Pivot Junction Node at (50, 50) */}
                                   <circle
-                                    cx="50%"
-                                    cy="50%"
+                                    cx="50"
+                                    cy="50"
                                     r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
                                     fill={
                                       isChampionUpper || isChampionLower
@@ -513,7 +513,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                                   {/* Stem Line into next round match on the right */}
                                   <path
-                                    d="M 50%,50% L 96%,50%"
+                                    d="M 50 50 L 96 50"
                                     fill="none"
                                     stroke={stemStrokeColor}
                                     strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
@@ -538,7 +538,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                   {/* Stem Line Animated Laser Overlay if advancing */}
                                   {isAnyAdvancing && (
                                     <path
-                                      d="M 50%,50% L 96%,50%"
+                                      d="M 50 50 L 96 50"
                                       fill="none"
                                       stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#a7f3d0'}
                                       strokeWidth={1.8}
@@ -566,9 +566,9 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-14 overflow-visible" preserveAspectRatio="none">
+                  <svg className="w-full h-14 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path
-                      d="M 0,50% L 94%,50%"
+                      d="M 0 50 L 94 50"
                       fill="none"
                       stroke={
                         isChampionLeftSemi
@@ -596,7 +596,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     />
                     {isLeftSemiWinner && (
                       <path
-                        d="M 0,50% L 94%,50%"
+                        d="M 0 50 L 94 50"
                         fill="none"
                         stroke="#e0f2fe"
                         strokeWidth={1.8}
@@ -604,8 +604,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                       />
                     )}
                     <circle
-                      cx="50%"
-                      cy="50%"
+                      cx="50"
+                      cy="50"
                       r={isLeftSemiWinner ? 4.5 : 2.5}
                       fill={isChampionLeftSemi ? '#fbbf24' : isLeftSemiWinner ? '#00f2ff' : '#475569'}
                       stroke="#07090f"
@@ -715,9 +715,9 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
               return (
                 <div className="flex flex-col items-center justify-center min-w-[56px] max-w-[68px] pointer-events-none relative self-center">
-                  <svg className="w-full h-14 overflow-visible" preserveAspectRatio="none">
+                  <svg className="w-full h-14 overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path
-                      d="M 100%,50% L 6%,50%"
+                      d="M 100 50 L 6 50"
                       fill="none"
                       stroke={
                         isChampionRightSemi
@@ -745,7 +745,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     />
                     {isRightSemiWinner && (
                       <path
-                        d="M 100%,50% L 6%,50%"
+                        d="M 100 50 L 6 50"
                         fill="none"
                         stroke="#f3e8ff"
                         strokeWidth={1.8}
@@ -753,8 +753,8 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                       />
                     )}
                     <circle
-                      cx="50%"
-                      cy="50%"
+                      cx="50"
+                      cy="50"
                       r={isRightSemiWinner ? 4.5 : 2.5}
                       fill={isChampionRightSemi ? '#fbbf24' : isRightSemiWinner ? '#c084fc' : '#475569'}
                       stroke="#07090f"
@@ -842,10 +842,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                               return (
                                 <div key={`right-tree-${roundNumber}-${pairIdx}`} className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[90px]">
-                                  <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                                    {/* Upper Branch Base Line: from top right match (100%, 25%) to fork junction (50%, 50%) */}
+                                  <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                    {/* Upper Branch Base Line: from top right match (100, 25) to fork junction (50, 50) */}
                                     <path
-                                      d="M 100%,25% L 50%,25% L 50%,50%"
+                                      d="M 100 25 L 50 25 L 50 50"
                                       fill="none"
                                       stroke={upperStrokeColor}
                                       strokeWidth={isChampionUpper ? 3.5 : isTrackedUpper || isUpperAdvancing ? 2.8 : 1.6}
@@ -861,7 +861,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     {/* Upper Branch Animated Laser Overlay if advancing */}
                                     {isUpperAdvancing && (
                                       <path
-                                        d="M 100%,25% L 50%,25% L 50%,50%"
+                                        d="M 100 25 L 50 25 L 50 50"
                                         fill="none"
                                         stroke={isChampionUpper ? '#fef08a' : '#f3e8ff'}
                                         strokeWidth={1.8}
@@ -869,9 +869,9 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                       />
                                     )}
 
-                                    {/* Lower Branch Base Line: from bottom right match (100%, 75%) to fork junction (50%, 50%) */}
+                                    {/* Lower Branch Base Line: from bottom right match (100, 75) to fork junction (50, 50) */}
                                     <path
-                                      d="M 100%,75% L 50%,75% L 50%,50%"
+                                      d="M 100 75 L 50 75 L 50 50"
                                       fill="none"
                                       stroke={lowerStrokeColor}
                                       strokeWidth={isChampionLower ? 3.5 : isTrackedLower || isLowerAdvancing ? 2.8 : 1.6}
@@ -887,7 +887,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     {/* Lower Branch Animated Laser Overlay if advancing */}
                                     {isLowerAdvancing && (
                                       <path
-                                        d="M 100%,75% L 50%,75% L 50%,50%"
+                                        d="M 100 75 L 50 75 L 50 50"
                                         fill="none"
                                         stroke={isChampionLower ? '#fef08a' : '#f3e8ff'}
                                         strokeWidth={1.8}
@@ -895,10 +895,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                       />
                                     )}
 
-                                    {/* Pivot Junction Node at (50%, 50%) */}
+                                    {/* Pivot Junction Node at (50, 50) */}
                                     <circle
-                                      cx="50%"
-                                      cy="50%"
+                                      cx="50"
+                                      cy="50"
                                       r={isChampionUpper || isChampionLower ? 5 : isAnyAdvancing ? 4 : 2.5}
                                       fill={
                                         isChampionUpper || isChampionLower
@@ -916,7 +916,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
                                     {/* Stem Line exiting to the LEFT into next round match on the left */}
                                     <path
-                                      d="M 50%,50% L 4%,50%"
+                                      d="M 50 50 L 4 50"
                                       fill="none"
                                       stroke={stemStrokeColor}
                                       strokeWidth={isChampionUpper || isChampionLower ? 3.5 : isAnyAdvancing ? 2.8 : 1.6}
@@ -941,7 +941,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                                     {/* Stem Line Animated Laser Overlay if advancing */}
                                     {isAnyAdvancing && (
                                       <path
-                                        d="M 50%,50% L 4%,50%"
+                                        d="M 50 50 L 4 50"
                                         fill="none"
                                         stroke={isChampionUpper || isChampionLower ? '#fef08a' : '#f3e8ff'}
                                         strokeWidth={1.8}

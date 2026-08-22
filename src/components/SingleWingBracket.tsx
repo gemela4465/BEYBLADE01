@@ -283,55 +283,55 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                           key={`single-bracket-wire-${roundCol.round}-${pairIdx}`}
                           className="flex flex-col justify-center items-stretch flex-1 relative my-1 min-h-[110px]"
                         >
-                          <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                          <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                             <defs>
                               {/* Arrow Head Markers for Line Indicators */}
                               <marker
                                 id={`arrow-neutral-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 10 10"
-                                refX="8"
-                                refY="5"
+                                viewBox="0 0 100 100"
+                                refX="80"
+                                refY="50"
                                 markerWidth="6"
                                 markerHeight="6"
                                 orient="auto-start-reverse"
                               >
-                                <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" />
+                                <path d="M 0 10 L 100 50 L 0 90 z" fill="#64748b" />
                               </marker>
 
                               <marker
                                 id={`arrow-advancing-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 10 10"
-                                refX="8"
-                                refY="5"
+                                viewBox="0 0 100 100"
+                                refX="80"
+                                refY="50"
                                 markerWidth="7"
                                 markerHeight="7"
                                 orient="auto-start-reverse"
                               >
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981" />
+                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#10b981" />
                               </marker>
 
                               <marker
                                 id={`arrow-tracked-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 10 10"
-                                refX="8"
-                                refY="5"
+                                viewBox="0 0 100 100"
+                                refX="80"
+                                refY="50"
                                 markerWidth="7"
                                 markerHeight="7"
                                 orient="auto-start-reverse"
                               >
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#00f2ff" />
+                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#00f2ff" />
                               </marker>
 
                               <marker
                                 id={`arrow-gold-${roundCol.round}-${pairIdx}`}
-                                viewBox="0 0 10 10"
-                                refX="8"
-                                refY="5"
+                                viewBox="0 0 100 100"
+                                refX="80"
+                                refY="50"
                                 markerWidth="8"
                                 markerHeight="8"
                                 orient="auto-start-reverse"
                               >
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24" />
+                                <path d="M 0 0 L 100 50 L 0 100 z" fill="#fbbf24" />
                               </marker>
 
                               <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
@@ -346,7 +346,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
                             {/* Top Branch (Upper Match -> Joint) */}
                             <path
-                              d="M 0,25% L 50%,25% L 50%,50%"
+                              d="M 0 25 L 50 25 L 50 50"
                               fill="none"
                               stroke={
                                 isChampionUpper
@@ -370,7 +370,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
                             {/* Bottom Branch (Lower Match -> Joint) */}
                             <path
-                              d="M 0,75% L 50%,75% L 50%,50%"
+                              d="M 0 75 L 50 75 L 50 50"
                               fill="none"
                               stroke={
                                 isChampionLower
@@ -394,8 +394,8 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
                             {/* Junction Center Pivot Node */}
                             <circle
-                              cx="50%"
-                              cy="50%"
+                              cx="50"
+                              cy="50"
                               r={isChampionUpper || isChampionLower ? 4.5 : isUpperAdvancing || isLowerAdvancing ? 4 : 2.5}
                               fill={
                                 isChampionUpper || isChampionLower
@@ -411,7 +411,7 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
                             {/* Stem line leading into Next Match with Arrow Indicator (Joint -> 98%) */}
                             <path
-                              d="M 50%,50% L 96%,50%"
+                              d="M 50 50 L 96 50"
                               fill="none"
                               stroke={
                                 isChampionUpper || isChampionLower
