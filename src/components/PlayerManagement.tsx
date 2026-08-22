@@ -21,7 +21,7 @@ interface PlayerManagementProps {
   onGenerateBracket: () => void;
   onSetSeedStatus: (playerId: string, isSeed: boolean, seedNumber?: number) => void;
   onRandomizeSeeds: (seedCount: number) => void;
-  onPopulateSamplePlayers: (count: number) => void;
+  onPopulateSamplePlayers?: (count: number) => void;
   onRefreshRoster?: () => void;
 }
 
@@ -88,6 +88,11 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const [manualIsSeed, setManualIsSeed] = useState(false);
   const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
   const [manualIsVip, setManualIsVip] = useState(false);
+  const [seedCountToDraw, setSeedCountToDraw] = useState<number>(() =>
+    tournament?.seedCount && tournament.seedCount > 0
+      ? tournament.seedCount
+      : Math.min(4, Math.max(2, Math.floor((tournament?.targetSize || 16) / 4)))
+  );
 
   const isTournamentStarted = tournament?.status === 'in_progress';
   const isTournamentCompleted = tournament?.status === 'completed';
@@ -335,9 +340,9 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         </div>
       )}
 
-      {/* Quick Fill / Tools bar */}
+      {/* Tools bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800 font-mono">
-        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-300">
+        <div className="flex items-center gap-2.5 flex-wrap text-xs text-slate-300">
           <span className="font-semibold text-white">⚡ 管理者快速工具：</span>
           
           {/* Quick Import VIPs button */}
@@ -369,33 +374,81 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             管理優質選手名冊
           </button>
 
-          <button
-            id="btn-quick-fill-size"
-            onClick={() => onPopulateSamplePlayers(targetSize)}
-            disabled={isTournamentStarted || isTournamentCompleted}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
-              isTournamentStarted || isTournamentCompleted
-                ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
-                : 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            一鍵填滿 {targetSize} 位選手
-          </button>
-          
-          <button
-            id="btn-random-seed"
-            onClick={() => onRandomizeSeeds(Math.min(4, Math.max(2, targetSize / 4)))}
-            disabled={isTournamentStarted || isTournamentCompleted}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
-              isTournamentStarted || isTournamentCompleted
-                ? 'bg-slate-800/50 text-slate-500 border border-slate-800 cursor-not-allowed'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-            }`}
-          >
-            <Shuffle className="w-3.5 h-3.5 text-purple-400" />
-            抽籤 {Math.min(4, Math.max(2, targetSize / 4))} 種子
-          </button>
+          {/* Seed Selection & Draw Tool (抽籤前可指定種子人數) */}
+          <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-lg p-1">
+            <div className="flex items-center gap-1 pl-1 text-slate-300 text-xs font-semibold">
+              <Shield className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">指定種子:</span>
+              <span className="sm:hidden">種子:</span>
+            </div>
+
+            {/* Seed Count Dropdown Selector */}
+            <select
+              id="select-seed-count"
+              value={seedCountToDraw}
+              onChange={(e) => setSeedCountToDraw(Number(e.target.value))}
+              disabled={isTournamentStarted || isTournamentCompleted}
+              className="bg-slate-900 text-purple-300 font-bold border border-slate-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+            >
+              {[1, 2, 3, 4, 6, 8, 12, 16]
+                .filter((n) => n <= targetSize)
+                .map((n) => (
+                  <option key={n} value={n}>
+                    {n} 位種子
+                  </option>
+                ))}
+            </select>
+
+            {/* Stepper Buttons for fine-grained adjustment */}
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setSeedCountToDraw((prev) => Math.max(1, prev - 1))}
+                disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw <= 1}
+                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-l border-y border-l border-slate-700 transition-colors"
+                title="減少 1 位"
+              >
+                -
+              </button>
+              <button
+                type="button"
+                onClick={() => setSeedCountToDraw((prev) => Math.min(targetSize, prev + 1))}
+                disabled={isTournamentStarted || isTournamentCompleted || seedCountToDraw >= targetSize}
+                className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-xs rounded-r border border-slate-700 transition-colors"
+                title="增加 1 位"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Draw Seeds Action Button */}
+            <button
+              id="btn-random-seed"
+              onClick={() => {
+                if (approvedPlayers.length === 0) {
+                  setVipFeedback('⚠️ 尚未有審核通過的參賽選手，請先審核通過選手後再進行抽籤');
+                  setTimeout(() => setVipFeedback(null), 3500);
+                  return;
+                }
+                const actualDrawCount = Math.min(seedCountToDraw, approvedPlayers.length);
+                onRandomizeSeeds(actualDrawCount);
+                setVipFeedback(`🎲 已隨機抽選出 ${actualDrawCount} 位種子選手（指定為第 1~${actualDrawCount} 種子）！`);
+                setTimeout(() => setVipFeedback(null), 3500);
+              }}
+              disabled={isTournamentStarted || isTournamentCompleted}
+              className={`px-3 py-1 rounded-md font-bold transition-all flex items-center gap-1.5 text-xs shadow-sm active:scale-95 ${
+                isTournamentStarted || isTournamentCompleted
+                  ? 'bg-slate-800 text-slate-500 border border-slate-800 cursor-not-allowed'
+                  : approvedPlayers.length === 0
+                  ? 'bg-purple-950/40 hover:bg-purple-900/50 text-purple-300 border border-purple-800/50'
+                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+              }`}
+              title={`隨機抽選 ${seedCountToDraw} 位種子選手`}
+            >
+              <Shuffle className="w-3.5 h-3.5 text-purple-200" />
+              <span>抽籤種子</span>
+            </button>
+          </div>
         </div>
 
         <button
@@ -631,7 +684,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 <Users className="w-12 h-12 mx-auto text-slate-600" />
                 <p className="text-base font-bold text-slate-400">尚未有確認登記的正式參賽選手</p>
                 <p className="text-xs max-w-sm mx-auto">
-                  請審核左側待審核的 LINE 報名選手，或點擊「手動新增」/「優質選手」/「一鍵填滿」快速載入選手！
+                  請審核左側待審核的 LINE 報名選手，或點擊「手動新增參賽選手」/「快速產生優質選手」快速載入選手！
                 </p>
               </div>
             ) : (
