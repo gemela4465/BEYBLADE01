@@ -9,7 +9,6 @@ import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
 import { BroadcastBracketModal } from './BroadcastBracketModal';
 import { SingleWingBracket } from './SingleWingBracket';
-import { PlayerPathVisualizer } from './PlayerPathVisualizer';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
 interface DualWingBracketProps {
@@ -46,7 +45,6 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   });
   const [selectedRoundFilter, setSelectedRoundFilter] = useState<number | 'all'>('all');
   const [trackedPlayerId, setTrackedPlayerId] = useState<string | null>(null);
-  const [showPathVisualizer, setShowPathVisualizer] = useState<boolean>(true);
   const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState<boolean>(false);
   const [showStartConfirm, setShowStartConfirm] = useState<boolean>(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
@@ -262,20 +260,6 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
         {/* Right: Zoom, Share & Quick Tools */}
         <div className="flex items-center gap-2">
-          {/* Toggle Battle Path Visualizer */}
-          <button
-            onClick={() => setShowPathVisualizer((prev) => !prev)}
-            className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
-              showPathVisualizer
-                ? 'bg-[#00f2ff]/20 text-[#00f2ff] border-[#00f2ff]/50 shadow-[0_0_10px_rgba(0,242,255,0.2)]'
-                : 'bg-[#0a0c12] text-gray-400 hover:text-white border-[#ffffff15]'
-            }`}
-            title="開啟/關閉選手晉級戰績路徑檢視器"
-          >
-            <GitBranch className="w-3.5 h-3.5 text-[#00f2ff]" />
-            <span>戰績路徑</span>
-          </button>
-
           {!effectiveReadOnly && (
             <button
               onClick={() => setIsBroadcastModalOpen(true)}
@@ -317,18 +301,6 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
           )}
         </div>
       </div>
-
-      {/* Battle Path Visualizer Component (Requirement 3: 賽程表要有戰績的路徑) */}
-      {showPathVisualizer && (
-        <div className="max-w-7xl mx-auto w-full px-4 animate-fadeIn">
-          <PlayerPathVisualizer
-            tournament={tournament}
-            selectedPlayerId={trackedPlayerId}
-            onSelectPlayer={(pId) => setTrackedPlayerId(pId)}
-            onSelectMatch={onSelectMatch}
-          />
-        </div>
-      )}
 
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (

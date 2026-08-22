@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { Match, Player, Tournament } from '../types';
 import { MatchCard } from './MatchCard';
-import { PlayerPathVisualizer } from './PlayerPathVisualizer';
 
 interface SingleWingBracketProps {
   tournament: Tournament;
@@ -22,7 +21,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
   const [trackedPlayerId, setTrackedPlayerId] = useState<string | null>(null);
-  const [showPathVisualizer, setShowPathVisualizer] = useState<boolean>(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const playerMap = new Map<string, Player>();
@@ -102,20 +100,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Toggle Battle Path Visualizer */}
-          <button
-            onClick={() => setShowPathVisualizer((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
-              showPathVisualizer
-                ? 'bg-[#00f2ff]/20 text-[#00f2ff] border-[#00f2ff]/50 shadow-[0_0_10px_rgba(0,242,255,0.2)]'
-                : 'bg-[#05070a] text-gray-400 hover:text-white border-[#ffffff15]'
-            }`}
-            title="開啟/關閉選手晉級戰績路徑檢視器"
-          >
-            <GitBranch className="w-3.5 h-3.5 text-[#00f2ff]" />
-            <span>戰績路徑</span>
-          </button>
-
           {/* Zoom Controls */}
           <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300">
             <button
@@ -145,18 +129,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Battle Path Visualizer Component (Requirement 3: 賽程表要有戰績的路徑) */}
-      {showPathVisualizer && (
-        <div className="w-full animate-fadeIn">
-          <PlayerPathVisualizer
-            tournament={tournament}
-            selectedPlayerId={trackedPlayerId}
-            onSelectPlayer={(pId) => setTrackedPlayerId(pId)}
-            onSelectMatch={onSelectMatch}
-          />
-        </div>
-      )}
 
       {/* Single-Wing Tree Board with Dynamic Battle Paths (戰勝路徑) */}
       <div className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[680px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
