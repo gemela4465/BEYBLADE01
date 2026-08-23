@@ -133,21 +133,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                 }`}>
                   {isStarted ? '🔥 賽事進行中 (已開賽)' : isCompleted ? '🏁 賽事已完賽存檔' : '⏳ 賽程已產生 (未開賽)'}
                 </span>
-                <span className="text-xs text-slate-400 font-mono">
-                  {isStarted 
-                    ? '籤位已全面鎖定 • 進行各輪對抗中' 
-                    : isCompleted 
-                    ? '戰績與名次已永久鎖定備查' 
-                    : '已排定對陣籤位 • 未開賽前可重新產生或調整'}
-                </span>
               </div>
-              <p className="text-xs text-slate-400 mt-1 font-mono">
-                {isStarted
-                  ? '規則限制：開賽後不允許刪除已參賽選手（仍可隨時新增選手作為敗部復活或候補）'
-                  : isCompleted
-                  ? '比分已無法修改，賽事紀錄已自動存檔備查'
-                  : '未開賽狀態下，若刪除選手將自動遞補為預備選手，亦可隨時重新產生賽程'}
-              </p>
             </div>
           </div>
 
@@ -256,7 +242,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
         {/* Center: Tournament Scale Badge */}
         <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-gray-300">
           <span className="w-2 h-2 rounded-full bg-[#00f2ff] animate-ping" />
-          <span className="font-mono text-gray-300">{tournament.targetSize} 人淘汰賽（左翼 {tournament.targetSize / 2} 人 ⚔️ 右翼 {tournament.targetSize / 2} 人）</span>
+          <span className="font-mono text-gray-300">{tournament.targetSize} 人淘汰賽</span>
         </div>
 
         {/* Right: Zoom, Share & Quick Tools */}
@@ -272,7 +258,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
             </button>
           )}
 
-          {viewMode === 'bracket' && (
+          {(viewMode === 'bracket' || viewMode === 'single-wing') && (
             <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300 text-xs">
               <button
                 onClick={handleZoomOut}
@@ -306,29 +292,6 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
       {/* VIEW 1: Dual-Wing Canvas (左翼 + 中央決賽 + 右翼) */}
       {viewMode === 'bracket' && (
         <div id="dual-wing-bracket-board" className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[700px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
-          {/* Advancement Connection Banner Indicator */}
-          <div className="flex items-center justify-between px-3 py-1.5 mb-4 bg-[#0a0c12]/80 border border-[#ffffff0a] rounded-lg text-xs text-gray-400 font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-gray-300 font-bold">雙翼晉級連線指示：</span>
-              <span className="text-emerald-400 font-semibold">各場次完賽後，獲勝選手以實線精準對齊指示晉級至下一輪（每輪粗細一致）</span>
-            </div>
-            <div className="hidden sm:flex items-center gap-4 text-[10px]">
-              <span className="flex items-center gap-1.5 text-[#00f2ff]">
-                <span className="w-3 h-0.5 bg-[#00f2ff] inline-block" /> 左翼晉級動線
-              </span>
-              <span className="flex items-center gap-1.5 text-purple-300">
-                <span className="w-3 h-0.5 bg-purple-400 inline-block" /> 右翼晉級動線
-              </span>
-              <span className="flex items-center gap-1.5 text-amber-300">
-                <span className="w-3 h-0.5 bg-amber-400 inline-block" /> 冠軍軌跡
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-500">
-                <span className="w-3 h-0.5 bg-slate-600 inline-block border-t border-dashed" /> 待定路徑
-              </span>
-            </div>
-          </div>
-
           <div
             ref={bracketContainerRef}
             style={{
@@ -718,6 +681,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
           onSelectMatch={onSelectMatch}
           isReadOnly={effectiveReadOnly}
           highlightedPlayerName={highlightedPlayerName}
+          zoom={zoom}
         />
       )}
 

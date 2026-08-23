@@ -12,15 +12,18 @@ interface SingleWingBracketProps {
   onSelectMatch: (match: Match) => void;
   isReadOnly?: boolean;
   highlightedPlayerName?: string;
+  zoom?: number;
 }
 
 export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
   tournament,
   onSelectMatch,
   isReadOnly = false,
-  highlightedPlayerName
+  highlightedPlayerName,
+  zoom: externalZoom,
 }) => {
-  const [zoom, setZoom] = useState(1);
+  const [internalZoom] = useState(1);
+  const zoom = externalZoom ?? internalZoom;
   const [trackedPlayerId, setTrackedPlayerId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,10 +76,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
     matches: finalsMatches
   });
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.15, 1.6));
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.15, 0.45));
-  const handleZoomReset = () => setZoom(1);
-
   // Helper to check if a match has a confirmed winner
   const hasWinner = (m?: Match) => !!m?.winnerId && (m.status === 'completed' || m.status === 'bye');
 
@@ -85,52 +84,6 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
 
   return (
     <div id="single-wing-bracket-board" className="w-full flex flex-col space-y-4">
-      {/* Zoom & Info Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0c12]/80 border border-[#ffffff10] rounded-xl text-xs flex-wrap gap-2">
-        <div className="flex items-center gap-2 text-gray-300 font-mono">
-          <span className="w-2 h-2 rounded-full bg-[#00f2ff]" />
-          <span className="font-bold text-white flex items-center gap-1.5">
-            <GitBranch className="w-4 h-4 text-[#00f2ff]" />
-            單側樹狀圖 (由左至右對戰晉級路徑)
-          </span>
-          <span className="text-gray-500">|</span>
-          <span className="text-emerald-400 font-bold hidden sm:inline flex items-center gap-1">
-            <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
-            每輪粗細一致 • 精準對準選手起迄位
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-1 bg-[#05070a] px-2 py-1 rounded-lg border border-[#ffffff10] text-gray-300">
-            <button
-              onClick={handleZoomOut}
-              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
-              title="縮小"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <span className="w-12 text-center font-mono font-bold text-[11px] text-[#00f2ff]">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={handleZoomIn}
-              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors"
-              title="放大"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleZoomReset}
-              className="p-1 hover:text-white rounded hover:bg-[#ffffff10] transition-colors ml-1"
-              title="重設大小"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Single-Wing Tree Board with Dynamic Battle Paths (戰勝路徑) */}
       <div className="w-full bg-[#07090f]/90 border border-[#ffffff10] rounded-2xl overflow-x-auto overflow-y-auto p-6 min-h-[680px] shadow-[0_0_50px_rgba(0,0,0,0.8)] relative cyber-grid-bg">
         <div
