@@ -1,6 +1,6 @@
 import React from 'react';
-import { Trophy, Shield, Check } from 'lucide-react';
-import { Match, Player } from '../types';
+import { Trophy, Shield, Check, Lock } from 'lucide-react';
+import { Match, Player, TournamentStatus } from '../types';
 
 interface MatchCardProps {
   match: Match;
@@ -8,6 +8,8 @@ interface MatchCardProps {
   onSelectMatch: (match: Match) => void;
   isCenter?: boolean;
   isReadOnly?: boolean;
+  canScore?: boolean;
+  tournamentStatus?: TournamentStatus;
   highlightedPlayerName?: string;
 }
 
@@ -17,6 +19,8 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   onSelectMatch,
   isCenter = false,
   isReadOnly = false,
+  canScore = true,
+  tournamentStatus,
   highlightedPlayerName
 }) => {
   const p1 = match.player1Id ? playerMap.get(match.player1Id) : null;
@@ -36,22 +40,35 @@ export const MatchCard: React.FC<MatchCardProps> = ({
   const p1DisplayName = p1 ? p1.name : isBye && !p2 ? '—' : '待定';
   const p2DisplayName = p2 ? p2.name : isBye ? '輪空' : '待定';
 
+  // Determine clickability: only allow scoring interaction during in_progress
+  const isInteractive = isReadOnly || canScore;
+  const lockTooltip = !isReadOnly && !canScore
+    ? tournamentStatus === 'completed'
+      ? '賽事已結束：賽程與計分已封存鎖定，不開放裁判計分台'
+      : '尚未開賽：請先點擊上方「正式開賽 (Start)」按鈕以開放裁判計分台'
+    : undefined;
+
   return (
     <div
       id={`match-card-${match.id}`}
       onClick={() => {
         if (p1 || p2) onSelectMatch(match);
       }}
-      className={`relative w-[154px] h-[74px] rounded-lg transition-all duration-150 cursor-pointer overflow-hidden border select-none shrink-0 flex flex-col justify-between ${
+      title={lockTooltip}
+      className={`relative w-[154px] h-[74px] rounded-lg transition-all duration-150 overflow-hidden border select-none shrink-0 flex flex-col justify-between ${
+        !isInteractive
+          ? 'cursor-not-allowed opacity-80 hover:opacity-90 border-slate-700/60 bg-[#080a10]'
+          : 'cursor-pointer'
+      } ${
         hasHighlight
           ? 'bg-[#0e1726] border-[#00f2ff] shadow-[0_0_20px_rgba(0,242,255,0.4)] ring-2 ring-[#00f2ff]/70 scale-[1.03] z-10'
           : isCenter
-          ? 'bg-[#0e111a] border-amber-400/80 shadow-[0_0_18px_rgba(245,158,11,0.25)] hover:border-amber-300'
+          ? `bg-[#0e111a] border-amber-400/80 shadow-[0_0_18px_rgba(245,158,11,0.25)] ${isInteractive ? 'hover:border-amber-300 hover:scale-[1.02]' : ''}`
           : isCompleted
-          ? 'bg-[#0a0c12] border-[#ffffff15] hover:border-[#00f2ff]/50'
+          ? `bg-[#0a0c12] border-[#ffffff15] ${isInteractive ? 'hover:border-[#00f2ff]/50' : ''}`
           : isReady
-          ? 'bg-[#0a0c12] border-[#00f2ff]/40 hover:border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.1)]'
-          : 'bg-[#07090f]/90 border-[#ffffff0a] opacity-80 hover:opacity-100 hover:border-[#ffffff20]'
+          ? `bg-[#0a0c12] border-[#00f2ff]/40 ${isInteractive ? 'hover:border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.1)]' : ''}`
+          : 'bg-[#07090f]/90 border-[#ffffff0a] opacity-80'
       }`}
     >
       {/* Top Streamlined Header Bar: 場次號碼 */}
@@ -67,7 +84,10 @@ export const MatchCard: React.FC<MatchCardProps> = ({
             <span className="text-[#00f2ff] font-bold">#{match.matchNumber}</span>
           )}
         </div>
-        <div className="text-[9px] shrink-0 font-medium">
+        <div className="flex items-center gap-1 text-[9px] shrink-0 font-medium">
+          {!isInteractive && (
+            <Lock className="w-2.5 h-2.5 text-slate-500" />
+          )}
           {isBye ? (
             <span className="text-gray-500">輪空</span>
           ) : isCompleted ? (

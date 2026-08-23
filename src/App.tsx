@@ -981,7 +981,10 @@ export default function App() {
             {activeTab === 'bracket' && (
               <DualWingBracket
                 tournament={tournament}
-                onSelectMatch={(m) => setSelectedMatch(m)}
+                onSelectMatch={(m) => {
+                  if (tournament?.status !== 'in_progress') return;
+                  setSelectedMatch(m);
+                }}
                 onOpenCreateModal={() => setIsCreateModalOpen(true)}
                 onStartTournament={handleStartTournament}
                 onFinishTournament={handleFinishTournament}
@@ -994,6 +997,7 @@ export default function App() {
                 tournament={tournament}
                 onFinishTournament={handleFinishTournament}
                 onSelectMatchById={(matchId) => {
+                  if (tournament?.status !== 'in_progress') return;
                   const m = tournament.matches.find((item) => item.id === matchId);
                   if (m) setSelectedMatch(m);
                 }}
@@ -1051,12 +1055,12 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Match Referee Scoring Modal (0 - 11 分) */}
+      {/* Match Referee Scoring Modal (0 - 11 分 - 僅在開賽期間開放) */}
       <MatchRefereeModal
         match={selectedMatch}
         players={tournament?.players || []}
         tournament={tournament || undefined}
-        isOpen={Boolean(selectedMatch)}
+        isOpen={Boolean(selectedMatch) && tournament?.status === 'in_progress'}
         onClose={() => setSelectedMatch(null)}
         onSaveMatchResult={handleSaveMatchResult}
         onSubstitutePlayer={handleSubstitutePlayer}

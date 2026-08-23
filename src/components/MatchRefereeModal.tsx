@@ -37,7 +37,7 @@ export const MatchRefereeModal: React.FC<MatchRefereeModalProps> = ({
   onSaveMatchResult,
   onSubstitutePlayer
 }) => {
-  if (!isOpen || !match) return null;
+  if (!isOpen || !match || (tournament && tournament.status !== 'in_progress')) return null;
 
   const playerMap = new Map<string, Player>();
   players.forEach((p) => playerMap.set(p.id, p));

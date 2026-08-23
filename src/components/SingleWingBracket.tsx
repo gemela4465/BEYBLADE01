@@ -3,7 +3,7 @@ import {
   Trophy, Swords, ZoomIn, ZoomOut, RotateCcw, Award, 
   Sparkles, CheckCircle2, ChevronRight, Shield, GitBranch, ArrowRight, Zap
 } from 'lucide-react';
-import { Match, Player, Tournament } from '../types';
+import { Match, Player, Tournament, TournamentStatus } from '../types';
 import { MatchCard } from './MatchCard';
 import { BracketRouteImage, MatchWinnerSlot } from './BracketRouteImage';
 
@@ -11,6 +11,8 @@ interface SingleWingBracketProps {
   tournament: Tournament;
   onSelectMatch: (match: Match) => void;
   isReadOnly?: boolean;
+  canScore?: boolean;
+  tournamentStatus?: TournamentStatus;
   highlightedPlayerName?: string;
   zoom?: number;
 }
@@ -19,6 +21,8 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
   tournament,
   onSelectMatch,
   isReadOnly = false,
+  canScore = true,
+  tournamentStatus,
   highlightedPlayerName,
   zoom: externalZoom,
 }) => {
@@ -153,6 +157,8 @@ export const SingleWingBracket: React.FC<SingleWingBracketProps> = ({
                               }}
                               isCenter={isGrandFinalMatch}
                               isReadOnly={isReadOnly}
+                              canScore={canScore}
+                              tournamentStatus={tournamentStatus || tournament.status}
                               highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                             />
                           </div>

@@ -50,6 +50,7 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   const [showStartConfirm, setShowStartConfirm] = useState<boolean>(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState<boolean>(false);
   const [showRegenConfirm, setShowRegenConfirm] = useState<boolean>(false);
+  const [clickBlockedNotice, setClickBlockedNotice] = useState<string | null>(null);
   const bracketContainerRef = useRef<HTMLDivElement>(null);
   const effectiveReadOnly = isViewOnlyMode() || isReadOnly;
 
@@ -66,6 +67,24 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
   const isStarted = tournament.status === 'in_progress';
   const isCompleted = tournament.status === 'completed';
   const isPreStart = !isStarted && !isCompleted;
+  const canScore = isStarted && !effectiveReadOnly;
+
+  const handleMatchClick = (match: Match) => {
+    if (effectiveReadOnly) {
+      onSelectMatch(match);
+      return;
+    }
+    if (!isStarted) {
+      if (isCompleted) {
+        setClickBlockedNotice('🏁 賽事已完賽結束！賽程與成績已封存鎖定，不允許進入裁判計分台。');
+      } else {
+        setClickBlockedNotice('⏳ 賽事尚未開賽！賽程表目前處於預備階段，請先確認名單後點擊上方「正式開賽 (Start)」按鈕，正式開賽後方可點擊進入裁判計分台。');
+      }
+      return;
+    }
+    if (match.winnerId) setTrackedPlayerId(match.winnerId);
+    onSelectMatch(match);
+  };
 
   // Calculate maximum wing rounds
   const maxRound = Math.max(...matches.map((m) => m.round), 1);
@@ -102,6 +121,24 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
 
   return (
     <div className="w-full flex flex-col space-y-4">
+      {/* Toast Notice for blocked click attempts */}
+      {clickBlockedNotice && (
+        <div className="max-w-7xl mx-auto w-full px-4 animate-bounce">
+          <div className="p-3.5 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 text-xs font-mono font-bold flex items-center justify-between gap-3 shadow-lg shadow-amber-500/10">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>{clickBlockedNotice}</span>
+            </div>
+            <button
+              onClick={() => setClickBlockedNotice(null)}
+              className="px-2 py-0.5 rounded bg-amber-500/30 hover:bg-amber-500/50 text-amber-100 text-xs"
+            >
+              ✕ 關閉
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Tournament Status Lifecycle Banner (Requirements 1, 2, 4) */}
       <div className="max-w-7xl mx-auto w-full px-4">
         <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl ${
@@ -132,6 +169,13 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
                 }`}>
                   {isStarted ? '🔥 賽事進行中 (已開賽)' : isCompleted ? '🏁 賽事已完賽存檔' : '⏳ 賽程已產生 (未開賽)'}
+                </span>
+                <span className="text-[11px] text-gray-400 font-mono">
+                  {isStarted
+                    ? '• 裁判計分台已開放，點擊任一場次即可進行裁判計分'
+                    : isCompleted
+                    ? '• 賽事已結束，賽程與成績已鎖定備查，不開放裁判計分台'
+                    : '• 尚未開賽不允許點選計分，請確認籤位後點擊「正式開賽」以開放裁判計分台'}
                 </span>
               </div>
             </div>
@@ -323,11 +367,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                               <MatchCard
                                 match={match}
                                 playerMap={playerMap}
-                                onSelectMatch={(m) => {
-                                  if (m.winnerId) setTrackedPlayerId(m.winnerId);
-                                  onSelectMatch(m);
-                                }}
+                                onSelectMatch={handleMatchClick}
                                 isReadOnly={effectiveReadOnly}
+                                canScore={canScore}
+                                tournamentStatus={tournament.status}
                                 highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                               />
                             </div>
@@ -465,12 +508,11 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                   <MatchCard
                     match={grandFinalMatch}
                     playerMap={playerMap}
-                    onSelectMatch={(m) => {
-                      if (m.winnerId) setTrackedPlayerId(m.winnerId);
-                      onSelectMatch(m);
-                    }}
+                    onSelectMatch={handleMatchClick}
                     isCenter={true}
                     isReadOnly={effectiveReadOnly}
+                    canScore={canScore}
+                    tournamentStatus={tournament.status}
                     highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                   />
                 </div>
@@ -515,11 +557,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                     <MatchCard
                       match={thirdPlaceMatch}
                       playerMap={playerMap}
-                      onSelectMatch={(m) => {
-                        if (m.winnerId) setTrackedPlayerId(m.winnerId);
-                        onSelectMatch(m);
-                      }}
+                      onSelectMatch={handleMatchClick}
                       isReadOnly={effectiveReadOnly}
+                      canScore={canScore}
+                      tournamentStatus={tournament.status}
                       highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                     />
                   </div>
@@ -585,11 +626,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                               <MatchCard
                                 match={match}
                                 playerMap={playerMap}
-                                onSelectMatch={(m) => {
-                                  if (m.winnerId) setTrackedPlayerId(m.winnerId);
-                                  onSelectMatch(m);
-                                }}
+                                onSelectMatch={handleMatchClick}
                                 isReadOnly={effectiveReadOnly}
+                                canScore={canScore}
+                                tournamentStatus={tournament.status}
                                 highlightedPlayerName={highlightedPlayerName || (trackedPlayerId ? playerMap.get(trackedPlayerId)?.name : undefined)}
                               />
                             </div>
@@ -678,8 +718,10 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
       {viewMode === 'single-wing' && (
         <SingleWingBracket
           tournament={tournament}
-          onSelectMatch={onSelectMatch}
+          onSelectMatch={handleMatchClick}
           isReadOnly={effectiveReadOnly}
+          canScore={canScore}
+          tournamentStatus={tournament.status}
           highlightedPlayerName={highlightedPlayerName}
           zoom={zoom}
         />
@@ -722,9 +764,11 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
                   <MatchCard
                     match={match}
                     playerMap={playerMap}
-                    onSelectMatch={onSelectMatch}
+                    onSelectMatch={handleMatchClick}
                     isCenter={match.bracketWing === 'final'}
                     isReadOnly={effectiveReadOnly}
+                    canScore={canScore}
+                    tournamentStatus={tournament.status}
                     highlightedPlayerName={highlightedPlayerName}
                   />
                 </div>
@@ -745,13 +789,25 @@ export const DualWingBracket: React.FC<DualWingBracketProps> = ({
               {matches.map((m) => {
                 const p1 = m.player1Id ? playerMap.get(m.player1Id) : null;
                 const p2 = m.player2Id ? playerMap.get(m.player2Id) : null;
+                const isMatchInteractive = effectiveReadOnly || canScore;
                 return (
                   <div
                     key={m.id}
                     onClick={() => {
-                      if (p1 || p2) onSelectMatch(m);
+                      if (p1 || p2) handleMatchClick(m);
                     }}
-                    className="p-3.5 hover:bg-[#ffffff05] transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 cursor-pointer"
+                    title={
+                      !isMatchInteractive
+                        ? isCompleted
+                          ? '賽事已結束：賽程與計分已封存鎖定，不開放裁判計分台'
+                          : '尚未開賽：請先點擊上方「正式開賽 (Start)」按鈕以開放裁判計分台'
+                        : undefined
+                    }
+                    className={`p-3.5 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                      !isMatchInteractive
+                        ? 'cursor-not-allowed opacity-80 hover:bg-white/[0.02]'
+                        : 'cursor-pointer hover:bg-[#ffffff05]'
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="w-7 h-7 rounded-lg bg-[#11141d] text-gray-300 border border-[#ffffff10] flex items-center justify-center text-xs font-mono font-bold">
