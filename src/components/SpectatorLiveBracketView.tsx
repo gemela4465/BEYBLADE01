@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Swords, Shield, Award, Search, Radio, Share2, Copy, Check, 
-  RefreshCw, Layers, ExternalLink, Flame, Sparkles, Clock, Eye, AlertCircle, ArrowUpRight
+  RefreshCw, Layers, ExternalLink, Flame, Sparkles, Clock, Eye, AlertCircle, ArrowUpRight, LogOut
 } from 'lucide-react';
 import { Tournament, Match, Player } from '../types';
 import { DualWingBracket } from './DualWingBracket';
@@ -118,11 +118,11 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
                   </span>
                 )}
                 <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                  <Eye className="w-3 h-3" /> 線上即時賽程 (唯讀看板)
+                  <Eye className="w-3 h-3" /> 線上即時賽程
                 </span>
               </div>
               <p className="text-[11px] text-gray-400 font-mono flex items-center gap-2">
-                <span>{tournament.targetSize} 人雙翼淘汰賽</span>
+                <span>{tournament.targetSize} 人淘汰賽</span>
                 <span>•</span>
                 <span>目標 {tournament.matchTargetScore} 分晉級</span>
                 <span>•</span>
@@ -193,16 +193,25 @@ export const SpectatorLiveBracketView: React.FC<SpectatorLiveBracketViewProps> =
               )}
             </button>
 
-            {onSwitchToAdmin && (
-              <button
-                onClick={onSwitchToAdmin}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold flex items-center gap-1 transition-all"
-                title="切換回大會裁判管理後台"
-              >
-                <span>裁判登入</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
-            )}
+            {/* 離開按鈕（關閉網頁） */}
+            <button
+              onClick={() => {
+                if (window.opener) {
+                  window.close();
+                } else {
+                  // If window.close() is blocked by browser for directly opened tabs, try closing or fallback to history
+                  window.close();
+                  if (!window.closed && onSwitchToAdmin) {
+                    onSwitchToAdmin();
+                  }
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-rose-300 border border-red-500/30 text-xs font-mono font-bold flex items-center gap-1 transition-all"
+              title="離開並關閉此賽程看板網頁"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>離開</span>
+            </button>
           </div>
         </div>
 

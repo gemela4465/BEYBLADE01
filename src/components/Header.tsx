@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {tournament && (
                   <>
                     <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-[#00f2ff]/10 text-[#00f2ff] border border-[#00f2ff]/30 shadow-[0_0_10px_rgba(0,242,255,0.2)]">
-                      {tournament.targetSize} 人雙翼賽制
+                      {tournament.targetSize} 人淘汰賽
                     </span>
                     {tournament.sessionNumber && tournament.sessionNumber !== '0' && tournament.sessionNumber !== '第0場' && tournament.sessionNumber !== '無' && (
                       <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#06C755]/15 text-[#06C755] border border-[#06C755]/30">
@@ -215,7 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {approvedCount} / {tournament.targetSize} 人
                 </span>
                 {approvedCount < tournament.targetSize && (
-                  <span className="text-amber-400 font-mono">({tournament.targetSize - approvedCount} 缺額設輪空)</span>
+                  <span className="text-amber-400 font-mono">({tournament.targetSize - approvedCount} 人缺額)</span>
                 )}
               </div>
 

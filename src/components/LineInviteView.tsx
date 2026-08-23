@@ -360,7 +360,7 @@ export const LineInviteView: React.FC<LineInviteViewProps> = ({
                 <Bot className="w-3 h-3" /> LINE BOT 智慧收集
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#00f2ff]/10 text-[#00f2ff] border border-[#00f2ff]/30">
-                {tournament?.targetSize || 16} 人雙翼賽制
+                {tournament?.targetSize || 16} 人淘汰賽
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#7000ff]/20 text-purple-300 border border-[#7000ff]/30">
                 {tournament?.matchTargetScore || 4} 分晉級制

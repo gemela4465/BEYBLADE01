@@ -29,7 +29,7 @@ export const ExportShareModal: React.FC<ExportShareModalProps> = ({
     const lines: string[] = [];
     const sessionTag = tournament.id ? `#${tournament.id.slice(-6).toUpperCase()}` : '';
     lines.push(`🏆【${tournament.name}】雙翼賽程戰報總覽 (場次 ${sessionTag})`);
-    lines.push(`📅 賽制規模：${tournament.targetSize} 人雙翼淘汰賽 (${tournament.matchTargetScore || 4} 分陀螺競程)`);
+    lines.push(`📅 賽制規模：${tournament.targetSize} 人淘汰賽 (${tournament.matchTargetScore || 4} 分陀螺競程)`);
     lines.push(`⚡ 目前狀態：${tournament.status === 'completed' ? '已圓滿完賽' : '激戰進行中'}\n`);
 
     if (tournament.prizes) {
