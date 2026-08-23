@@ -274,14 +274,14 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               </span>
             )}
             <span className="text-xs text-slate-400 font-mono">
-              預定賽制：{targetSize} 人雙翼對抗 • 開賽時間：{tournament?.startTime || '未設定'}
+              預定賽制：{targetSize}人淘汰賽 • 開賽時間：{tournament?.startTime || '未設定'}
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
             選手審核登記與種子排位管理
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-            審核 LINE 群組送來的報名名單（支援 <code className="text-emerald-400 font-mono">+1</code> 與代報 <code className="text-purple-400 font-mono">++1 AAA</code>），通過後自動推播通知用戶！
+            審核 LINE 群組送來的報名名單（支援 <code className="text-emerald-400 font-mono">+1</code> 與代報 <code className="text-purple-400 font-mono">++1</code> ），通過後自動推播通知用戶！
           </p>
         </div>
 
