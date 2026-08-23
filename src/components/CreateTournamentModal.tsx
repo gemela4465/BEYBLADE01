@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Shield, Sparkles, X, Swords, Calendar, Clock, Bell, ChevronUp, ChevronDown, Gift, Award, Medal } from 'lucide-react';
+import { Trophy, Users, Shield, Sparkles, X, Swords, Calendar, Clock, Bell, BellOff, Radio, ChevronUp, ChevronDown, Gift, Award, Medal } from 'lucide-react';
 import { TournamentSize, TournamentPrizes, VipPlayer } from '../types';
 import { fetchVipPlayersApi } from '../utils/api';
 
@@ -616,29 +616,53 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
             </div>
           </div>
 
-          {/* Broadcast to LINE Checkbox */}
-          <div className="p-3 bg-[#05070a] rounded-xl border border-[#06C755]/40 flex items-center justify-between font-mono">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#06C755]/20 text-[#06C755] flex items-center justify-center font-bold shrink-0">
-                <Bell className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <span>新開賽自動通知 LINE 群組</span>
-                  <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-800">
-                    即時廣播
-                  </span>
+          {/* Broadcast to LINE Checkbox (新開賽自動通知 LINE 群組 即時廣播) */}
+          <div className={`p-3.5 bg-[#05070a] rounded-xl border transition-all font-mono ${
+            broadcastToLine 
+              ? 'border-[#06C755]/50 shadow-[0_0_20px_rgba(6,199,85,0.15)] bg-gradient-to-r from-[#06C755]/5 to-transparent' 
+              : 'border-slate-800 bg-slate-950/40'
+          }`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold shrink-0 mt-0.5 ${
+                  broadcastToLine 
+                    ? 'bg-[#06C755]/20 text-[#06C755]' 
+                    : 'bg-slate-800 text-slate-400'
+                }`}>
+                  {broadcastToLine ? <Radio className="w-4 h-4 text-[#06C755] animate-pulse" /> : <BellOff className="w-4 h-4 text-slate-400" />}
                 </div>
-                <div className="text-[11px] text-gray-400">建立後自動透過 LINE 發送本場開賽、截止時間與獎項</div>
+                <div className="space-y-1">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+                    <span>新開賽自動通知 LINE 群組</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded border ${
+                      broadcastToLine
+                        ? 'text-emerald-400 bg-emerald-950/80 border-emerald-800 font-bold'
+                        : 'text-amber-400 bg-amber-950/60 border-amber-800/80 font-bold'
+                    }`}>
+                      {broadcastToLine ? '即時廣播 (開放LINE群報名)' : '現場報名制 (不通知LINE群)'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-gray-300 leading-relaxed">
+                    {broadcastToLine ? (
+                      <span className="text-emerald-400/90">
+                        🟢 <b>已勾選：開放 LINE 群報名</b>，所有賽事狀態（新開賽、審核通過、正式開賽、比分戰況、完賽榮譽榜）<b>一律自動即時通知 LINE 群</b>。
+                      </span>
+                    ) : (
+                      <span className="text-amber-400/90">
+                        ⚪ <b>未勾選：不開放 LINE 群報名（現場報名）</b>，所有賽事狀態<b>一律不通知 LINE 群</b>（若臨時需通知可在首頁切換開啟）。
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
+              <input
+                id="checkbox-line-broadcast"
+                type="checkbox"
+                checked={broadcastToLine}
+                onChange={(e) => setBroadcastToLine(e.target.checked)}
+                className="w-5 h-5 accent-[#06C755] rounded cursor-pointer shrink-0 mt-1"
+              />
             </div>
-            <input
-              id="checkbox-line-broadcast"
-              type="checkbox"
-              checked={broadcastToLine}
-              onChange={(e) => setBroadcastToLine(e.target.checked)}
-              className="w-5 h-5 accent-[#06C755] rounded cursor-pointer shrink-0"
-            />
           </div>
 
           {/* Quality Players Preload (優質選手名冊預設為空白，由用戶自己增加，如無選手則不新增) */}

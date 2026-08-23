@@ -128,6 +128,8 @@ export interface Tournament {
 
   prizes?: TournamentPrizes; // 獎項註記 (冠亞季殿與額外獎項)
 
+  lineNotificationEnabled?: boolean; // 開放 LINE 群報名與所有賽事狀態即時通知 (若關閉則為現場報名，不通知 LINE 群)
+
   isArchived?: boolean;
   archivedAt?: number;
   archiveNote?: string;

@@ -527,6 +527,24 @@ export async function simulateLineBotMessageApi(
   }
 }
 
+export async function toggleLineNotificationsApi(
+  tournamentId: string,
+  enabled?: boolean
+): Promise<{ success: boolean; lineNotificationEnabled: boolean; tournament?: Tournament }> {
+  try {
+    const res = await fetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/toggle-line-notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) return { success: false, lineNotificationEnabled: false };
+    return await res.json();
+  } catch (err) {
+    console.error('[API] Error toggling LINE notifications:', err);
+    return { success: false, lineNotificationEnabled: false };
+  }
+}
+
 export async function fetchLineBotStatusApi(): Promise<{
   hasAccessToken: boolean;
   hasSecret: boolean;

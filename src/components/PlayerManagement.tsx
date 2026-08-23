@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, CheckCircle2, XCircle, Shield, Sparkles, Plus, Trash2, 
-  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, UserPlus,
+  Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, BellOff, Radio, UserPlus,
   Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink, Lock, CheckCheck
 } from 'lucide-react';
 import { Player, Tournament, BeybladeType, VipPlayer } from '../types';
@@ -262,6 +262,17 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               <Bell className="w-3 h-3" />
               LINE BOT 審核中心
             </span>
+            {tournament?.lineNotificationEnabled !== false ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#06C755]/15 text-[#06C755] border border-[#06C755]/30 flex items-center gap-1 font-mono">
+                <Radio className="w-3 h-3 text-[#06C755] animate-pulse" />
+                LINE即時廣播中 (開放群報名)
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-mono">
+                <BellOff className="w-3 h-3 text-amber-400" />
+                現場報名制 (不通知LINE群)
+              </span>
+            )}
             <span className="text-xs text-slate-400 font-mono">
               預定賽制：{targetSize} 人雙翼對抗 • 開賽時間：{tournament?.startTime || '未設定'}
             </span>

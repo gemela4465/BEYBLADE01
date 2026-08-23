@@ -95,6 +95,7 @@ interface Tournament {
     fourthPlace: Player | null;
   };
   prizes?: TournamentPrizes;
+  lineNotificationEnabled?: boolean;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
@@ -405,6 +406,7 @@ async function startServer() {
       matches: Array.isArray(incoming.matches) ? incoming.matches : [],
       rankings: incoming.rankings,
       prizes: incoming.prizes,
+      lineNotificationEnabled: incoming.lineNotificationEnabled ?? ((incoming as any).broadcastToLine ?? true),
       createdAt: incoming.createdAt || Date.now(),
       startedAt: incoming.startedAt,
       completedAt: incoming.completedAt,
@@ -519,6 +521,26 @@ async function startServer() {
     res.json(tournament);
   });
 
+  // Toggle LINE Notifications (臨時開啟/關閉 LINE 群訊息通知與報名狀態)
+  app.post("/api/tournaments/:id/toggle-line-notifications", (req, res) => {
+    const { id } = req.params;
+    const { enabled } = req.body || {};
+    const tournament = tournamentsDb[id];
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+
+    if (typeof enabled === "boolean") {
+      tournament.lineNotificationEnabled = enabled;
+    } else {
+      tournament.lineNotificationEnabled = tournament.lineNotificationEnabled === false ? true : false;
+    }
+
+    saveDb();
+    console.log(`[LINE Notification Mode] Tournament "${tournament.name}" (ID: ${id}) LINE notification enabled: ${tournament.lineNotificationEnabled}`);
+    res.json({ success: true, lineNotificationEnabled: tournament.lineNotificationEnabled, tournament });
+  });
+
   // Delete player from tournament (Explicit delete to prevent resurrection & Requirement 3 auto reserve replacement)
   app.delete("/api/tournaments/:id/players/:playerId", (req, res) => {
     const { id, playerId } = req.params;
@@ -615,7 +637,7 @@ async function startServer() {
     console.log(`[Tournament Started] Tournament "${tournament.name}" (ID: ${id}) has officially started!`);
 
     // Optionally broadcast start notification to LINE (Requirement: LINE通知必須有 獎項通知，沒輸入則不註記)
-    if (broadcastToLine) {
+    if (broadcastToLine && tournament.lineNotificationEnabled !== false) {
       const prizeSection = formatPrizeNotice(tournament);
       const startAnnouncement = `🔥【賽事正式開賽公告】\n🏆 賽事場次：${tournament.name}\n⚡ 雙翼對抗賽程已正式開賽，籤位已全數鎖定！\n🎯 第一輪對決即刻開打，請各位陀螺手就位！${prizeSection}\n\n💬 傳送「賽程」或「查榜」即可隨時查看最新比分與晉級名單！`;
       await broadcastToAllGroupsAndFollowers(startAnnouncement);
@@ -650,54 +672,58 @@ async function startServer() {
 
     console.log(`[Tournament Completed & Archived] Tournament "${tournament.name}" (ID: ${id}) marked as completed and archived.`);
 
-    // Broadcast finish & honor roll rankings to all LINE groups and friends
-    try {
-      const champion = tournament.rankings?.champion;
-      const runnerUp = tournament.rankings?.runnerUp;
-      const thirdPlace = tournament.rankings?.thirdPlace;
-      const fourthPlace = tournament.rankings?.fourthPlace;
+    // Broadcast finish & honor roll rankings to all LINE groups and friends (if LINE notification enabled)
+    if (tournament.lineNotificationEnabled !== false) {
+      try {
+        const champion = tournament.rankings?.champion;
+        const runnerUp = tournament.rankings?.runnerUp;
+        const thirdPlace = tournament.rankings?.thirdPlace;
+        const fourthPlace = tournament.rankings?.fourthPlace;
 
-      const rankLines: string[] = [];
-      if (champion) {
-        const b = champion.beybladeName ? `（${champion.beybladeName}）` : '';
-        const t = champion.clubOrTeam ? ` [${champion.clubOrTeam}]` : '';
-        rankLines.push(`🥇 總冠軍：${champion.name}${b}${t}`);
-      } else {
-        rankLines.push(`🥇 總冠軍：未產生`);
+        const rankLines: string[] = [];
+        if (champion) {
+          const b = champion.beybladeName ? `（${champion.beybladeName}）` : '';
+          const t = champion.clubOrTeam ? ` [${champion.clubOrTeam}]` : '';
+          rankLines.push(`🥇 總冠軍：${champion.name}${b}${t}`);
+        } else {
+          rankLines.push(`🥇 總冠軍：未產生`);
+        }
+
+        if (runnerUp) {
+          const b = runnerUp.beybladeName ? `（${runnerUp.beybladeName}）` : '';
+          const t = runnerUp.clubOrTeam ? ` [${runnerUp.clubOrTeam}]` : '';
+          rankLines.push(`🥈 亞軍：${runnerUp.name}${b}${t}`);
+        } else {
+          rankLines.push(`🥈 亞軍：未產生`);
+        }
+
+        if (thirdPlace) {
+          const b = thirdPlace.beybladeName ? `（${thirdPlace.beybladeName}）` : '';
+          const t = thirdPlace.clubOrTeam ? ` [${thirdPlace.clubOrTeam}]` : '';
+          rankLines.push(`🥉 季軍：${thirdPlace.name}${b}${t}`);
+        } else {
+          rankLines.push(`🥉 季軍：未產生`);
+        }
+
+        if (fourthPlace) {
+          const b = fourthPlace.beybladeName ? `（${fourthPlace.beybladeName}）` : '';
+          const t = fourthPlace.clubOrTeam ? ` [${fourthPlace.clubOrTeam}]` : '';
+          rankLines.push(`🏅 殿軍：${fourthPlace.name}${b}${t}`);
+        } else {
+          rankLines.push(`🏅 殿軍：未產生`);
+        }
+
+        const prizeSection = formatPrizeNotice(tournament);
+
+        const finishAnnouncement = `🏁【${tournament.name} 比賽圓滿結束公告】\n\n🏆【榮譽榜 • 冠亞季殿軍獲獎名單】\n${rankLines.join('\n')}${prizeSection}\n\n🎉 恭喜所有榮登榮譽榜的頂尖陀螺選手！感謝全體參賽選手的熱血激戰與參與！\n\n📦 本場賽事完整比分與紀錄已自動存檔備查，期待下場賽事再與各位戰友切磋！`;
+
+        await broadcastToAllGroupsAndFollowers(finishAnnouncement);
+        console.log(`[Finish Notification Sent to LINE] Sent honor roll & completion notice for tournament ${id}`);
+      } catch (broadcastErr) {
+        console.error("[Broadcast Finish Notification Error]", broadcastErr);
       }
-
-      if (runnerUp) {
-        const b = runnerUp.beybladeName ? `（${runnerUp.beybladeName}）` : '';
-        const t = runnerUp.clubOrTeam ? ` [${runnerUp.clubOrTeam}]` : '';
-        rankLines.push(`🥈 亞軍：${runnerUp.name}${b}${t}`);
-      } else {
-        rankLines.push(`🥈 亞軍：未產生`);
-      }
-
-      if (thirdPlace) {
-        const b = thirdPlace.beybladeName ? `（${thirdPlace.beybladeName}）` : '';
-        const t = thirdPlace.clubOrTeam ? ` [${thirdPlace.clubOrTeam}]` : '';
-        rankLines.push(`🥉 季軍：${thirdPlace.name}${b}${t}`);
-      } else {
-        rankLines.push(`🥉 季軍：未產生`);
-      }
-
-      if (fourthPlace) {
-        const b = fourthPlace.beybladeName ? `（${fourthPlace.beybladeName}）` : '';
-        const t = fourthPlace.clubOrTeam ? ` [${fourthPlace.clubOrTeam}]` : '';
-        rankLines.push(`🏅 殿軍：${fourthPlace.name}${b}${t}`);
-      } else {
-        rankLines.push(`🏅 殿軍：未產生`);
-      }
-
-      const prizeSection = formatPrizeNotice(tournament);
-
-      const finishAnnouncement = `🏁【${tournament.name} 比賽圓滿結束公告】\n\n🏆【榮譽榜 • 冠亞季殿軍獲獎名單】\n${rankLines.join('\n')}${prizeSection}\n\n🎉 恭喜所有榮登榮譽榜的頂尖陀螺選手！感謝全體參賽選手的熱血激戰與參與！\n\n📦 本場賽事完整比分與紀錄已自動存檔備查，期待下場賽事再與各位戰友切磋！`;
-
-      await broadcastToAllGroupsAndFollowers(finishAnnouncement);
-      console.log(`[Finish Notification Sent to LINE] Sent honor roll & completion notice for tournament ${id}`);
-    } catch (broadcastErr) {
-      console.error("[Broadcast Finish Notification Error]", broadcastErr);
+    } else {
+      console.log(`[Finish Tournament] LINE notifications disabled for tournament ${id}, skipping broadcast.`);
     }
 
     res.json({ success: true, tournament });
@@ -1019,10 +1045,10 @@ async function startServer() {
       saveVipDb();
     }
 
-    // Send LINE Push notification if newly approved
+    // Send LINE Push notification if newly approved (only when LINE notifications are enabled)
     let notificationSent = false;
     let groupNotificationSent = false;
-    if (status === 'approved' && previousStatus !== 'approved' && sendLineNotification) {
+    if (status === 'approved' && previousStatus !== 'approved' && sendLineNotification && tournament.lineNotificationEnabled !== false) {
       const recipientLineId = player.lineId || player.registeredByLineId;
       const approvedNoticeText = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
 
@@ -1070,22 +1096,26 @@ async function startServer() {
       player.pendingCancelConfirm = false;
       newlyApprovedNames.push(player.name);
 
-      const recipientLineId = player.lineId || player.registeredByLineId;
-      if (recipientLineId && recipientLineId.startsWith("U")) {
-        const notice = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
-        const sent = await sendLinePushMessage(recipientLineId, notice);
-        if (sent) {
-          player.notificationSent = true;
-          notificationsSentCount++;
+      if (tournament.lineNotificationEnabled !== false) {
+        const recipientLineId = player.lineId || player.registeredByLineId;
+        if (recipientLineId && recipientLineId.startsWith("U")) {
+          const notice = `🎉【審核通過通知】\n恭喜 選手「${player.name}」！\n🏆 賽事：${tournament.name}\n📌 狀態：✅ 已通過主辦方審核，正式排入雙翼賽程！\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 祝您旗開得勝，勇奪冠軍！`;
+          const sent = await sendLinePushMessage(recipientLineId, notice);
+          if (sent) {
+            player.notificationSent = true;
+            notificationsSentCount++;
+          }
         }
       }
     }
 
-    // Push batch announcement to all connected groups & rooms
-    const totalApproved = tournament.players.filter((p) => p.status === 'approved').length;
-    const groupAnnouncement = `🎉【選手名單全體審核通過公告】\n🏆 賽事場次：${tournament.name}\n✅ 本次審核通過名單 (${newlyApprovedNames.length}人)：\n${newlyApprovedNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\n📌 目前正式參賽總人數：${totalApproved} / ${tournament.targetSize} 人\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 請各位選手做好熱身，準備開戰！`;
-    
-    await broadcastToAllGroupsAndFollowers(groupAnnouncement);
+    // Push batch announcement to all connected groups & rooms if LINE notifications are enabled
+    if (tournament.lineNotificationEnabled !== false) {
+      const totalApproved = tournament.players.filter((p) => p.status === 'approved').length;
+      const groupAnnouncement = `🎉【選手名單全體審核通過公告】\n🏆 賽事場次：${tournament.name}\n✅ 本次審核通過名單 (${newlyApprovedNames.length}人)：\n${newlyApprovedNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}\n\n📌 目前正式參賽總人數：${totalApproved} / ${tournament.targetSize} 人\n⏰ 開賽時間：${tournament.startTime || '即將開賽'}\n🔥 請各位選手做好熱身，準備開戰！`;
+      
+      await broadcastToAllGroupsAndFollowers(groupAnnouncement);
+    }
 
     saveDb();
     console.log(`[Batch Approve] Approved ${pendingPlayers.length} players for tournament ${id}. Individual notices sent: ${notificationsSentCount}`);
@@ -1695,6 +1725,23 @@ async function startServer() {
         replyText: '目前無賽事可以報名',
         registered: false
       };
+    }
+
+    // RULE: 若賽事未開放 LINE 群報名 (現場報名制，lineNotificationEnabled === false)，則不接受 LINE 報名與取消
+    if (tournament.lineNotificationEnabled === false) {
+      if (
+        parsed.type === 'register' ||
+        parsed.type === 'proxy_register' ||
+        parsed.type === 'cancel' ||
+        trimmed.startsWith('+') ||
+        trimmed.startsWith('-')
+      ) {
+        return {
+          replyText: `⚠️【現場報名賽事提醒】\n🏆 賽事場次：${tournament.name}\n📌 本場賽事為「現場報名制」，未開放 LINE 群組線上報名！\n所有賽事狀態亦不推播至群組，如需參賽請至大會現場櫃檯辦理登記手續。`,
+          registered: false,
+          tournament
+        };
+      }
     }
 
     const startTimeDisplay = tournament.startTime || '依大會現場公布';

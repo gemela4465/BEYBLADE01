@@ -29,7 +29,8 @@ import {
   importVipPlayersApi,
   startTournamentApi,
   finishTournamentApi,
-  fetchVipPlayersApi
+  fetchVipPlayersApi,
+  toggleLineNotificationsApi
 } from './utils/api';
 import { Header } from './components/Header';
 import { DualWingBracket } from './components/DualWingBracket';
@@ -277,12 +278,13 @@ export default function App() {
     newTournament.startTime = config.startTime;
     newTournament.registrationDeadline = config.registrationDeadline;
     newTournament.prizes = config.prizes;
+    newTournament.lineNotificationEnabled = config.broadcastToLine !== false;
 
     saveTournamentToStore(newTournament);
     await saveTournamentApi(newTournament);
     await setActiveTournamentApi(newTournament.id);
     
-    // Automatically broadcast open tournament announcement to LINE group & followers if requested
+    // Automatically broadcast open tournament announcement to LINE group & followers if requested (開放LINE群報名)
     if (config.broadcastToLine !== false) {
       await broadcastOpenTournamentApi(newTournament.id);
     }
@@ -295,6 +297,26 @@ export default function App() {
       const url = new URL(window.location.origin + window.location.pathname);
       url.searchParams.set('tid', newTournament.id);
       window.history.pushState({}, '', url.toString());
+    }
+  };
+
+  // Toggle LINE Notifications (臨時在首頁開啟或關閉 LINE 群訊息通知與報名狀態)
+  const handleToggleLineNotifications = async () => {
+    if (!tournament) return;
+    const nextEnabled = tournament.lineNotificationEnabled === false ? true : false;
+    const updatedTour: Tournament = {
+      ...tournament,
+      lineNotificationEnabled: nextEnabled
+    };
+    
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+
+    // Sync to backend
+    const res = await toggleLineNotificationsApi(tournament.id, nextEnabled);
+    if (res.success && res.tournament) {
+      setTournament(res.tournament);
+      saveTournamentToStore(res.tournament);
     }
   };
 
@@ -892,6 +914,8 @@ export default function App() {
         onOpenBroadcastModal={() => setIsBroadcastModalOpen(true)}
         onToggleLineOnlyMode={handleSwitchToLineMode}
         onToggleSpectatorMode={handleSwitchToSpectatorMode}
+        onToggleLineNotifications={handleToggleLineNotifications}
+        lineNotificationEnabled={tournament?.lineNotificationEnabled !== false}
         onStartTournament={handleStartTournament}
         onFinishTournament={handleFinishTournament}
         pendingCount={pendingCount}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Users, Shield, Award, Swords, RefreshCw, Plus, Download, Radio, Archive, Clock, Eye } from 'lucide-react';
+import { Trophy, Users, Shield, Award, Swords, RefreshCw, Plus, Download, Radio, Archive, Clock, Eye, Bell, BellOff } from 'lucide-react';
 import { Tournament } from '../types';
 import { isViewOnlyMode } from '../utils/sessionHelper';
 
@@ -14,6 +14,8 @@ interface HeaderProps {
   onOpenBroadcastModal?: () => void;
   onToggleLineOnlyMode?: () => void;
   onToggleSpectatorMode?: () => void;
+  onToggleLineNotifications?: () => void;
+  lineNotificationEnabled?: boolean;
   onStartTournament?: () => void;
   onFinishTournament?: () => void;
   pendingCount: number;
@@ -30,6 +32,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBroadcastModal,
   onToggleLineOnlyMode,
   onToggleSpectatorMode,
+  onToggleLineNotifications,
+  lineNotificationEnabled,
   onStartTournament,
   onFinishTournament,
   pendingCount
@@ -133,6 +137,41 @@ export const Header: React.FC<HeaderProps> = ({
                 title="比賽結束：自動存檔備查，並發布 LINE 冠亞季殿軍獲獎名單與完賽通知，清空主頁等候下一場賽事"
               >
                 <span>🏁 比賽結束</span>
+              </button>
+            )}
+
+            {!readOnly && tournament && onToggleLineNotifications && (
+              <button
+                id="btn-toggle-line-notifications"
+                onClick={onToggleLineNotifications}
+                className={`px-3 py-2 rounded-lg text-xs font-mono font-bold border transition-all flex items-center gap-1.5 active:scale-95 shadow-sm ${
+                  lineNotificationEnabled !== false
+                    ? 'bg-[#06C755]/20 hover:bg-[#06C755]/30 text-[#06C755] border-[#06C755]/50 shadow-[0_0_15px_rgba(6,199,85,0.25)]'
+                    : 'bg-slate-850 hover:bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+                title={
+                  lineNotificationEnabled !== false
+                    ? 'LINE 群訊息通知：【已開啟】（點擊可切換為關閉/現場報名）'
+                    : 'LINE 群訊息通知：【已關閉】（點擊可臨時開啟通知與 LINE 報名）'
+                }
+              >
+                {lineNotificationEnabled !== false ? (
+                  <>
+                    <Bell className="w-3.5 h-3.5 text-[#06C755] animate-pulse" />
+                    <span className="hidden sm:inline">LINE通知:</span>
+                    <span className="bg-[#06C755] text-slate-950 px-1.5 py-0.5 rounded text-[10px] font-black">
+                      開啟中 🟢
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="hidden sm:inline">LINE通知:</span>
+                    <span className="bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-black">
+                      已關閉 ⚪
+                    </span>
+                  </>
+                )}
               </button>
             )}
 
@@ -248,6 +287,19 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="font-semibold text-purple-300 font-mono">
                   {getSeedModeDisplay()}
                 </span>
+              </div>
+
+              <div className="w-[1px] h-3 bg-gray-800 hidden sm:block" />
+              <div className="flex items-center gap-1.5">
+                {lineNotificationEnabled !== false ? (
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-[#06C755]/15 text-[#06C755] border border-[#06C755]/30 flex items-center gap-1">
+                    <Radio className="w-3 h-3 text-[#06C755] animate-pulse" /> LINE群即時廣播中
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <BellOff className="w-3 h-3 text-amber-400" /> 現場報名 (不通知LINE群)
+                  </span>
+                )}
               </div>
             </div>
 
