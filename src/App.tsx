@@ -691,6 +691,54 @@ export default function App() {
     saveTournamentApi(updatedTour);
   };
 
+  // Adjust tournament format / target size before tournament starts (支援未開賽前切換幾人賽制)
+  const handleUpdateTournamentSize = async (newSize: TournamentSize) => {
+    if (!tournament) return;
+    if (tournament.status === 'in_progress' || tournament.status === 'completed') return;
+
+    const realApprovedPlayers = tournament.players.filter(
+      (p) => p.status === 'approved' && !p.isReserve && !p.id.startsWith('player_reserve_')
+    );
+    const realPendingPlayers = tournament.players.filter(
+      (p) => p.status === 'pending' && !p.isReserve && !p.id.startsWith('player_reserve_')
+    );
+
+    let updatedTour: Tournament;
+
+    // If bracket has already been generated (matches.length > 0) but tournament not started, regenerate bracket
+    if (tournament.matches && tournament.matches.length > 0) {
+      updatedTour = generateDualWingBracket(
+        tournament.name,
+        newSize,
+        realApprovedPlayers,
+        tournament.seedMode,
+        Math.min(tournament.seedCount || 0, newSize),
+        tournament.matchTargetScore
+      );
+      updatedTour.id = tournament.id;
+      updatedTour.datePrefix = tournament.datePrefix;
+      updatedTour.sessionNumber = tournament.sessionNumber;
+      updatedTour.customTitle = tournament.customTitle;
+      updatedTour.startTime = tournament.startTime;
+      updatedTour.registrationDeadline = tournament.registrationDeadline;
+      updatedTour.prizes = tournament.prizes;
+      updatedTour.lineNotificationEnabled = tournament.lineNotificationEnabled;
+      updatedTour.status = tournament.status;
+      updatedTour.players = [...updatedTour.players, ...realPendingPlayers];
+    } else {
+      updatedTour = {
+        ...tournament,
+        targetSize: newSize,
+        seedCount: Math.min(tournament.seedCount || 0, newSize),
+        players: [...realApprovedPlayers, ...realPendingPlayers]
+      };
+    }
+
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    await saveTournamentApi(updatedTour);
+  };
+
   // Re-generate Dual-Wing Bracket based on approved players
   const handleGenerateBracket = () => {
     if (!tournament) return;
@@ -1020,6 +1068,7 @@ export default function App() {
                 onSetSeedStatus={handleSetSeedStatus}
                 onRandomizeSeeds={handleRandomizeSeeds}
                 onUpdateSeedConfig={handleUpdateSeedConfig}
+                onUpdateTargetSize={handleUpdateTournamentSize}
                 onPopulateSamplePlayers={handlePopulateSamplePlayers}
                 onRefreshRoster={async () => {
                   if (tournament?.id) {

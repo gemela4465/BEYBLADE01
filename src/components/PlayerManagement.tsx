@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   Users, CheckCircle2, XCircle, Shield, Sparkles, Plus, Trash2, 
   Edit3, Shuffle, ArrowRight, Swords, AlertCircle, RefreshCw, UserCheck, Bell, BellOff, Radio, UserPlus,
-  Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink, Lock, CheckCheck
+  Star, BookmarkPlus, Zap, Settings2, Check, ExternalLink, Lock, CheckCheck, SlidersHorizontal, AlertTriangle
 } from 'lucide-react';
-import { Player, Tournament, BeybladeType, VipPlayer } from '../types';
+import { Player, Tournament, BeybladeType, VipPlayer, TournamentSize } from '../types';
 import { POPULAR_BEYBLADES, SAMPLE_PLAYERS } from '../data/beybladeData';
 import { fetchVipPlayersApi, saveVipPlayerApi, deleteVipPlayerApi, importVipPlayersApi } from '../utils/api';
+
+const AVAILABLE_TOURNAMENT_SIZES: TournamentSize[] = [4, 8, 16, 32, 64, 128];
 
 interface PlayerManagementProps {
   tournament: Tournament | null;
@@ -23,6 +25,7 @@ interface PlayerManagementProps {
   onSetSeedStatus: (playerId: string, isSeed: boolean, seedNumber?: number) => void;
   onRandomizeSeeds: (seedCount: number) => void;
   onUpdateSeedConfig?: (seedMode: 'none' | 'manual' | 'random', seedCount: number) => void;
+  onUpdateTargetSize?: (newSize: TournamentSize) => void;
   onPopulateSamplePlayers?: (count: number) => void;
   onRefreshRoster?: () => void;
 }
@@ -42,11 +45,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onSetSeedStatus,
   onRandomizeSeeds,
   onUpdateSeedConfig,
+  onUpdateTargetSize,
   onPopulateSamplePlayers,
   onRefreshRoster
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVipModal, setShowVipModal] = useState(false);
+  const [showOverCapacityModal, setShowOverCapacityModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [vipList, setVipList] = useState<VipPlayer[]>([]);
@@ -110,6 +115,34 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const approvedPlayers = players.filter((p) => p.status === 'approved');
   const targetSize = tournament?.targetSize || 16;
   const isFull = approvedPlayers.length >= targetSize;
+  const isOverCapacity = approvedPlayers.length > targetSize;
+  const totalRegistered = approvedPlayers.length + pendingPlayers.length;
+  const isTotalOverCapacity = totalRegistered > targetSize;
+
+  // Smallest tournament size that can fit all approved players
+  const recommendedSize: TournamentSize =
+    AVAILABLE_TOURNAMENT_SIZES.find((s) => s >= approvedPlayers.length) || 128;
+  const recommendedSizeForTotal: TournamentSize =
+    AVAILABLE_TOURNAMENT_SIZES.find((s) => s >= totalRegistered) || 128;
+
+  const canAdjustSize = !isTournamentStarted && !isTournamentCompleted;
+
+  const handleSelectSize = (newSize: TournamentSize) => {
+    if (!canAdjustSize) return;
+    if (onUpdateTargetSize) {
+      onUpdateTargetSize(newSize);
+      setVipFeedback(`✅ 已成功切換賽制為【${newSize}人賽制】！`);
+      setTimeout(() => setVipFeedback(null), 3000);
+    }
+  };
+
+  const handleGenerateClick = () => {
+    if (isOverCapacity) {
+      setShowOverCapacityModal(true);
+      return;
+    }
+    onGenerateBracket();
+  };
 
   // Add another player row
   const handleAddPlayerRow = () => {
@@ -313,8 +346,12 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 現場報名制 (不通知LINE群)
               </span>
             )}
-            <span className="text-xs text-slate-400 font-mono">
-              預定賽制：{targetSize}人淘汰賽 • 開賽時間：{tournament?.startTime || '未設定'}
+            <span className="text-xs text-slate-400 font-mono flex items-center gap-1.5">
+              <span>預定賽制：</span>
+              <span className="text-cyan-300 font-bold font-mono px-1.5 py-0.5 bg-cyan-950/60 rounded border border-cyan-800/60">
+                {targetSize}人 雙翼淘汰賽
+              </span>
+              <span>• 開賽時間：{tournament?.startTime || '未設定'}</span>
             </span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white">
@@ -329,13 +366,15 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <button
             id="btn-generate-bracket"
-            onClick={onGenerateBracket}
+            onClick={handleGenerateClick}
             disabled={approvedPlayers.length < 2 || isTournamentStarted || isTournamentCompleted}
             className={`px-6 py-3.5 rounded-xl font-black text-sm shadow-xl flex items-center justify-center gap-2.5 transition-all ${
               isTournamentStarted
                 ? 'bg-slate-800 text-amber-300/80 border border-amber-500/40 cursor-not-allowed shadow-none'
                 : isTournamentCompleted
                 ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed shadow-none'
+                : isOverCapacity
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-600 hover:to-rose-700 text-slate-950 font-black shadow-amber-500/25 active:scale-95 animate-pulse'
                 : approvedPlayers.length >= 2
                 ? 'bg-gradient-to-r from-orange-500 via-red-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white shadow-orange-500/25 active:scale-95 animate-pulse'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
@@ -345,6 +384,8 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 ? '賽事已正式開賽，賽程籤位已鎖定不可重新產生，以維護賽事公正性'
                 : isTournamentCompleted
                 ? '賽事已完賽存檔，賽程已鎖定'
+                : isOverCapacity
+                ? `審核人數 (${approvedPlayers.length}) 已超過目前預定賽制 (${targetSize})，點擊可選擇升級賽制並生成籤表`
                 : '審核通過選手後即可生成雙翼對稱賽程表'
             }
           >
@@ -357,6 +398,13 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
               <>
                 <CheckCheck className="w-5 h-5 text-slate-400" />
                 <span>🏁 賽事已完賽存檔（賽程已鎖定）</span>
+              </>
+            ) : isOverCapacity ? (
+              <>
+                <AlertTriangle className="w-5 h-5 text-slate-950" />
+                <span>
+                  ⚠️ 審核人數 ({approvedPlayers.length}) &gt; 賽制 ({targetSize}) ➔ 調整賽制並生成
+                </span>
               </>
             ) : (
               <>
@@ -372,6 +420,134 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
             )}
           </button>
         </div>
+      </div>
+
+      {/* Tournament Format / Capacity Adjustment Panel (未開賽前可隨時切換 4/8/16/32/64/128 人賽制) */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3.5 font-mono">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold">
+              <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-black text-white">🏆 賽制規模設定 (幾人賽制)：</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
+                  目前為 {targetSize} 人賽制
+                </span>
+                {!canAdjustSize && (
+                  <span className="text-[11px] text-amber-400/90 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    {isTournamentStarted ? '賽事進行中（已鎖定）' : '賽事已完賽存檔（已鎖定）'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                在生成賽程表前或未開賽前，可隨時依據實際報名人數點選切換賽制規模（4~128人）。
+              </p>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-300 flex items-center gap-2 self-end sm:self-center">
+            <span>審核名額進度：</span>
+            <span className={`font-bold font-mono px-2.5 py-1 rounded-lg ${
+              isOverCapacity 
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse'
+                : approvedPlayers.length === targetSize
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'bg-slate-800 text-slate-300 border border-slate-700'
+            }`}>
+              {approvedPlayers.length} / {targetSize} 人
+            </span>
+          </div>
+        </div>
+
+        {/* Size Selection Buttons Group */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          {AVAILABLE_TOURNAMENT_SIZES.map((size) => {
+            const isCurrent = targetSize === size;
+            const isRecommended = recommendedSize === size && isOverCapacity;
+            return (
+              <button
+                key={size}
+                id={`btn-select-size-${size}`}
+                type="button"
+                disabled={!canAdjustSize}
+                onClick={() => handleSelectSize(size)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                  !canAdjustSize
+                    ? isCurrent
+                      ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-800/80 cursor-not-allowed opacity-80'
+                      : 'bg-slate-800/40 text-slate-600 border border-slate-800 cursor-not-allowed'
+                    : isCurrent
+                    ? 'bg-cyan-500 text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.4)] border-cyan-400 font-black'
+                    : isRecommended
+                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-2 border-amber-400 animate-pulse'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:text-white'
+                }`}
+                title={
+                  !canAdjustSize
+                    ? '賽事已開賽或已結束，不可調整賽制'
+                    : `切換為 ${size} 人雙翼淘汰賽制`
+                }
+              >
+                <span>{size} 人賽制</span>
+                {isCurrent && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                {isRecommended && !isCurrent && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black">
+                    推薦
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dynamic Over-Capacity Warning Alert */}
+        {isOverCapacity && canAdjustSize && (
+          <div className="p-3.5 bg-rose-950/30 border border-rose-500/50 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-rose-200 text-xs animate-fadeIn">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-black text-rose-300 text-sm">
+                  ⚠️ 審核通過人數 ({approvedPlayers.length}人) 已超過目前預定賽制 ({targetSize}人)！
+                </div>
+                <div className="text-slate-300 mt-0.5">
+                  已超出 {approvedPlayers.length - targetSize} 位選手。未開賽前可隨時向上調整賽制規模，建議切換為 <span className="text-amber-300 font-black font-mono">{recommendedSize}人 賽制</span> 以完整容納所有已審核選手。
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              id="btn-quick-upgrade-size"
+              onClick={() => handleSelectSize(recommendedSize)}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 flex items-center gap-1.5 shrink-0 active:scale-95 transition-all"
+            >
+              <Zap className="w-4 h-4 fill-slate-950" />
+              <span>一鍵升級為 {recommendedSize} 人賽制 ➔</span>
+            </button>
+          </div>
+        )}
+
+        {/* Pending Potential Over-Capacity Hint */}
+        {!isOverCapacity && isTotalOverCapacity && canAdjustSize && (
+          <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-amber-300 text-xs">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                💡 總報名人數（已審核 {approvedPlayers.length} + 待審核 {pendingPlayers.length} = 共 {totalRegistered} 人）大於目前 {targetSize}人 賽制。若欲全數錄取，可在生成賽程前預先切換為 <strong className="text-amber-200">{recommendedSizeForTotal}人 賽制</strong>。
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleSelectSize(recommendedSizeForTotal)}
+              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg text-xs font-bold text-amber-200 shrink-0"
+            >
+              預先切換為 {recommendedSizeForTotal}人 ➔
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tournament Completed Banner if completed (Requirement: 賽事完賽後 選手審核清空) */}
@@ -745,16 +921,36 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl font-mono">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-2">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold">
+                <div className={`w-8 h-8 rounded-lg border flex items-center justify-center font-bold ${
+                  isOverCapacity
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                }`}>
                   {approvedPlayers.length}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base">已登記參賽名單 ({approvedPlayers.length} / {targetSize})</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-white text-base">已登記參賽名單 ({approvedPlayers.length} / {targetSize})</h3>
+                    {isOverCapacity && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
+                        超額 {approvedPlayers.length - targetSize} 人
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-slate-400">已審核完成之正式參賽選手，可指定種子序號或刪除選手</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+                {isOverCapacity && canAdjustSize && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSize(recommendedSize)}
+                    className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition-colors"
+                  >
+                    ⚡ 升級為 {recommendedSize} 人
+                  </button>
+                )}
                 <div>
                   種子選手：
                   <span className="text-purple-400 font-bold ml-1">
@@ -1589,6 +1785,77 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Over-Capacity Bracket Generation Confirmation Modal */}
+      {showOverCapacityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn font-mono">
+          <div className="bg-slate-900 border-2 border-amber-500/60 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                <AlertTriangle className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white">審核人數大於預定賽制規模</h3>
+                <p className="text-xs text-slate-400">請確認是否調整賽制後再生成賽程籤表</p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-800/80 rounded-xl border border-slate-700 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-slate-300">
+                <span>目前已審核通過人數：</span>
+                <span className="font-bold text-rose-400 font-mono text-sm">{approvedPlayers.length} 位選手</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300">
+                <span>目前預定賽制規模：</span>
+                <span className="font-bold text-cyan-400 font-mono text-sm">{targetSize} 人賽制</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300 pt-1 border-t border-slate-700">
+                <span>建議升級賽制規模：</span>
+                <span className="font-bold text-amber-400 font-mono text-sm">{recommendedSize} 人賽制</span>
+              </div>
+              <p className="text-slate-400 text-[11px] pt-1">
+                若維持 {targetSize} 人賽制，賽程表將僅納入前 {targetSize} 位選手，其餘 {approvedPlayers.length - targetSize} 位選手將無法排入初始籤表。
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                id="btn-modal-upgrade-and-generate"
+                onClick={() => {
+                  handleSelectSize(recommendedSize);
+                  setShowOverCapacityModal(false);
+                  setTimeout(() => onGenerateBracket(), 100);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <Zap className="w-4 h-4 fill-slate-950" />
+                <span>升級為 {recommendedSize} 人賽制並生成對戰表（推薦）➔</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-modal-keep-size-generate"
+                onClick={() => {
+                  setShowOverCapacityModal(false);
+                  onGenerateBracket();
+                }}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors"
+              >
+                維持 {targetSize} 人賽制生成（僅取前 {targetSize} 位選手）
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOverCapacityModal(false)}
+                className="w-full py-2 text-slate-500 hover:text-slate-300 text-xs font-medium text-center"
+              >
+                取消並返回調整名單
+              </button>
+            </div>
           </div>
         </div>
       )}
