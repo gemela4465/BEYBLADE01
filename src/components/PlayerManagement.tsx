@@ -14,6 +14,7 @@ interface PlayerManagementProps {
   onRejectPlayer: (playerId: string) => void;
   onApproveAllPending: () => void;
   onAddPlayer: (playerData: Omit<Player, 'id' | 'status' | 'registeredAt'>, autoApprove?: boolean) => void;
+  onAddPlayers?: (playersData: Array<Omit<Player, 'id' | 'status' | 'registeredAt'>>, autoApprove?: boolean) => void;
   onRemovePlayer: (playerId: string) => void;
   onUpdatePlayer: (player: Player) => void;
   onToggleVip?: (player: Player) => void;
@@ -32,6 +33,7 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   onRejectPlayer,
   onApproveAllPending,
   onAddPlayer,
+  onAddPlayers,
   onRemovePlayer,
   onUpdatePlayer,
   onToggleVip,
@@ -80,16 +82,10 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
     setTimeout(() => setIsRefreshing(false), 800);
   };
 
-  // Manual Add Form State
-  const [manualName, setManualName] = useState('');
-  const [manualLineId, setManualLineId] = useState('');
-  const [manualBeyblade, setManualBeyblade] = useState(POPULAR_BEYBLADES[0].name);
-  const [manualType, setManualType] = useState<BeybladeType>('attack');
-  const [manualCombo, setManualCombo] = useState(POPULAR_BEYBLADES[0].combo);
-  const [manualClub, setManualClub] = useState('戰鬥陀螺菁英隊');
-  const [manualIsSeed, setManualIsSeed] = useState(false);
-  const [manualSeedNum, setManualSeedNum] = useState<number | undefined>(undefined);
-  const [manualIsVip, setManualIsVip] = useState(false);
+  // Manual Add Form State - Multi-player short name entries (支援多筆選手簡稱輸入)
+  const [manualPlayerNames, setManualPlayerNames] = useState<string[]>(['']);
+  const [showBatchPaste, setShowBatchPaste] = useState(false);
+  const [batchPasteText, setBatchPasteText] = useState('');
   const [seedCountToDraw, setSeedCountToDraw] = useState<number>(() =>
     tournament?.seedCount !== undefined
       ? tournament.seedCount
@@ -115,43 +111,87 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
   const targetSize = tournament?.targetSize || 16;
   const isFull = approvedPlayers.length >= targetSize;
 
-  const handleCreateManual = (e: React.FormEvent) => {
+  // Add another player row
+  const handleAddPlayerRow = () => {
+    setManualPlayerNames((prev) => [...prev, '']);
+  };
+
+  // Remove a player row
+  const handleRemovePlayerRow = (index: number) => {
+    setManualPlayerNames((prev) => {
+      const next = prev.filter((_, idx) => idx !== index);
+      return next.length > 0 ? next : [''];
+    });
+  };
+
+  // Update a single row's name
+  const handleUpdatePlayerName = (index: number, val: string) => {
+    setManualPlayerNames((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+  };
+
+  // Parse batch paste text (one per line, comma or semicolon separated)
+  const handleApplyBatchPaste = () => {
+    if (!batchPasteText.trim()) return;
+    const parsed = batchPasteText
+      .split(/[\n,;，；]+/)
+      .map((item) => item.replace(/^\d+[\.\-\s、]+/, '').trim())
+      .filter((item) => item.length > 0);
+
+    if (parsed.length > 0) {
+      setManualPlayerNames((prev) => {
+        const existing = prev.filter((n) => n.trim().length > 0);
+        return [...existing, ...parsed];
+      });
+      setBatchPasteText('');
+      setShowBatchPaste(false);
+    }
+  };
+
+  // Submit multiple manual players at once
+  const handleCreateManualBatch = (e: React.FormEvent) => {
     e.preventDefault();
     if (isTournamentCompleted) return;
-    if (!manualName.trim()) return;
 
-    onAddPlayer(
-      {
-        name: manualName.trim(),
-        lineId: manualLineId.trim() || undefined,
-        beybladeName: manualBeyblade,
-        beybladeType: manualType,
-        blade: manualCombo,
-        clubOrTeam: manualClub.trim() || '個人選手',
-        isSeed: manualIsSeed,
-        seedNumber: manualIsSeed ? manualSeedNum : undefined,
-        isVip: manualIsVip
-      },
-      true // auto-approved since admin manually added
-    );
+    const validNames = manualPlayerNames
+      .map((n) => n.trim())
+      .filter((n) => n.length > 0);
 
-    if (manualIsVip) {
-      saveVipPlayerApi({
-        name: manualName.trim(),
-        lineId: manualLineId.trim() || undefined,
-        beybladeName: manualBeyblade,
-        beybladeType: manualType,
-        blade: manualCombo,
-        clubOrTeam: manualClub.trim() || '個人選手',
-        isSeed: manualIsSeed
-      }).then(() => refreshVipList());
+    if (validNames.length === 0) return;
+
+    const newPlayersData = validNames.map((shortName, index) => {
+      const matchedVip = vipList.find(
+        (v) => v.name.trim().toLowerCase() === shortName.toLowerCase()
+      );
+      const defaultBeyblade = POPULAR_BEYBLADES[index % POPULAR_BEYBLADES.length];
+
+      return {
+        name: shortName,
+        lineId: matchedVip?.lineId,
+        beybladeName: matchedVip?.beybladeName || defaultBeyblade.name,
+        beybladeType: matchedVip?.beybladeType || defaultBeyblade.type,
+        blade: matchedVip?.blade || defaultBeyblade.combo,
+        clubOrTeam: matchedVip?.clubOrTeam || '個人選手',
+        isSeed: matchedVip?.isSeed || false,
+        isVip: Boolean(matchedVip)
+      };
+    });
+
+    if (onAddPlayers) {
+      onAddPlayers(newPlayersData, true);
+    } else {
+      newPlayersData.forEach((player) => onAddPlayer(player, true));
     }
 
-    setManualName('');
-    setManualLineId('');
-    setManualIsSeed(false);
-    setManualSeedNum(undefined);
-    setManualIsVip(false);
+    setVipFeedback(`✅ 已成功手動登記 ${validNames.length} 位參賽選手！`);
+    setTimeout(() => setVipFeedback(null), 3500);
+
+    setManualPlayerNames(['']);
+    setBatchPasteText('');
+    setShowBatchPaste(false);
     setShowAddModal(false);
   };
 
@@ -1130,144 +1170,206 @@ export const PlayerManagement: React.FC<PlayerManagementProps> = ({
         </div>
       )}
 
-      {/* Manual Add Player Modal */}
+      {/* Manual Add Player Modal (手動登記參賽選手 - 僅需輸入選手簡稱，支援增加多筆一次完成新增) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl text-slate-100">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-emerald-400" />
-              手動登記參賽選手
-            </h3>
-            <form onSubmit={handleCreateManual} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">選手名稱 *</label>
-                  <input
-                    type="text"
-                    value={manualName}
-                    onChange={(e) => setManualName(e.target.value)}
-                    placeholder="選手姓名/稱呼"
-                    required
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl text-slate-100 max-h-[90vh] flex flex-col font-mono">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <UserPlus className="w-5 h-5" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">LINE ID</label>
-                  <input
-                    type="text"
-                    value={manualLineId}
-                    onChange={(e) => setManualLineId(e.target.value)}
-                    placeholder="LINE 帳號 (選填)"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                  />
+                  <h3 className="text-lg font-black text-white flex items-center gap-2">
+                    手動登記參賽選手
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    僅需輸入「選手簡稱」，可新增多筆，一次點擊「完成新增」全部登錄！
+                  </p>
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-800 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">選擇使用陀螺</label>
-                <select
-                  value={manualBeyblade}
-                  onChange={(e) => {
-                    setManualBeyblade(e.target.value);
-                    const b = POPULAR_BEYBLADES.find((item) => item.name === e.target.value);
-                    if (b) {
-                      setManualType(b.type);
-                      setManualCombo(b.combo);
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
+            {/* Quick Batch Paste Section Toggle */}
+            <div className="pt-3 pb-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300">選手簡稱輸入清單</span>
+                <button
+                  type="button"
+                  id="btn-toggle-batch-paste"
+                  onClick={() => setShowBatchPaste(!showBatchPaste)}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold transition-colors"
                 >
-                  {POPULAR_BEYBLADES.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name} ({b.combo})
-                    </option>
-                  ))}
-                </select>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {showBatchPaste ? '收合批次貼上區' : '📋 批量貼上多位名單 (一行一位)'}
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">陀螺屬性</label>
-                  <select
-                    value={manualType}
-                    onChange={(e) => setManualType(e.target.value as BeybladeType)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
-                  >
-                    <option value="attack">⚔️ 攻擊型 (Attack)</option>
-                    <option value="defense">🛡️ 防禦型 (Defense)</option>
-                    <option value="stamina">🔄 持久型 (Stamina)</option>
-                    <option value="balance">⚖️ 平衡型 (Balance)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">所屬戰隊/俱樂部</label>
-                  <input
-                    type="text"
-                    value={manualClub}
-                    onChange={(e) => setManualClub(e.target.value)}
-                    placeholder="例：Team Persona"
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm"
+              {showBatchPaste && (
+                <div className="mt-2.5 p-3 bg-slate-800/80 border border-slate-700 rounded-xl space-y-2 animate-fadeIn">
+                  <div className="text-[11px] text-slate-400">
+                    請將選手名稱或簡稱貼在下方（支援換行、逗號或「1. 選手名」格式）：
+                  </div>
+                  <textarea
+                    id="textarea-batch-paste"
+                    rows={4}
+                    value={batchPasteText}
+                    onChange={(e) => setBatchPasteText(e.target.value)}
+                    placeholder="蒼井霸斗&#10;紅愁&#10;費奇&#10;天野翼"
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs font-mono focus:border-emerald-500 focus:outline-none placeholder:text-slate-600"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold text-white">指定為種子選手</div>
-                    <div className="text-[11px] text-slate-400">安排在種子保護籤位</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={manualIsSeed}
-                      onChange={(e) => setManualIsSeed(e.target.checked)}
-                      className="w-4 h-4 accent-purple-500 rounded"
-                    />
-                    {manualIsSeed && (
-                      <input
-                        type="number"
-                        min={1}
-                        max={targetSize}
-                        value={manualSeedNum || 1}
-                        onChange={(e) => setManualSeedNum(parseInt(e.target.value) || 1)}
-                        className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white"
-                        placeholder="序號"
-                      />
-                    )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBatchPasteText('');
+                        setShowBatchPaste(false);
+                      }}
+                      className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-xs"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-apply-batch-paste"
+                      onClick={handleApplyBatchPaste}
+                      disabled={!batchPasteText.trim()}
+                      className="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold shadow flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      帶入下方選手欄位
+                    </button>
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-bold text-amber-300 flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-amber-400" />
-                      設為優質選手
+            {/* Dynamic Player Rows Form */}
+            <form onSubmit={handleCreateManualBatch} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto pr-1 py-1 space-y-2.5 min-h-[140px] max-h-[360px]">
+                {manualPlayerNames.map((name, index) => {
+                  const trimmed = name.trim();
+                  const matchedVip = trimmed
+                    ? vipList.find((v) => v.name.trim().toLowerCase() === trimmed.toLowerCase())
+                    : null;
+
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 bg-slate-800/60 p-2 rounded-xl border border-slate-700/80 hover:border-slate-600 transition-colors"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400 shrink-0">
+                        {index + 1}
+                      </div>
+
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          id={`input-manual-player-${index}`}
+                          value={name}
+                          onChange={(e) => handleUpdatePlayerName(index, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddPlayerRow();
+                              setTimeout(() => {
+                                const nextInput = document.getElementById(`input-manual-player-${index + 1}`);
+                                if (nextInput) nextInput.focus();
+                              }, 50);
+                            }
+                          }}
+                          placeholder={`輸入選手簡稱 (例：選手 ${index + 1})`}
+                          autoFocus={index === manualPlayerNames.length - 1}
+                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                        {matchedVip && (
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <span className="text-[10px] text-amber-300 bg-amber-950/80 border border-amber-600/60 px-1.5 py-0.5 rounded flex items-center gap-1 font-bold shadow-sm">
+                              <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                              優質選手
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {manualPlayerNames.length > 1 && (
+                        <button
+                          type="button"
+                          id={`btn-remove-row-${index}`}
+                          onClick={() => handleRemovePlayerRow(index)}
+                          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg border border-transparent hover:border-rose-800/40 transition-colors shrink-0"
+                          title="刪除此列"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    <div className="text-[11px] text-slate-400">同步儲存至常駐名冊</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={manualIsVip}
-                    onChange={(e) => setManualIsVip(e.target.checked)}
-                    className="w-4 h-4 accent-amber-500 rounded"
-                  />
+                  );
+                })}
+              </div>
+
+              {/* Add Row & Clear Buttons */}
+              <div className="flex items-center justify-between pt-3 pb-2 shrink-0 border-t border-slate-800/80 mt-2">
+                <button
+                  type="button"
+                  id="btn-add-more-player-row"
+                  onClick={handleAddPlayerRow}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 hover:border-emerald-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  增加下一位選手欄位
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">
+                    已輸入{' '}
+                    <strong className="text-emerald-400 font-bold">
+                      {manualPlayerNames.filter((n) => n.trim().length > 0).length}
+                    </strong>{' '}
+                    位選手
+                  </span>
+                  {manualPlayerNames.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setManualPlayerNames([''])}
+                      className="text-[11px] text-slate-500 hover:text-slate-300 underline"
+                    >
+                      清空全部
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Modal Footer Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
                 >
                   取消
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold"
+                  id="btn-submit-manual-batch"
+                  disabled={manualPlayerNames.filter((n) => n.trim().length > 0).length === 0}
+                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all active:scale-95"
                 >
-                  完成新增
+                  <Check className="w-4 h-4" />
+                  <span>
+                    完成新增
+                    {manualPlayerNames.filter((n) => n.trim().length > 0).length > 0
+                      ? ` (${manualPlayerNames.filter((n) => n.trim().length > 0).length} 位選手)`
+                      : ''}
+                  </span>
                 </button>
               </div>
             </form>

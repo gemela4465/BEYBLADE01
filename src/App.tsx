@@ -473,6 +473,27 @@ export default function App() {
     saveTournamentApi(updatedTour);
   };
 
+  // Add multiple players directly at once (手動登記多筆參賽選手)
+  const handleAddPlayers = (playersData: Array<Omit<Player, 'id' | 'status' | 'registeredAt'>>, autoApprove = true) => {
+    if (!tournament || playersData.length === 0) return;
+
+    const baseTime = Date.now();
+    const newPlayers: Player[] = playersData.map((data, idx) => ({
+      ...data,
+      id: `player_${baseTime}_${idx}_${Math.random().toString(36).substr(2, 4)}`,
+      status: autoApprove ? 'approved' : 'pending',
+      registeredAt: baseTime + idx
+    }));
+
+    const updatedTour: Tournament = {
+      ...tournament,
+      players: [...tournament.players, ...newPlayers]
+    };
+    setTournament(updatedTour);
+    saveTournamentToStore(updatedTour);
+    saveTournamentApi(updatedTour);
+  };
+
   // Remove player (fully calls DELETE API as well)
   const handleRemovePlayer = async (playerId: string) => {
     if (!tournament) return;
@@ -986,6 +1007,7 @@ export default function App() {
                 onRejectPlayer={handleRejectPlayer}
                 onApproveAllPending={handleApproveAllPending}
                 onAddPlayer={handleAddPlayer}
+                onAddPlayers={handleAddPlayers}
                 onRemovePlayer={handleRemovePlayer}
                 onUpdatePlayer={handleUpdatePlayer}
                 onToggleVip={handleToggleVip}
